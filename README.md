@@ -233,4 +233,4 @@ python3 -m http.server 9000
 
 ## 📄 Licence
 
-Usage personnel. Application créée avec ❤️ pour aider les enfants à apprendre.
+Licence MIT (voir [LICENSE](LICENSE)). Application créée avec ❤️ pour aider les enfants à apprendre.

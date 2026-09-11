@@ -2840,7 +2840,9 @@ function askRoomEmoji(piece) {
   if (!room) return;
   const p = piece.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const auto = roomEmojiAuto(piece);
-  const items = EMOJIS_PIECES.map(e => `
+  // Repli si data/lieux.js est une ancienne version encore en cache
+  const palette = typeof EMOJIS_PIECES !== 'undefined' ? EMOJIS_PIECES : PIECE_EMOJIS.map(x => x.emoji);
+  const items = palette.map(e => `
     <button class="sheet-item ${room.emoji === e ? 'selected' : ''}" onclick="setRoomEmoji('${p}', '${e}')">
       <div class="emoji">${e}</div>
     </button>

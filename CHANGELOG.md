@@ -15,6 +15,7 @@
 - `reparerEmplacements()` au démarrage : tout mot sans endroit valide en reçoit un. Une liste avec plus de mots que d'endroits partage désormais les endroits au lieu de laisser des mots sans endroit
 - `LIEUX` n'est plus lu directement que pour la maison de départ ; le palais lit `Storage.getMaison()` et `emplacementsDe(piece)`
 - Stockage `maison` : champ optionnel `emoji` par pièce ; `roomEmoji()` le lit en priorité, `roomEmojiAuto()` garde le mot-clé
+- **Cache** : `?v=11` sur les scripts et le CSS dans `index.html` (repris dans la liste du service worker). Sans ça, sur `http://IP:port` où le service worker n'est pas autorisé, le navigateur pouvait garder un ancien `data/lieux.js` et le bouton emoji ne réagissait pas. À augmenter à chaque version
 - Service worker `v11`
 
 ## [2026-09-10] - Stickers emoji + kawaii à 40 ⭐, habits et accessoires en récompenses

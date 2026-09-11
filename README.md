@@ -195,7 +195,18 @@ Toutes les données sont stockées en **localStorage** :
   - Chaque mot crée une mélodie différente et mémorisable
 - **Synthèse vocale** : Dictée des mots en mode interrogation (Web Speech API, français)
 
+## 🚢 Publier une nouvelle version
+
+Sur une adresse `http://IP:port`, Safari et Chrome n'activent pas le service worker et gardent les scripts en cache HTTP. Pour que les iPad prennent la nouvelle version, augmenter le numéro à deux endroits :
+
+- `index.html` : le `?v=` des balises `<link>` et `<script>`
+- `sw.js` : la constante `V` et le `CACHE_NAME`
+
 ## 🐛 Dépannage
+
+### L'app semble ne pas avoir la nouvelle version
+- Vérifier que le `?v=` de `index.html` a bien été augmenté (voir ci-dessus)
+- Sur iPad : fermer complètement l'app depuis l'écran d'accueil et la rouvrir
 
 ### Le serveur ne démarre pas
 ```bash

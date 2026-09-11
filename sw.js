@@ -7,13 +7,15 @@
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
 const CACHE_NAME = 'mental-palace-v11'; // v11 : emoji des pièces
+// Même ?v= que dans index.html
+const V = '11';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './css/style.css',
-  './js/app.js',
-  './js/kawaii.js',
-  './data/lieux.js',
+  './css/style.css?v=' + V,
+  './js/app.js?v=' + V,
+  './js/kawaii.js?v=' + V,
+  './data/lieux.js?v=' + V,
   './manifest.json'
 ];
 

@@ -19,8 +19,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap">
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="css/style.css">
+  <!-- Styles. Le ?v= force les navigateurs sans service worker (http://IP:port)
+       à recharger les fichiers : l'augmenter à chaque version, ici et dans sw.js. -->
+  <link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
   <div id="app">
@@ -483,8 +484,8 @@
   </div>
 
   <!-- Scripts -->
-  <script src="data/lieux.js"></script>
-  <script src="js/kawaii.js"></script>
-  <script src="js/app.js"></script>
+  <script src="data/lieux.js?v=11"></script>
+  <script src="js/kawaii.js?v=11"></script>
+  <script src="js/app.js?v=11"></script>
 </body>
 </html>

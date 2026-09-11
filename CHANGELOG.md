@@ -7,13 +7,15 @@
 - Les mots rangés dans un endroit et les stickers collés suivent un **renommage**
 - **Supprimer** un endroit libère ses stickers et déplace les mots qui y étaient vers un endroit libre ; les autres mots ne bougent pas. Impossible de supprimer le dernier endroit
 - Bouton « Revenir à la maison de départ » (celle de `data/lieux.js`)
+- **Emoji par pièce** : appuyer sur l'emoji d'une pièce ouvre une palette de 40 emojis (`EMOJIS_PIECES`), avec « Automatique » pour revenir à la détection par mot-clé. L'emoji suit la pièce si on la renomme
 
 ### Technique
 - Stockage `maison` : `[{ piece, emplacements: [] }]`. Au premier lancement, la maison est copiée depuis `LIEUX` : les appareils existants gardent leur maison même si `data/lieux.js` change ensuite
 - `Storage.getMaison()`, `saveMaison()`, `maisonParDefaut()`, `renommerLieu()`, `supprimerLieu()`, `reparerEmplacements()`
 - `reparerEmplacements()` au démarrage : tout mot sans endroit valide en reçoit un. Une liste avec plus de mots que d'endroits partage désormais les endroits au lieu de laisser des mots sans endroit
 - `LIEUX` n'est plus lu directement que pour la maison de départ ; le palais lit `Storage.getMaison()` et `emplacementsDe(piece)`
-- Service worker `v10`
+- Stockage `maison` : champ optionnel `emoji` par pièce ; `roomEmoji()` le lit en priorité, `roomEmojiAuto()` garde le mot-clé
+- Service worker `v11`
 
 ## [2026-09-10] - Stickers emoji + kawaii à 40 ⭐, habits et accessoires en récompenses
 

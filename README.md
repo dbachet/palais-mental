@@ -101,6 +101,7 @@ Boucle de jeu :
 
 Depuis l'app : **Mon palais → ✏️** ouvre l'écran **Ma maison**. On peut y ajouter, renommer, réordonner et supprimer des pièces et des endroits, sans toucher au code. La maison est sauvegardée en localStorage (`maison`).
 
+- **Emoji** : appuyer sur l'emoji d'une pièce ouvre une palette (`EMOJIS_PIECES` dans `data/lieux.js`). « Automatique » revient à la détection par mot-clé.
 - **Renommer** une pièce ou un endroit garde les mots qui y sont rangés et les stickers collés.
 - **Supprimer** un endroit libère ses stickers et déplace les mots qui y étaient vers un endroit libre. Les autres mots ne bougent pas.
 - **Revenir à la maison de départ** recharge la maison définie dans `data/lieux.js`.
@@ -125,7 +126,7 @@ const LIEUX = {
 
 **Conseils** :
 - Utilisez des déterminants (le, la, ta, ton, des) pour rendre les noms plus naturels
-- L'emoji d'une pièce est choisi par mot-clé dans son nom (`PIECE_EMOJIS`)
+- Sans emoji choisi, l'emoji d'une pièce est trouvé par mot-clé dans son nom (`PIECE_EMOJIS`)
 
 **Important** : une fois les mots d'une liste rangés dans des endroits, le rangement ne change plus, sauf pour un mot dont l'endroit a été supprimé. S'il y a plus de mots que d'endroits, plusieurs mots partagent un endroit.
 

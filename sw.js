@@ -6,7 +6,7 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v10'; // v10 : maison modifiable
+const CACHE_NAME = 'mental-palace-v11'; // v11 : emoji des pièces
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

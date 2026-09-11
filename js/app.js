@@ -807,8 +807,14 @@ function emplacementsDe(piece) {
   return room ? room.emplacements : [];
 }
 
-// Emoji d'une pièce, trouvé par mot-clé dans son nom
+// Emoji d'une pièce : celui choisi dans « Ma maison », sinon par mot-clé dans son nom
 function roomEmoji(piece) {
+  const room = Storage.getMaison().find(r => r.piece === piece);
+  if (room && room.emoji) return room.emoji;
+  return roomEmojiAuto(piece);
+}
+
+function roomEmojiAuto(piece) {
   const name = piece.toLowerCase();
   const found = PIECE_EMOJIS.find(p => p.motCle !== 'defaut' && name.includes(p.motCle));
   return found ? found.emoji : PIECE_EMOJIS.find(p => p.motCle === 'defaut').emoji;
@@ -2744,7 +2750,7 @@ function showMaisonScreen() {
   const total = maison.reduce((n, r) => n + r.emplacements.length, 0);
   const attr = (str) => str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
-  let html = `<p class="intro">Les pièces de ta maison et les endroits où ranger les mots. Appuie sur un nom pour le changer.</p>`;
+  let html = `<p class="intro">Les pièces de ta maison et les endroits où ranger les mots. Appuie sur un nom pour le changer, sur l'emoji pour en choisir un autre.</p>`;
 
   maison.forEach((room, ri) => {
     const p = attr(room.piece);
@@ -2767,8 +2773,9 @@ function showMaisonScreen() {
     html += `
       <div class="maison-room">
         <div class="maison-room-head">
+          <button class="maison-emoji" onclick="askRoomEmoji('${p}')" aria-label="Choisir l'emoji">${roomEmoji(room.piece)}</button>
           <button class="maison-name maison-room-name" onclick="askRenameLieu('${p}', null)">
-            ${roomEmoji(room.piece)} ${escapeText(capitalizeFirst(room.piece))}
+            ${escapeText(capitalizeFirst(room.piece))}
           </button>
           <div class="maison-actions">
             <button class="btn-icon" onclick="moveRoom(${ri}, -1)" ${ri === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
@@ -2825,6 +2832,38 @@ function submitNameSheet() {
   closeSheet();
   nameSheetCallback = null;
   if (cb) cb(value);
+}
+
+// Choix de l'emoji d'une pièce : palette EMOJIS_PIECES, ou automatique (mot-clé)
+function askRoomEmoji(piece) {
+  const room = Storage.getMaison().find(r => r.piece === piece);
+  if (!room) return;
+  const p = piece.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const auto = roomEmojiAuto(piece);
+  const items = EMOJIS_PIECES.map(e => `
+    <button class="sheet-item ${room.emoji === e ? 'selected' : ''}" onclick="setRoomEmoji('${p}', '${e}')">
+      <div class="emoji">${e}</div>
+    </button>
+  `).join('');
+  showSheet(`
+    <h3>Emoji de « ${escapeText(piece)} »</h3>
+    <div class="sheet-grid sheet-grid-emoji">${items}</div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" onclick="closeSheet()">Annuler</button>
+      <button class="btn btn-ghost ${room.emoji ? '' : 'selected'}" onclick="setRoomEmoji('${p}', null)">${auto} Automatique</button>
+    </div>
+  `);
+}
+
+function setRoomEmoji(piece, emoji) {
+  const maison = Storage.getMaison();
+  const room = maison.find(r => r.piece === piece);
+  if (!room) return;
+  if (emoji) room.emoji = emoji;
+  else delete room.emoji;
+  Storage.saveMaison(maison);
+  closeSheet();
+  showMaisonScreen();
 }
 
 function askAddRoom() {

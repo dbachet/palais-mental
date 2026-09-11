@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mental Palace">
+  <meta name="theme-color" content="#FF7EB9">
+  <title>Mental Palace - Apprendre en s'amusant</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+
+  <!-- Police Nunito (chargée ici, pas via @import : sinon ignorée).
+       Hors ligne, la pile de secours du CSS prend le relais. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN D'ACCUEIL
+         ══════════════════════════════════════════════════════════ -->
+    <div id="home-screen" class="screen active">
+      <header class="header-home">
+        <h1>🏰 Mental Palace</h1>
+        <button class="btn-toggle-sound" onclick="toggleSound()" id="sound-toggle-btn" aria-label="Son">🔊</button>
+      </header>
+
+      <div class="home-content">
+        <!-- Équipe de kawaii : principal + compagnons -->
+        <div class="team-card" id="team-card">
+          <!-- Rempli dynamiquement par renderHome() -->
+        </div>
+
+        <!-- Carte palais : étoiles + coffre -->
+        <div class="palace-card" id="palace-card">
+          <!-- Rempli dynamiquement par renderHome() -->
+        </div>
+
+        <!-- Action principale -->
+        <button class="btn btn-hero" onclick="showListsScreen()">
+          📚 Mes listes
+        </button>
+
+        <!-- Actions secondaires -->
+        <div class="menu-grid">
+          <button class="btn btn-tile" onclick="showPalaisScreen()">
+            <span class="tile-icon">🏠</span>Mon palais
+          </button>
+          <button class="btn btn-tile" onclick="showShopScreen()">
+            <span class="tile-icon">🛍️</span>Boutique
+          </button>
+          <button class="btn btn-tile" onclick="showStrugglingWordsScreen()">
+            <span class="tile-icon">💪</span>Mots à travailler
+          </button>
+          <button class="btn btn-tile" onclick="showNewListScreen()">
+            <span class="tile-icon">➕</span>Nouvelle liste
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN MES LISTES
+         ══════════════════════════════════════════════════════════ -->
+    <div id="lists-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1>📚 Mes listes</h1>
+      </header>
+
+      <div class="screen-body" id="lists-container">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN NOUVELLE LISTE
+         ══════════════════════════════════════════════════════════ -->
+    <div id="new-list-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1>➕ Nouvelle liste</h1>
+      </header>
+
+      <div class="screen-body">
+        <div class="card">
+          <h2>Saisir la liste</h2>
+
+          <label class="field-label" for="list-name-input">Nom de la liste</label>
+          <input type="text" id="list-name-input" class="field" placeholder="Ex: Mots invariables semaine 1">
+
+          <label class="field-label" for="words-input">Mots (un par ligne ou séparés par des virgules)</label>
+          <textarea id="words-input" class="field" placeholder="alors&#10;après&#10;assez&#10;aujourd'hui&#10;avant" rows="8"></textarea>
+
+          <button class="btn btn-success btn-block mt-20" onclick="createListFromManualInput()">
+            ✅ Créer la liste
+          </button>
+        </div>
+
+        <div class="card card-muted">
+          <h2>Scanner une liste</h2>
+          <p>Prends en photo ta liste de mots.</p>
+          <button class="btn btn-ghost" onclick="startScan()">📷 Scanner</button>
+          <p class="hint">Fonctionnalité en développement</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN ÉDITION LISTE
+         ══════════════════════════════════════════════════════════ -->
+    <div id="edit-list-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showListsScreen()" aria-label="Retour">←</button>
+        <h1>✏️ Éditer la liste</h1>
+      </header>
+
+      <div class="screen-body">
+        <div class="card">
+          <label class="field-label" for="edit-list-name-input">Nom de la liste</label>
+          <input type="text" id="edit-list-name-input" class="field" placeholder="Ex: Mots invariables semaine 1">
+
+          <label class="field-label" for="edit-words-input">Mots (un par ligne ou séparés par des virgules)</label>
+          <textarea id="edit-words-input" class="field" placeholder="alors&#10;après&#10;assez&#10;aujourd'hui&#10;avant" rows="8"></textarea>
+
+          <button class="btn btn-success btn-block mt-20" onclick="saveEditedList()">
+            ✅ Enregistrer
+          </button>
+          <button class="btn btn-ghost btn-block mt-10 btn-danger-text" onclick="confirmDeleteList()">
+            🗑️ Supprimer cette liste
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN MODE APPRENTISSAGE
+         ══════════════════════════════════════════════════════════ -->
+    <div id="apprentissage-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1>🎓 Visite du palais</h1>
+        <span class="progress-chip" id="apprentissage-progress">Mot 1/10</span>
+      </header>
+
+      <div class="screen-body">
+        <!-- Affichage du lieu -->
+        <div id="lieu-display"></div>
+
+        <!-- Bouton "J'y suis" - affiché en premier -->
+        <div id="ready-button-container" class="text-center mt-20">
+          <button class="btn btn-success btn-big" onclick="showWordToTrace()">
+            ✓ J'y suis !
+          </button>
+          <p class="hint">Va à cet endroit, puis appuie sur le bouton</p>
+        </div>
+
+        <!-- Mot animé (affiché après "J'y suis") -->
+        <div class="word-animation-container hidden" id="word-animation">
+          <div id="animated-word" class="animated-word"></div>
+        </div>
+
+        <!-- Contrôles de lecture -->
+        <div id="playback-controls" class="playback-controls hidden">
+          <div class="playback-row">
+            <button class="btn-replay" onclick="replayWord()" title="Rejouer" aria-label="Rejouer">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 4v6h-6M1 20v-6h6"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+            </button>
+            <button class="btn-toggle-sound inline" onclick="toggleSound()" aria-label="Son">🔊</button>
+          </div>
+
+          <div class="speed-control volume-control">
+            <label for="volume-slider">Volume</label>
+            <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" step="5" value="100" oninput="updateVolume(this.value)">
+          </div>
+
+          <div class="speed-control">
+            <label for="speed-slider">Vitesse : <span id="speed-value">1.5</span>s / lettre</label>
+            <input type="range" id="speed-slider" min="0.5" max="2.0" step="0.1" value="1.5" onchange="updateSpeed(this.value)">
+            <div class="speed-legend">
+              <span>Rapide</span>
+              <span>Lent</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bouton Suivant (affiché après animation complète) -->
+        <div id="next-button-container" class="text-center mt-20 hidden">
+          <button class="btn btn-primary btn-big" onclick="nextWordInApprentissage()">
+            Suivant →
+          </button>
+        </div>
+
+        <!-- Feedback -->
+        <div id="feedback-container"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN APPRENTISSAGE TERMINÉ
+         ══════════════════════════════════════════════════════════ -->
+    <div id="apprentissage-complete-screen" class="screen">
+      <header>
+        <h1>🎓 Visite terminée</h1>
+      </header>
+      <div class="screen-body" id="apprentissage-complete-content"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN MODE INTERROGATION
+         ══════════════════════════════════════════════════════════ -->
+    <div id="interrogation-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1>🎯 Retour au palais</h1>
+        <span class="progress-chip" id="interrogation-progress">Mot 1/10</span>
+      </header>
+
+      <div class="screen-body">
+        <!-- Barre de session : étoiles du niveau + étoiles gagnées -->
+        <div class="session-bar">
+          <div class="progress-stars" aria-label="Score du niveau">
+            <span class="star">⭐</span>
+            <span class="star">⭐</span>
+            <span class="star">⭐</span>
+            <span class="star">⭐</span>
+            <span class="star">⭐</span>
+          </div>
+          <div class="star-counter" id="session-star-counter">
+            <span class="star-counter-icon">⭐</span>
+            <span id="session-stars">0</span>
+          </div>
+        </div>
+        <div class="score-display" id="score-display">0 / 0</div>
+
+        <!-- Affichage du lieu -->
+        <div id="interrogation-lieu-display"></div>
+
+        <!-- Bouton "J'y suis" - affiché en premier -->
+        <div id="interrogation-ready-button" class="text-center mt-20">
+          <button class="btn btn-success btn-big" onclick="showInterrogationQuestion()">
+            ✓ J'y suis !
+          </button>
+          <p class="hint">Va à cet endroit, puis appuie sur le bouton</p>
+        </div>
+
+        <!-- Zone de question (cachée au début) -->
+        <div id="interrogation-question-zone" class="hidden">
+          <!-- Timer -->
+          <div class="timer-bar">
+            <div class="timer-fill" id="interrogation-timer-fill" style="width: 100%;"></div>
+          </div>
+
+          <!-- Mot à compléter -->
+          <div class="word-card">
+            <p class="word-card-title">Complète le mot</p>
+            <p id="difficulty-hint" class="hint">Niveau 1 : 2 lettres à trouver</p>
+            <div id="user-input-display" class="word-tiles"></div>
+            <button class="btn btn-listen" onclick="repeatWord()" aria-label="Réécouter le mot">
+              🔊 Réécouter
+            </button>
+          </div>
+
+          <!-- Clavier virtuel -->
+          <div class="virtual-keyboard-container">
+            <div class="virtual-keyboard">
+              <div class="key-row">
+                <button class="key" onclick="handleKeyPress('a')">a</button>
+                <button class="key" onclick="handleKeyPress('b')">b</button>
+                <button class="key" onclick="handleKeyPress('c')">c</button>
+                <button class="key" onclick="handleKeyPress('d')">d</button>
+                <button class="key" onclick="handleKeyPress('e')">e</button>
+                <button class="key" onclick="handleKeyPress('f')">f</button>
+                <button class="key" onclick="handleKeyPress('g')">g</button>
+                <button class="key" onclick="handleKeyPress('h')">h</button>
+                <button class="key" onclick="handleKeyPress('i')">i</button>
+                <button class="key" onclick="handleKeyPress('j')">j</button>
+              </div>
+              <div class="key-row">
+                <button class="key" onclick="handleKeyPress('k')">k</button>
+                <button class="key" onclick="handleKeyPress('l')">l</button>
+                <button class="key" onclick="handleKeyPress('m')">m</button>
+                <button class="key" onclick="handleKeyPress('n')">n</button>
+                <button class="key" onclick="handleKeyPress('o')">o</button>
+                <button class="key" onclick="handleKeyPress('p')">p</button>
+                <button class="key" onclick="handleKeyPress('q')">q</button>
+                <button class="key" onclick="handleKeyPress('r')">r</button>
+                <button class="key" onclick="handleKeyPress('s')">s</button>
+                <button class="key" onclick="handleKeyPress('t')">t</button>
+              </div>
+              <div class="key-row">
+                <button class="key" onclick="handleKeyPress('u')">u</button>
+                <button class="key" onclick="handleKeyPress('v')">v</button>
+                <button class="key" onclick="handleKeyPress('w')">w</button>
+                <button class="key" onclick="handleKeyPress('x')">x</button>
+                <button class="key" onclick="handleKeyPress('y')">y</button>
+                <button class="key" onclick="handleKeyPress('z')">z</button>
+                <button class="key key-sign" onclick="handleKeyPress(&quot;'&quot;)">'</button>
+                <button class="key key-sign" onclick="handleKeyPress('-')">-</button>
+                <button class="key key-sign" onclick="handleKeyPress('(')">(</button>
+                <button class="key key-sign" onclick="handleKeyPress(')')">)</button>
+              </div>
+              <!-- Accents : toujours visibles, l'enfant doit aller vite -->
+              <div class="key-row key-row-accents">
+                <button class="key key-accent" onclick="handleKeyPress('ç')">ç</button>
+                <button class="key key-accent" onclick="handleKeyPress('à')">à</button>
+                <button class="key key-accent" onclick="handleKeyPress('â')">â</button>
+                <button class="key key-accent" onclick="handleKeyPress('é')">é</button>
+                <button class="key key-accent" onclick="handleKeyPress('è')">è</button>
+                <button class="key key-accent" onclick="handleKeyPress('ê')">ê</button>
+                <button class="key key-accent" onclick="handleKeyPress('ë')">ë</button>
+                <button class="key key-accent" onclick="handleKeyPress('î')">î</button>
+                <button class="key key-accent" onclick="handleKeyPress('ï')">ï</button>
+                <button class="key key-accent" onclick="handleKeyPress('ô')">ô</button>
+                <button class="key key-accent" onclick="handleKeyPress('ù')">ù</button>
+                <button class="key key-accent" onclick="handleKeyPress('û')">û</button>
+                <button class="key key-accent" onclick="handleKeyPress('ü')">ü</button>
+                <button class="key key-accent" onclick="handleKeyPress('ÿ')">ÿ</button>
+              </div>
+              <div class="key-row">
+                <button class="key spacebar" onclick="handleKeyPress(' ')">espace</button>
+                <button class="key special" onclick="handleKeyPress('EFFACER')" aria-label="Effacer">⌫</button>
+              </div>
+            </div>
+
+            <!-- Bouton Valider à droite du clavier -->
+            <button class="key validate-btn" onclick="handleKeyPress('VALIDER')">✓<br>Valider</button>
+          </div>
+        </div>
+
+        <!-- Feedback -->
+        <div id="feedback-container"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN MON PALAIS (pièces)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="palais-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1>🏠 Mon palais</h1>
+        <button class="header-action" onclick="showMaisonScreen()" aria-label="Modifier ma maison">✏️</button>
+      </header>
+
+      <div class="screen-body">
+        <p class="intro" id="palais-intro"></p>
+        <div id="palais-grid" class="rooms-grid">
+          <!-- Rempli dynamiquement -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN UNE PIÈCE (lieux + stickers)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="piece-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showPalaisScreen()" aria-label="Retour">←</button>
+        <h1 id="piece-title">Pièce</h1>
+      </header>
+
+      <div class="screen-body" id="piece-content">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN MA MAISON (pièces et endroits modifiables)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="maison-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showPalaisScreen()" aria-label="Retour">←</button>
+        <h1>🏡 Ma maison</h1>
+      </header>
+
+      <div class="screen-body" id="maison-content">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN MES KAWAII (équipe)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="kawaii-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1>🐾 Mes kawaii</h1>
+      </header>
+      <div class="screen-body" id="kawaii-content">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN ATELIER (choisir et personnaliser un kawaii)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="atelier-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showKawaiiScreen()" aria-label="Retour">←</button>
+        <h1 id="atelier-title">🎨 Atelier</h1>
+      </header>
+      <div class="screen-body atelier">
+        <div class="sticker-sheet">
+          <p class="sheet-title">Choisis ton kawaii</p>
+          <div class="kawaii-gallery" id="atelier-gallery"></div>
+        </div>
+        <div class="atelier-studio">
+          <div class="kstage">
+            <div id="atelier-stage"></div>
+            <div class="kstage-name" id="atelier-name"></div>
+            <div class="kstage-actions">
+              <button class="btn btn-ghost" onclick="atelierRandom()">🎲 Au hasard</button>
+              <button class="btn btn-primary" onclick="atelierSave()">✅ C'est lui !</button>
+            </div>
+          </div>
+          <div class="card" id="atelier-groups"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN BOUTIQUE
+         ══════════════════════════════════════════════════════════ -->
+    <div id="shop-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1>🛍️ Boutique</h1>
+        <span class="progress-chip star-chip" id="shop-stars">⭐ 0</span>
+      </header>
+
+      <div class="screen-body" id="shop-content">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN MOTS À TRAVAILLER
+         ══════════════════════════════════════════════════════════ -->
+    <div id="struggling-words-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1>💪 Mots à travailler</h1>
+      </header>
+
+      <div class="screen-body" id="struggling-words-list">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN RÉSULTATS DÉTAILLÉS
+         ══════════════════════════════════════════════════════════ -->
+    <div id="results-screen" class="screen">
+      <header>
+        <h1>📊 Résultats</h1>
+      </header>
+
+      <div class="screen-body">
+        <div id="results-content">
+          <!-- Rempli dynamiquement -->
+        </div>
+        <div class="text-center mt-30">
+          <button class="btn btn-ghost" onclick="showScreen('home')">
+            🏠 Retour à l'accueil
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="data/lieux.js"></script>
+  <script src="js/kawaii.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

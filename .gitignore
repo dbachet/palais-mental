@@ -1,0 +1,20 @@
+# Fichiers Mac
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Miniatures
+._*
+
+# Fichiers temporaires
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Assets volumineux (à commit manuellement si besoin)
+# assets/**/*.png
+# assets/**/*.jpg

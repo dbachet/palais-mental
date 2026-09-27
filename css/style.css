@@ -1350,22 +1350,35 @@ header h1 {
   display: none; /* Masqué : score non affiché à l'enfant */
 }
 
-.progress-stars {
+/* Avancement de la session : une case par mot */
+.session-progress {
+  flex: 1;
   display: flex;
-  gap: 4px;
-  font-size: 1.7rem;
+  gap: 5px;
+  min-width: 0;
 }
 
-.star {
-  opacity: 0.25;
-  filter: grayscale(100%);
-  transition: opacity 0.3s ease, filter 0.3s ease;
+#cartes-session-progress {
+  max-width: 620px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.star.filled {
-  opacity: 1;
-  filter: grayscale(0%);
-  animation: starPop 0.45s var(--rebond);
+.session-progress .seg {
+  flex: 1;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--bord);
+  transition: background 0.3s ease;
+}
+
+.session-progress .seg.done {
+  background: linear-gradient(90deg, var(--rose), var(--violet));
+}
+
+.session-progress .seg.current {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 3px var(--violet);
 }
 
 @keyframes starPop {
@@ -2564,6 +2577,307 @@ header h1 {
 }
 
 /* ─────────────────────────────────────────────────────────────── */
+/* CARTES QUESTIONS */
+/* ─────────────────────────────────────────────────────────────── */
+
+/* Titres de section dans « Mes listes » */
+.lists-section {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--encre-2);
+  margin: 6px 4px 12px;
+}
+
+.card + .lists-section { margin-top: 26px; }
+
+/* Mélanger des listes */
+.mix-entry {
+  margin-bottom: 16px;
+}
+
+.mix-entry .btn {
+  width: 100%;
+}
+
+.mix-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  font-family: var(--police);
+  color: var(--encre);
+  background: var(--surface);
+  border: 3px solid var(--bord);
+  border-radius: var(--r-m);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.mix-row.selected {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.mix-check {
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mix-info strong {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.mix-info span {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--encre-2);
+}
+
+.mix-start {
+  margin-top: 16px;
+}
+
+.mix-summary {
+  text-align: center;
+  font-weight: 900;
+  color: var(--violet-fonce);
+  margin-bottom: 14px;
+}
+
+/* Choix du type de liste */
+.type-choice {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.type-btn {
+  font-family: var(--police);
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--encre-2);
+  background: var(--surface-2);
+  border: 3px solid var(--bord);
+  border-radius: var(--r-m);
+  padding: 14px 8px;
+  cursor: pointer;
+}
+
+.type-btn .type-icon {
+  display: block;
+  font-size: 1.8rem;
+  margin-bottom: 4px;
+}
+
+.type-btn.selected {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+  color: var(--encre);
+}
+
+.cards-errors {
+  background: var(--rouge-pale);
+  color: var(--encre);
+  border-radius: var(--r-s);
+  padding: 12px 14px;
+  margin-top: 10px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+/* Listes de langue : choix des langues */
+.lang-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.lang-pick {
+  flex: 1;
+  min-width: 0;
+}
+
+.lang-swap {
+  margin-bottom: 6px;
+  font-size: 1.3rem;
+}
+
+/* Mot à traduire (visite et interrogation) */
+.translation-prompt {
+  text-align: center;
+  margin: 4px 0 10px;
+}
+
+.translation-word {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--violet-fonce);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.translation-flag {
+  margin-right: 10px;
+}
+
+.translation-to {
+  margin-top: 4px;
+  color: var(--encre-2);
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+/* Boîtes d'une liste de cartes */
+.card-boxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.card-box {
+  background: var(--surface-2);
+  border: 2px solid var(--bord);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--encre-2);
+}
+
+.card-box.box-1 { background: var(--or-pale); border-color: #F6E2A6; }
+.card-box.box-2 { background: var(--violet-pale); border-color: #E1D2F0; }
+.card-box.box-3 { background: var(--vert-pale); border-color: #BDEBD0; }
+
+/* La carte à retourner */
+.flip-scene {
+  perspective: 1400px;
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.flip-card {
+  position: relative;
+  width: 100%;
+  height: min(46vh, 380px);
+  min-height: 240px;
+  transform-style: preserve-3d;
+  transition: transform 0.55s var(--doux);
+  cursor: pointer;
+}
+
+.flip-card.flipped { transform: rotateY(180deg); }
+.flip-card.no-anim { transition: none; }
+
+.flip-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 44px 22px 22px;
+  border-radius: var(--r-xl);
+  box-shadow: var(--ombre-2);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  text-align: center;
+}
+
+.flip-front {
+  background: var(--surface);
+  border: 4px solid var(--violet);
+}
+
+.flip-back {
+  background: var(--menthe-pale);
+  border: 4px solid var(--menthe-fonce);
+  transform: rotateY(180deg);
+}
+
+.flip-label {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: var(--encre-3);
+  letter-spacing: 0.02em;
+}
+
+.carte-text {
+  font-size: 2rem;
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--encre);
+  overflow-wrap: anywhere;
+  margin: auto 0; /* centré, et défilable depuis le haut si le texte déborde */
+}
+
+.carte-text.m  { font-size: 1.6rem; }
+.carte-text.s  { font-size: 1.45rem; font-weight: 800; }
+.carte-text.xs { font-size: 1.2rem; font-weight: 800; }
+
+/* Je savais / À revoir : deux gros boutons côte à côte */
+.cartes-verdict {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  max-width: 620px;
+  margin: 20px auto 0;
+}
+
+.btn-verdict {
+  min-height: 76px;
+  font-size: 1.2rem;
+}
+
+.verdict-known {
+  background: var(--vert);
+  color: #fff;
+}
+
+.verdict-review {
+  background: var(--or-pale);
+  color: var(--encre);
+  border: 3px solid var(--or);
+}
+
+/* Entrée discrète de l'espace parents, en bas de l'accueil */
+.btn-parents {
+  font-family: var(--police);
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--encre-3);
+  background: none;
+  border: none;
+  padding: 12px;
+  cursor: pointer;
+  align-self: center;
+}
+
+/* État de l'enregistrement en ligne, sous l'entrée de l'espace parents */
+.sync-status {
+  margin: -6px 0 0;
+  text-align: center;
+  color: var(--encre-3);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.sync-status:empty { display: none; }
+
+/* ─────────────────────────────────────────────────────────────── */
 /* UTILITAIRES */
 /* ─────────────────────────────────────────────────────────────── */
 
@@ -2597,6 +2911,8 @@ header h1 {
   header h1 { font-size: 1.2rem; }
   .header-home h1 { font-size: 1.45rem; }
   .progress-chip { font-size: 0.8rem; padding: 6px 10px; }
+  .type-btn { font-size: 0.9rem; padding: 12px 4px; }
+  .translation-word { font-size: 1.8rem; }
 
   .virtual-keyboard-container {
     flex-direction: column;

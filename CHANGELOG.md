@@ -1,5 +1,83 @@
 # Changelog - Mental Palace
 
+## [2026-09-27] - Mots de langue, interrogation complète en Ninja
+
+### Ajouté
+- **Mots de langue** (Nouvelle liste → 🌍) : une ligne par mot, « mot = traduction », avec la langue montrée et la langue à écrire (français, anglais, espagnol, allemand). ⇄ inverse les langues et les mots déjà saisis
+- On voit le mot de départ avec son drapeau, on écrit la traduction en cases de lettres (partielle selon le niveau, ou entière). Lieux, niveaux, étoiles, Ninja, compagnons et mélange de listes marchent comme pour les mots à réécrire
+- Voix : à la visite, le mot de départ puis la traduction, chacun dans sa langue ; en interrogation, seulement le mot de départ (pour ne pas donner la réponse)
+- Section « 🌍 Mots de langue » dans Mes listes ; mot de départ affiché dans Mots à travailler, Mon palais et les erreurs de fin de session
+
+### Changé
+- **Interrogation complète = niveau Ninja** (mot entier + cases pièges) pour les mots à réécrire et de langue. Réussie à 80 %, la liste passe directement Ninja et débloque un compagnon, sans passer tous les niveaux. Le niveau ne redescend jamais
+
+### Technique
+- Liste de langue : `type: 'langue'`, `langFrom`, `langTo`, `translations` { traduction: mot de départ }. `words` contient les traductions : lieux et progression y sont attachés. Une traduction en double est refusée à la saisie
+- `LANGUES` dans `data/lieux.js` ; cache v15
+
+## [2026-09-20] - Comptes et enregistrement en ligne
+
+### Ajouté
+- **Compte en ligne** (Espace parents → ☁️ Compte) : un email de parent, un code reçu par email, et le palais est enregistré en ligne. Un compte = un enfant. La session reste ouverte : l'enfant ne tape jamais de code
+- **Le palais suit l'enfant** sur l'iPad, le téléphone et l'ordinateur, sans fichier JSON à transférer. Les progrès partent quelques secondes après chaque changement et quand l'app est mise de côté ; hors-ligne, ils attendent
+- **Ligne d'état sur l'accueil**, sous « Espace parents » : enregistré en ligne (date), en attente de connexion, compte à reconnecter
+- **Fusion donnée par donnée** entre appareils (listes, étoiles et stickers, kawaii, maison) : la plus récente de chaque gagne
+- **Jamais d'écrasement à l'aveugle** : si l'appareil et le compte ont chacun un palais à la connexion, l'app demande lequel garder et ne touche à rien d'ici là. Un appareil neuf ne peut pas écraser le compte avec sa maison par défaut
+- **Se déconnecter** retire le palais de l'appareil (il reste dans le compte) ; refusé s'il reste des progrès non envoyés
+- Guide de mise en ligne (GitHub Pages, Supabase, emails via Maileroo) et de déménagement des données : `EN-LIGNE.md`
+
+### Technique
+- `js/sync.js` : aucun SDK, appels `fetch` à Supabase (auth par code, table `palaces`). Détection des changements par empreinte des clés `SYNC_KEYS` toutes les 5 s : rien à appeler depuis `app.js` quand on écrit une donnée. Écriture conditionnée au numéro de `version` de la ligne, relecture et refusion en cas d'écriture concurrente
+- `js/config.js` : adresse et clé publique. Vide = app 100 % locale, carte « Compte » masquée
+- `supabase/schema.sql` : tables `palaces` et `palace_history` (une copie par jour, 30 jours), règles d'accès par compte
+- `.github/workflows/keepalive.yml` : évite la mise en pause du projet Supabase gratuit
+- Copies locales avant remplacement en bloc : clé `syncBackup`. Les clés `syncSession`, `syncMeta`, `syncBackup` sont exclues de la sauvegarde JSON et ignorées à la restauration
+- Données venues d'un autre appareil : rechargement immédiat sur l'accueil, sinon au retour à l'accueil (`AppState.reloadOnHome`)
+- Aucune migration : les données existantes ne changent pas de forme
+- Service worker et `?v=` : `v14`
+
+## [2026-09-19] - Mélanger plusieurs listes
+
+### Ajouté
+- **Écran « Mélanger des listes »** (Mes listes → 🔀, dès qu'il y a 2 listes de mots) : on coche les listes, toutes visibles, avec « Tout cocher ». Puis 📖 Apprendre, 🎯 S'entraîner ou 🏆 Interrogation complète sur tous les mots des listes cochées. Chaque liste reste jouable seule, comme avant
+- **Tirage aléatoire sur toutes les listes cochées**, dans les trois modes : Apprendre, S'entraîner et Interrogation complète mélangent les mots de toutes les listes entre eux, par paquets de 10 (nouvel ordre à chaque session). Une liste jouée seule s'apprend toujours dans l'ordre de ses mots
+- Chaque mot garde **son lieu**, le **niveau de sa liste** (lettres à trouver, étoiles par mot) et sa progression. L'indice de difficulté donne le nom de la liste du mot en cours
+- **Passage de niveau par liste** : à la fin d'un mix, chaque liste est jugée sur ses propres mots (80 %). Une liste peut monter pendant que l'autre reste ; rien ne redescend. L'écran de résultats affiche une ligne par liste
+- Un mot présent dans deux listes est demandé deux fois, une fois à chacun de ses lieux
+- Les listes cochées sont retenues (`mixSelection`) pour refaire le même mix le lendemain
+- Bonus sans-faute d'un paquet mixte : calculé sur la liste la moins avancée du paquet
+
+### Modifié
+- **Score de l'écran de résultats** : toute la session (tous les paquets de 10), plus seulement le dernier paquet
+
+### Technique
+- Une session est une suite de `{ word, list }` : `sessionItems()`, `setCurrentItem()` (installe `currentList`, lieu, `listLevel` pour le mot en cours), `AppState.sessionLists`, `AppState.sessionByList` (réussite par liste)
+- `startInterrogationOnItems()` remplace les deux démarrages d'interrogation quasi identiques (liste, après apprentissage) ; « Rejouer » rejoue les mêmes mots dans le même mode
+- `startApprentissageOnLists()`, `startInterrogationOnLists()`, `AppState.allApprentissageLevels`
+- Aucune migration : les listes ne changent pas de forme ; `mixSelection` est une nouvelle clé, incluse dans la sauvegarde parents
+- Service worker et `?v=` : `v13`
+
+## [2026-09-17] - Cartes questions et espace parents
+
+### Ajouté
+- **Listes « Cartes questions »** : nouveau type de liste, à côté des mots à réécrire. À la création, on choisit le type (les deux choix toujours visibles). Dans « Mes listes », une section par type
+- **Saisie** : une carte par ligne, `question = réponse`. Si un `=` doit figurer dans le texte, séparer avec `|` (`2 + 2 = ? | 4`). Les lignes ambiguës sont signalées, rien n'est enregistré tant qu'il en reste. Bouton « Copier la consigne pour une IA »
+- **Jeu de cartes** : 10 cartes tirées au hasard, on retourne la carte (appui sur la carte ou bouton), puis « ✅ Je savais » ou « 🔁 À revoir ». Bouton 🔊 pour écouter le côté visible. Seule ou avec un parent : même écran
+- **Boîtes** : 🆕 jamais vue → 🔁 à revoir (1) → 🙂 ça vient (2) → ✅ connue (3). Une carte « à revoir » revient 3 cartes plus loin dans la session (2 retours max) et sort en premier aux sessions suivantes
+- **Récompense = session terminée** (5 ⭐), jamais les bonnes réponses : l'auto-validation ne rapporte rien à tricher
+- **Ninja** : toutes les cartes en boîte 3. Coffre rare, compte pour les compagnons, ne redescend jamais (même si on ajoute des cartes)
+- **Espace parents** (bas de l'accueil, protégé par une multiplication) : sauvegarder toutes les données dans un fichier JSON (feuille de partage sur iPad, téléchargement ailleurs) et restaurer, avec confirmation qui compare sauvegarde et appareil
+
+### Modifié
+- **Barre d'avancement de la session** à la place des 5 étoiles de score (dictée) : une case par mot, remplie quand le mot est fait, entourée pour le mot en cours. Elle ne dit pas si c'était juste. La ⭐ n'a plus qu'un sens : les étoiles gagnées. Même barre sur l'écran des cartes. Feux d'artifice du sans-faute conservés, tirés à la fin du niveau
+
+### Technique
+- Même tiroir `wordLists` ; carte-liste = `{ type: 'cartes-questions', cards: [{ id, q, a, box }], nextCardId, ninja, words: [] … }`. Une liste sans `type` est une liste de mots : aucune migration
+- La progression tient à l'`id` de la carte : `Storage.updateCardList()` reconnaît une carte corrigée (même question, sinon même réponse, sinon même ligne) et garde sa boîte
+- `Storage.isListNinja()` remplace le test de niveau dans `getCompanionSlots()`
+- Réglages dans `CARTES` (`data/lieux.js`) : cartes par session, étoiles, retours, poids du tirage
+- Service worker et `?v=` : `v12`
+
 ## [2026-09-11] - Ma maison : pièces et endroits modifiables dans l'app
 
 ### Ajouté

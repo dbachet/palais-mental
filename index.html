@@ -21,7 +21,7 @@
 
   <!-- Styles. Le ?v= force les navigateurs sans service worker (http://IP:port)
        à recharger les fichiers : l'augmenter à chaque version, ici et dans sw.js. -->
-  <link rel="stylesheet" href="css/style.css?v=11">
+  <link rel="stylesheet" href="css/style.css?v=15">
 </head>
 <body>
   <div id="app">
@@ -66,6 +66,10 @@
             <span class="tile-icon">➕</span>Nouvelle liste
           </button>
         </div>
+
+        <button class="btn-parents" onclick="askParentGate()">👨‍👩‍👧 Espace parents</button>
+        <!-- État de l'enregistrement en ligne, rempli par renderSyncStatus() -->
+        <p class="sync-status" id="sync-status"></p>
       </div>
     </div>
 
@@ -84,6 +88,20 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN MÉLANGER DES LISTES
+         ══════════════════════════════════════════════════════════ -->
+    <div id="mix-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showListsScreen()" aria-label="Retour">←</button>
+        <h1>🔀 Mélanger des listes</h1>
+      </header>
+
+      <div class="screen-body" id="mix-content">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
          ÉCRAN NOUVELLE LISTE
          ══════════════════════════════════════════════════════════ -->
     <div id="new-list-screen" class="screen">
@@ -96,18 +114,59 @@
         <div class="card">
           <h2>Saisir la liste</h2>
 
+          <!-- Type de liste : les deux choix toujours visibles -->
+          <div class="type-choice">
+            <button class="type-btn selected" id="type-btn-mots" onclick="setNewListType('mots')">
+              <span class="type-icon">✏️</span>Mots à réécrire
+            </button>
+            <button class="type-btn" id="type-btn-langue" onclick="setNewListType('langue')">
+              <span class="type-icon">🌍</span>Mots de langue
+            </button>
+            <button class="type-btn" id="type-btn-cartes" onclick="setNewListType('cartes-questions')">
+              <span class="type-icon">🃏</span>Cartes questions
+            </button>
+          </div>
+
           <label class="field-label" for="list-name-input">Nom de la liste</label>
           <input type="text" id="list-name-input" class="field" placeholder="Ex: Mots invariables semaine 1">
 
-          <label class="field-label" for="words-input">Mots (un par ligne ou séparés par des virgules)</label>
-          <textarea id="words-input" class="field" placeholder="alors&#10;après&#10;assez&#10;aujourd'hui&#10;avant" rows="8"></textarea>
+          <div id="new-list-mots">
+            <label class="field-label" for="words-input">Mots (un par ligne ou séparés par des virgules)</label>
+            <textarea id="words-input" class="field" placeholder="alors&#10;après&#10;assez&#10;aujourd'hui&#10;avant" rows="8"></textarea>
+          </div>
+
+          <div id="new-list-langue" class="hidden">
+            <div class="lang-row">
+              <label class="lang-pick">
+                <span class="field-label">On montre</span>
+                <select id="new-lang-from" class="field" onchange="renderLangLabel('new-')"></select>
+              </label>
+              <button class="btn-icon lang-swap" onclick="swapLangs('new-')" title="Inverser" aria-label="Inverser les langues">⇄</button>
+              <label class="lang-pick">
+                <span class="field-label">On écrit</span>
+                <select id="new-lang-to" class="field" onchange="renderLangLabel('new-')"></select>
+              </label>
+            </div>
+            <label class="field-label" for="new-lang-input" id="new-lang-label">Une ligne par mot : mot = traduction</label>
+            <textarea id="new-lang-input" class="field" placeholder="chat = cat&#10;chien = dog&#10;maison = house&#10;pomme = apple" rows="10" autocapitalize="none"></textarea>
+            <p class="hint">⇄ inverse aussi les mots déjà saisis.</p>
+            <div id="new-lang-errors" class="cards-errors hidden"></div>
+          </div>
+
+          <div id="new-list-cartes" class="hidden">
+            <label class="field-label" for="cards-input">Cartes : une par ligne, question = réponse</label>
+            <textarea id="cards-input" class="field" placeholder="Quelle est la capitale de l'Italie ? = Rome&#10;Combien de côtés a un hexagone ? = 6&#10;2 + 2 = ? | 4" rows="10" autocapitalize="sentences"></textarea>
+            <p class="hint">Un seul « = » par ligne. S'il en faut un dans le texte, sépare avec « | ».</p>
+            <div id="cards-errors" class="cards-errors hidden"></div>
+            <button class="btn btn-ghost btn-block mt-10" onclick="copyCardsPrompt()">📋 Copier la consigne pour une IA</button>
+          </div>
 
           <button class="btn btn-success btn-block mt-20" onclick="createListFromManualInput()">
             ✅ Créer la liste
           </button>
         </div>
 
-        <div class="card card-muted">
+        <div class="card card-muted" id="scan-card">
           <h2>Scanner une liste</h2>
           <p>Prends en photo ta liste de mots.</p>
           <button class="btn btn-ghost" onclick="startScan()">📷 Scanner</button>
@@ -130,8 +189,35 @@
           <label class="field-label" for="edit-list-name-input">Nom de la liste</label>
           <input type="text" id="edit-list-name-input" class="field" placeholder="Ex: Mots invariables semaine 1">
 
-          <label class="field-label" for="edit-words-input">Mots (un par ligne ou séparés par des virgules)</label>
-          <textarea id="edit-words-input" class="field" placeholder="alors&#10;après&#10;assez&#10;aujourd'hui&#10;avant" rows="8"></textarea>
+          <div id="edit-list-mots">
+            <label class="field-label" for="edit-words-input">Mots (un par ligne ou séparés par des virgules)</label>
+            <textarea id="edit-words-input" class="field" placeholder="alors&#10;après&#10;assez&#10;aujourd'hui&#10;avant" rows="8"></textarea>
+          </div>
+
+          <div id="edit-list-langue" class="hidden">
+            <div class="lang-row">
+              <label class="lang-pick">
+                <span class="field-label">On montre</span>
+                <select id="edit-lang-from" class="field" onchange="renderLangLabel('edit-')"></select>
+              </label>
+              <button class="btn-icon lang-swap" onclick="swapLangs('edit-')" title="Inverser" aria-label="Inverser les langues">⇄</button>
+              <label class="lang-pick">
+                <span class="field-label">On écrit</span>
+                <select id="edit-lang-to" class="field" onchange="renderLangLabel('edit-')"></select>
+              </label>
+            </div>
+            <label class="field-label" for="edit-lang-input" id="edit-lang-label">Une ligne par mot : mot = traduction</label>
+            <textarea id="edit-lang-input" class="field" placeholder="chat = cat&#10;chien = dog&#10;maison = house&#10;pomme = apple" rows="10" autocapitalize="none"></textarea>
+            <p class="hint">⇄ inverse aussi les mots déjà saisis.</p>
+            <div id="edit-lang-errors" class="cards-errors hidden"></div>
+          </div>
+
+          <div id="edit-list-cartes" class="hidden">
+            <label class="field-label" for="edit-cards-input">Cartes : une par ligne, question = réponse</label>
+            <textarea id="edit-cards-input" class="field" rows="12" autocapitalize="sentences"></textarea>
+            <p class="hint">Corriger une carte ne lui fait pas perdre sa boîte. Un seul « = » par ligne, sinon sépare avec « | ».</p>
+            <div id="edit-cards-errors" class="cards-errors hidden"></div>
+          </div>
 
           <button class="btn btn-success btn-block mt-20" onclick="saveEditedList()">
             ✅ Enregistrer
@@ -167,6 +253,7 @@
 
         <!-- Mot animé (affiché après "J'y suis") -->
         <div class="word-animation-container hidden" id="word-animation">
+          <div id="translation-prompt" class="translation-prompt hidden"></div>
           <div id="animated-word" class="animated-word"></div>
         </div>
 
@@ -230,15 +317,9 @@
       </header>
 
       <div class="screen-body">
-        <!-- Barre de session : étoiles du niveau + étoiles gagnées -->
+        <!-- Barre de session : avancement (une case par mot) + étoiles gagnées -->
         <div class="session-bar">
-          <div class="progress-stars" aria-label="Score du niveau">
-            <span class="star">⭐</span>
-            <span class="star">⭐</span>
-            <span class="star">⭐</span>
-            <span class="star">⭐</span>
-            <span class="star">⭐</span>
-          </div>
+          <div class="session-progress" id="session-progress" aria-label="Avancement de la session"></div>
           <div class="star-counter" id="session-star-counter">
             <span class="star-counter-icon">⭐</span>
             <span id="session-stars">0</span>
@@ -266,8 +347,9 @@
 
           <!-- Mot à compléter -->
           <div class="word-card">
-            <p class="word-card-title">Complète le mot</p>
+            <p class="word-card-title" id="word-card-title">Complète le mot</p>
             <p id="difficulty-hint" class="hint">Niveau 1 : 2 lettres à trouver</p>
+            <div id="interrogation-prompt" class="translation-prompt hidden"></div>
             <div id="user-input-display" class="word-tiles"></div>
             <button class="btn btn-listen" onclick="repeatWord()" aria-label="Réécouter le mot">
               🔊 Réécouter
@@ -343,6 +425,80 @@
 
         <!-- Feedback -->
         <div id="feedback-container"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN CARTES QUESTIONS (cartes à retourner)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="cartes-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showListsScreen()" aria-label="Retour">←</button>
+        <h1>🃏 Cartes questions</h1>
+        <span class="progress-chip" id="cartes-progress">Carte 1/10</span>
+      </header>
+
+      <div class="screen-body">
+        <p class="intro" id="cartes-list-name"></p>
+        <div class="session-progress mb-20" id="cartes-session-progress" aria-label="Avancement de la session"></div>
+
+        <!-- La carte : question devant, réponse derrière. Un appui la retourne. -->
+        <div class="flip-scene">
+          <div class="flip-card" id="flip-card" onclick="flipCarte()" role="button" aria-label="Retourner la carte">
+            <div class="flip-face flip-front">
+              <span class="flip-label">❓ Question</span>
+              <div id="carte-question" class="carte-text"></div>
+            </div>
+            <div class="flip-face flip-back">
+              <span class="flip-label">💡 Réponse</span>
+              <div id="carte-answer" class="carte-text"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-center">
+          <button class="btn btn-listen" onclick="speakCarte()" aria-label="Écouter la carte">🔊 Écouter</button>
+        </div>
+
+        <!-- Avant : retourner. Après : dire si on savait. -->
+        <div id="cartes-flip-zone" class="text-center mt-20">
+          <button class="btn btn-primary btn-big" onclick="flipCarte()">🔄 Retourner la carte</button>
+          <p class="hint">Dis ta réponse à voix haute, puis retourne la carte</p>
+        </div>
+        <div id="cartes-verdict-zone" class="cartes-verdict hidden">
+          <button class="btn btn-verdict verdict-review" onclick="answerCarte(false)">🔁 À revoir</button>
+          <button class="btn btn-verdict verdict-known" onclick="answerCarte(true)">✅ Je savais</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN ESPACE PARENTS (sauvegarde des données)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="parents-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1>👨‍👩‍👧 Espace parents</h1>
+      </header>
+
+      <div class="screen-body">
+        <div class="card hidden" id="account-card">
+          <!-- Rempli dynamiquement par renderAccountCard() -->
+        </div>
+
+        <div class="card">
+          <h2>Sauvegarde</h2>
+          <p class="hint" id="parents-summary"></p>
+          <p>Toutes les données (listes, progression, étoiles, stickers, kawaii, maison) sont rangées dans un seul fichier. Garde-le dans Fichiers, iCloud ou envoie-le-toi par mail.</p>
+          <button class="btn btn-primary btn-block mt-20" onclick="exportData()">💾 Sauvegarder dans un fichier</button>
+        </div>
+
+        <div class="card">
+          <h2>Restauration</h2>
+          <p>Remplace les données de cet appareil par celles d'un fichier de sauvegarde.</p>
+          <button class="btn btn-ghost btn-block mt-20" onclick="document.getElementById('import-file').click()">📂 Restaurer depuis un fichier</button>
+          <input type="file" id="import-file" class="hidden" accept=".json,application/json,text/plain" onchange="importData(this)">
+        </div>
       </div>
     </div>
 
@@ -484,8 +640,10 @@
   </div>
 
   <!-- Scripts -->
-  <script src="data/lieux.js?v=11"></script>
-  <script src="js/kawaii.js?v=11"></script>
-  <script src="js/app.js?v=11"></script>
+  <script src="data/lieux.js?v=15"></script>
+  <script src="js/kawaii.js?v=15"></script>
+  <script src="js/config.js?v=15"></script>
+  <script src="js/sync.js?v=15"></script>
+  <script src="js/app.js?v=15"></script>
 </body>
 </html>

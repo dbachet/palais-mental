@@ -28,8 +28,11 @@ const AppState = {
   missingLettersCount: 0, // Nombre de lettres à trouver
   wordPattern: '', // Mot avec _ pour les lettres manquantes
   isValidating: false, // Flag pour empêcher les validations multiples
-  lastLearnedWords: [], // Mots vus lors du dernier apprentissage
+  lastLearnedWords: [], // Mots vus lors du dernier apprentissage : [{ word, list }]
+  allApprentissageLevels: [], // Tous les paquets de la visite en cours
   allInterrogationLevels: [], // Tous les niveaux de l'interrogation en cours
+  sessionLists: [], // Listes de la session en cours (plusieurs pour un mix)
+  sessionByList: {}, // Réussite par liste pendant la session : { listId: { correct, total } }
   sessionStars: 0, // Étoiles gagnées pendant la session en cours
   sessionCorrect: 0, // Bonnes réponses sur toute la session (tous paquets)
   sessionTotal: 0, // Questions posées sur toute la session
@@ -43,7 +46,8 @@ const AppState = {
   editingListId: null, // ID de la liste en cours d'édition
   soundEnabled: true, // Son activé par défaut
   volume: 1, // Volume des sons (0 à 1)
-  sessionReplay: null // Fonction pour rejouer la session d'interrogation en cours
+  sessionReplay: null, // Fonction pour rejouer la session d'interrogation en cours
+  reloadOnHome: false // Données reçues d'un autre appareil : recharger au retour à l'accueil
 };
 
 // ───────────────────────────────────────────────────────────────
@@ -131,12 +135,134 @@ const Storage = {
     return list;
   },
 
+  // ── Listes « cartes questions » ──
+  // Même tiroir que les listes de mots (wordLists), avec type: 'cartes-questions'.
+  // Une liste sans type est une liste de mots. words/wordLocations/progress
+  // restent vides pour que le reste de l'app (palais, mots à travailler) les ignore.
+  // Carte : { id, q, a, box } — box 0 = jamais vue, 1 = à revoir, 2 = ça vient, 3 = connue.
+  // La progression est attachée à l'id : on peut corriger une question sans la perdre.
+
+  isCardList(list) {
+    return list.type === 'cartes-questions';
+  },
+
+  addCardList(name, pairs) {
+    const lists = this.getLists();
+    const newList = {
+      id: Date.now(),
+      type: 'cartes-questions',
+      name,
+      createdAt: new Date().toISOString(),
+      words: [],
+      wordLocations: {},
+      progress: {},
+      cards: pairs.map((p, i) => ({ id: i + 1, q: p.q, a: p.a, box: 0 })),
+      nextCardId: pairs.length + 1,
+      ninja: false
+    };
+    lists.push(newList);
+    this.saveLists(lists);
+    return newList;
+  },
+
+  // Remplace les cartes par celles saisies, en gardant la boîte des cartes
+  // reconnues : même question, sinon même réponse, sinon même ligne
+  // (quand le nombre de lignes n'a pas changé).
+  updateCardList(listId, name, pairs) {
+    const lists = this.getLists();
+    const list = lists.find(l => l.id === listId);
+    if (!list) return null;
+
+    const old = list.cards || [];
+    const taken = new Set();
+    const claim = (test) => {
+      const card = old.find(c => !taken.has(c.id) && test(c));
+      if (card) taken.add(card.id);
+      return card;
+    };
+    const matches = pairs.map(p => claim(c => c.q === p.q));
+    pairs.forEach((p, i) => { if (!matches[i]) matches[i] = claim(c => c.a === p.a); });
+    if (pairs.length === old.length) {
+      pairs.forEach((p, i) => { if (!matches[i]) matches[i] = claim(c => c === old[i]); });
+    }
+
+    let nextId = list.nextCardId || old.reduce((max, c) => Math.max(max, c.id), 0) + 1;
+    list.cards = pairs.map((p, i) => {
+      const card = matches[i];
+      return card ? { ...card, q: p.q, a: p.a } : { id: nextId++, q: p.q, a: p.a, box: 0 };
+    });
+    list.nextCardId = nextId;
+    list.name = name;
+    this.saveLists(lists);
+    return list;
+  },
+
+  // Range une carte dans une boîte. Toutes les cartes en boîte 3 = liste Ninja,
+  // et ça ne redescend jamais. Retourne true si la liste vient de devenir Ninja.
+  setCardBox(listId, cardId, box) {
+    const lists = this.getLists();
+    const list = lists.find(l => l.id === listId);
+    const card = list && (list.cards || []).find(c => c.id === cardId);
+    if (!card) return false;
+    card.box = box;
+    const becameNinja = !list.ninja && list.cards.every(c => c.box >= 3);
+    if (becameNinja) list.ninja = true;
+    this.saveLists(lists);
+    return becameNinja;
+  },
+
+  // ── Listes de langue ──
+  // Une liste de mots avec type: 'langue'. words = les traductions à écrire
+  // (niveaux, lieux et progression marchent donc comme pour une liste de mots),
+  // translations = { traduction: mot de départ }, langFrom → langTo.
+
+  isLangList(list) {
+    return list.type === 'langue';
+  },
+
+  addLangList(name, langFrom, langTo, pairs) {
+    const list = this.addList(name, pairs.map(p => p.a));
+    const lists = this.getLists();
+    const saved = lists.find(l => l.id === list.id);
+    Object.assign(saved, { type: 'langue', langFrom, langTo, translations: translationsOf(pairs) });
+    this.saveLists(lists);
+    return saved;
+  },
+
+  updateLangList(listId, name, langFrom, langTo, pairs) {
+    if (!this.updateList(listId, name, pairs.map(p => p.a))) return null;
+    const lists = this.getLists();
+    const list = lists.find(l => l.id === listId);
+    Object.assign(list, { langFrom, langTo, translations: translationsOf(pairs) });
+    this.saveLists(lists);
+    return list;
+  },
+
+  isListNinja(list) {
+    if (this.isCardList(list)) return !!list.ninja;
+    return this.getListLevel(list) >= this.getListMaxLevel(list);
+  },
+
   // Supprime une liste
   deleteList(listId) {
     const lists = this.getLists();
     const filtered = lists.filter(l => l.id !== listId);
     this.saveLists(filtered);
     return filtered.length < lists.length; // true si suppression réussie
+  },
+
+  // Listes cochées dans « Mélanger des listes » : retrouvées d'une fois sur l'autre
+  getMixSelection() {
+    try {
+      const ids = JSON.parse(localStorage.getItem('mixSelection') || '[]');
+      return Array.isArray(ids) ? ids : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  saveMixSelection(listIds) {
+    localStorage.setItem('mixSelection', JSON.stringify(listIds));
   },
 
   // Assigne les emplacements aux mots de façon DÉTERMINISTE
@@ -328,7 +454,7 @@ const Storage = {
 
   // Nombre de compagnons débloqués = nombre de listes au niveau Ninja (max 5)
   getCompanionSlots() {
-    const ninja = this.getLists().filter(l => this.getListLevel(l) >= this.getListMaxLevel(l)).length;
+    const ninja = this.getLists().filter(l => this.isListNinja(l)).length;
     return Math.min(5, ninja);
   },
 
@@ -527,6 +653,13 @@ const Storage = {
 // ───────────────────────────────────────────────────────────────
 
 function showScreen(screenId) {
+  // Des données d'un autre appareil sont arrivées pendant une session :
+  // on repart de l'accueil avec un état tout neuf
+  if (screenId === 'home' && AppState.reloadOnHome) {
+    window.location.reload();
+    return;
+  }
+
   // Nettoie les timers et animations en cours avant de changer d'écran
   cleanupCurrentScreen();
 
@@ -540,7 +673,10 @@ function showScreen(screenId) {
     AppState.currentScreen = screenId;
   }
 
-  if (screenId === 'home') renderHome();
+  if (screenId === 'home') {
+    renderHome();
+    renderSyncStatus();
+  }
   window.scrollTo(0, 0);
 }
 
@@ -695,19 +831,88 @@ function splitIntoLevels(words) {
 // MODE APPRENTISSAGE - Visite du palais
 // ───────────────────────────────────────────────────────────────
 
+// ── Sessions sur une ou plusieurs listes (mix) ──
+// Une session est une suite de { word, list }. Chaque mot garde sa liste :
+// son lieu, son niveau de difficulté et sa progression en dépendent.
+
+function sessionItems(lists) {
+  return lists.flatMap(list => list.words.map(word => ({ word, list })));
+}
+
+// Listes de mots (pas les cartes questions) correspondant aux ids, dans l'ordre de « Mes listes »
+function wordListsByIds(listIds) {
+  return Storage.getLists().filter(l => listIds.includes(l.id) && !Storage.isCardList(l));
+}
+
+// Installe le mot en cours : sa liste, son lieu et le niveau de sa liste
+function setCurrentItem(item) {
+  AppState.currentList = item.list;
+  AppState.currentWord = item.word;
+  AppState.currentLocation = item.list.wordLocations[item.word];
+  AppState.listLevel = Storage.getListLevel(item.list);
+  AppState.listMaxLevel = Storage.getListMaxLevel(item.list);
+}
+
+// { traduction: mot de départ } à partir des lignes « mot = traduction »
+function translationsOf(pairs) {
+  const translations = {};
+  pairs.forEach(p => { translations[p.a] = p.q; });
+  return translations;
+}
+
+// Mot de départ d'une liste de langue (null pour une liste de mots)
+function promptOf(list, word) {
+  if (!Storage.isLangList(list)) return null;
+  return (list.translations || {})[word] || null;
+}
+
+function langInfo(code) {
+  return LANGUES[code] || LANGUES.fr;
+}
+
+// Mot de départ de la question en cours, avec son drapeau
+function promptHTML(list, word) {
+  const prompt = promptOf(list, word);
+  if (!prompt) return '';
+  const from = langInfo(list.langFrom);
+  const to = langInfo(list.langTo);
+  return `
+    <div class="translation-word"><span class="translation-flag">${from.drapeau}</span>${escapeText(prompt)}</div>
+    <div class="translation-to">en ${to.nom} ${to.drapeau}</div>
+  `;
+}
+
+function showTranslationPrompt(containerId) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  const html = promptHTML(AppState.currentList, AppState.currentWord);
+  box.innerHTML = html;
+  box.classList.toggle('hidden', !html);
+}
+
+function isMixSession() {
+  return AppState.sessionLists.length > 1;
+}
+
 function startApprentissage(listId) {
-  const lists = Storage.getLists();
-  const list = lists.find(l => l.id === listId);
+  startApprentissageOnLists([listId]);
+}
 
-  if (!list) return;
+// Une liste seule : visite dans l'ordre des mots.
+// Mix : les mots de toutes les listes sont mélangés entre eux, comme à l'interrogation.
+function startApprentissageOnLists(listIds) {
+  const lists = wordListsByIds(listIds);
+  const items = sessionItems(lists);
+  if (items.length === 0) return;
+  if (lists.length > 1) shuffleArray(items);
 
-  AppState.currentList = list;
+  AppState.sessionLists = lists;
   AppState.currentMode = 'apprentissage';
   AppState.currentLevel = 0;
   AppState.currentWordIndex = 0;
 
-  const levels = splitIntoLevels(list.words);
-  AppState.currentLevelWords = levels[AppState.currentLevel];
+  AppState.allApprentissageLevels = splitIntoLevels(items);
+  AppState.currentLevelWords = AppState.allApprentissageLevels[AppState.currentLevel];
 
   showApprentissageScreen();
 }
@@ -715,11 +920,8 @@ function startApprentissage(listId) {
 function showApprentissageScreen() {
   showScreen('apprentissage');
 
-  const word = AppState.currentLevelWords[AppState.currentWordIndex];
-  const location = AppState.currentList.wordLocations[word];
-
-  AppState.currentWord = word;
-  AppState.currentLocation = location;
+  setCurrentItem(AppState.currentLevelWords[AppState.currentWordIndex]);
+  const location = AppState.currentLocation;
 
   // Met à jour la progression
   const progress = document.getElementById('apprentissage-progress');
@@ -729,6 +931,7 @@ function showApprentissageScreen() {
 
   // Affiche uniquement le lieu et le bouton "J'y suis"
   displayLocation(location);
+  document.getElementById('translation-prompt').classList.add('hidden');
 
   // Cache l'animation du mot, les contrôles et le bouton suivant
   document.getElementById('word-animation').classList.add('hidden');
@@ -765,8 +968,9 @@ async function showWordToTrace() {
   }, 100);
 
   // Lit le mot à voix haute PUIS lance l'animation avec les notes
+  showTranslationPrompt('translation-prompt');
   console.log('Lecture du mot:', AppState.currentWord);
-  speakWord(AppState.currentWord, () => {
+  speakCurrent(() => {
     // Callback appelé quand la lecture vocale est TERMINÉE
     console.log('Début de l\'animation avec les notes musicales');
 
@@ -785,8 +989,10 @@ function levelName(level, maxLevel) {
   return LEVEL_NAMES[Math.min(level, LEVEL_NAMES.length - 1)];
 }
 
+// L'interrogation complète se joue toujours au niveau Ninja : l'enfant peut
+// gagner le Ninja (et son compagnon) sans passer par tous les niveaux.
 function isNinjaLevel() {
-  return AppState.interrogationMode === 'progressive' && AppState.listLevel >= AppState.listMaxLevel;
+  return AppState.interrogationMode === 'complete' || AppState.listLevel >= AppState.listMaxLevel;
 }
 
 // Étoiles par bonne réponse : la base du mode + le niveau de la liste
@@ -1016,7 +1222,7 @@ function nextWordInApprentissage() {
 
 function finishApprentissageLevel() {
   // Passe au niveau suivant ou termine
-  const levels = splitIntoLevels(AppState.currentList.words);
+  const levels = AppState.allApprentissageLevels;
 
   if (AppState.currentLevel < levels.length - 1) {
     AppState.currentLevel++;
@@ -1027,7 +1233,7 @@ function finishApprentissageLevel() {
     setTimeout(() => showApprentissageScreen(), 2000);
   } else {
     // Sauvegarde les mots appris pour l'interrogation
-    AppState.lastLearnedWords = [...AppState.currentList.words];
+    AppState.lastLearnedWords = levels.flat();
 
     // Propose de faire l'interrogation sur les mots vus
     showApprentissageComplete();
@@ -1088,73 +1294,55 @@ function startInterrogationComplete(listId) {
 }
 
 function startInterrogationBase(listId, wordsSubset) {
-  // Pour le bouton "Rejouer" de l'écran de résultats
-  const mode = AppState.interrogationMode;
-  AppState.sessionReplay = () => {
-    AppState.interrogationMode = mode;
-    AppState.errors = [];
-    startInterrogationBase(listId, wordsSubset);
-  };
-
-  const lists = Storage.getLists();
-  const list = lists.find(l => l.id === listId);
+  const list = wordListsByIds([listId])[0];
 
   if (!list) {
     console.error('Liste introuvable:', listId);
     return;
   }
 
-  console.log('Liste trouvée:', list.name, '- Mots:', list.words);
-  console.log('Mode:', AppState.interrogationMode);
+  const words = wordsSubset || list.words;
+  startInterrogationOnItems(words.map(word => ({ word, list })));
+}
 
-  AppState.currentList = list;
-  AppState.currentMode = 'interrogation';
-  AppState.currentLevel = 0;
-  AppState.currentWordIndex = 0;
-  AppState.score = 0;
-  AppState.totalQuestions = 0;
-  AppState.sessionStars = 0;
-  AppState.sessionCorrect = 0;
-  AppState.sessionTotal = 0;
-  AppState.listLevel = Storage.getListLevel(AppState.currentList);
-  AppState.listMaxLevel = Storage.getListMaxLevel(AppState.currentList);
-  updateSessionStarCounter(0);
-
-  // Interrogation sur TOUS les mots de la liste (randomisés)
-  const allWords = wordsSubset ? [...wordsSubset] : [...list.words];
-  console.log('Mots avant shuffle:', allWords);
-  shuffleArray(allWords);
-  console.log('Mots après shuffle:', allWords);
-
-  // Sauvegarde tous les niveaux
-  AppState.allInterrogationLevels = splitIntoLevels(allWords);
-  console.log(`Niveaux créés: ${AppState.allInterrogationLevels.length} niveau(x)`);
-  AppState.allInterrogationLevels.forEach((level, i) => {
-    console.log(`  Niveau ${i}: ${level.length} mots -`, level);
-  });
-
-  AppState.currentLevelWords = AppState.allInterrogationLevels[AppState.currentLevel];
-  console.log('Niveau actuel (0):', AppState.currentLevelWords);
-
-  showInterrogationScreen();
+// Mix : tous les mots des listes choisies, mélangés entre eux
+function startInterrogationOnLists(listIds, mode) {
+  AppState.interrogationMode = mode;
+  startInterrogationOnItems(sessionItems(wordListsByIds(listIds)));
 }
 
 function startInterrogationAfterLearning() {
   console.log('=== DÉMARRAGE INTERROGATION APRÈS APPRENTISSAGE ===');
 
-  // Interrogation en mode progressif après l'apprentissage
-  AppState.interrogationMode = 'progressive';
-  AppState.errors = [];
-
-  // Interrogation uniquement sur les mots qui viennent d'être appris (randomisés)
-  if (!AppState.currentList || AppState.lastLearnedWords.length === 0) {
-    console.error('Pas de liste ou pas de mots appris');
+  // Interrogation uniquement sur les mots qui viennent d'être appris
+  if (AppState.lastLearnedWords.length === 0) {
+    console.error('Pas de mots appris');
     showScreen('home');
     return;
   }
 
-  console.log('Mots appris:', AppState.lastLearnedWords);
+  // Interrogation en mode progressif après l'apprentissage
+  AppState.interrogationMode = 'progressive';
+  startInterrogationOnItems(AppState.lastLearnedWords);
+}
 
+// Lance une interrogation sur une suite de { word, list } (mélangée ici)
+function startInterrogationOnItems(sessionWords) {
+  if (sessionWords.length === 0) return;
+
+  // Pour le bouton "Rejouer" de l'écran de résultats : mêmes mots, même mode
+  const mode = AppState.interrogationMode;
+  const replayItems = [...sessionWords];
+  AppState.sessionReplay = () => {
+    AppState.interrogationMode = mode;
+    startInterrogationOnItems(replayItems);
+  };
+
+  console.log('Mode:', mode, '- Mots:', sessionWords.map(item => item.word));
+
+  AppState.sessionLists = [...new Set(sessionWords.map(item => item.list))];
+  AppState.sessionByList = {};
+  AppState.errors = [];
   AppState.currentMode = 'interrogation';
   AppState.currentLevel = 0;
   AppState.currentWordIndex = 0;
@@ -1163,34 +1351,13 @@ function startInterrogationAfterLearning() {
   AppState.sessionStars = 0;
   AppState.sessionCorrect = 0;
   AppState.sessionTotal = 0;
-  AppState.listLevel = Storage.getListLevel(AppState.currentList);
-  AppState.listMaxLevel = Storage.getListMaxLevel(AppState.currentList);
   updateSessionStarCounter(0);
 
-  // Randomise les mots appris
-  const learnedWords = [...AppState.lastLearnedWords];
-
-  // Pour le bouton "Rejouer" : même liste, mêmes mots appris
-  const replayList = AppState.currentList;
-  const replayWords = [...learnedWords];
-  AppState.sessionReplay = () => {
-    AppState.currentList = replayList;
-    AppState.lastLearnedWords = [...replayWords];
-    startInterrogationAfterLearning();
-  };
-  console.log('Mots avant shuffle:', learnedWords);
-  shuffleArray(learnedWords);
-  console.log('Mots après shuffle:', learnedWords);
-
-  // Sauvegarde tous les niveaux
-  AppState.allInterrogationLevels = splitIntoLevels(learnedWords);
+  // Mots randomisés, puis découpés en niveaux
+  AppState.allInterrogationLevels = splitIntoLevels(shuffleArray([...sessionWords]));
   console.log(`Niveaux créés: ${AppState.allInterrogationLevels.length} niveau(x)`);
-  AppState.allInterrogationLevels.forEach((level, i) => {
-    console.log(`  Niveau ${i}: ${level.length} mots -`, level);
-  });
 
   AppState.currentLevelWords = AppState.allInterrogationLevels[AppState.currentLevel];
-  console.log('Niveau actuel (0):', AppState.currentLevelWords);
 
   showInterrogationScreen();
 }
@@ -1209,15 +1376,13 @@ function showInterrogationScreen() {
   console.log(`Index mot: ${AppState.currentWordIndex}, total: ${AppState.currentLevelWords.length}`);
 
   showScreen('interrogation');
+  renderSessionProgress('session-progress', AppState.currentLevelWords.length, AppState.currentWordIndex);
 
-  const word = AppState.currentLevelWords[AppState.currentWordIndex];
-  console.log(`Mot à afficher: "${word}"`);
+  setCurrentItem(AppState.currentLevelWords[AppState.currentWordIndex]);
+  const word = AppState.currentWord;
+  const location = AppState.currentLocation;
+  console.log(`Mot à afficher: "${word}"`, location);
 
-  const location = AppState.currentList.wordLocations[word];
-  console.log(`Emplacement:`, location);
-
-  AppState.currentWord = word;
-  AppState.currentLocation = location;
   AppState.userInput = '';
 
   // Met à jour la progression (affiche le progrès dans le niveau actuel)
@@ -1242,10 +1407,20 @@ function showInterrogationScreen() {
     const perWord = starsPerWord(AppState.interrogationMode, AppState.listLevel);
     const n = AppState.missingLettersCount;
     let what = `${n} lettre${n > 1 ? 's' : ''} à trouver`;
-    if (AppState.interrogationMode === 'complete') what = 'tout le mot';
-    else if (isNinjaLevel()) what = 'tout le mot, avec des cases en trop';
-    const name = AppState.interrogationMode === 'complete' ? 'Complet' : levelName(AppState.listLevel, AppState.listMaxLevel);
-    difficultyHint.textContent = `Niveau ${AppState.listLevel + 1} (${name}) · ${what} · ${perWord} ⭐ par mot`;
+    if (isNinjaLevel()) what = 'tout le mot, avec des cases en trop';
+    // Dans un mix, chaque mot est demandé au niveau de sa liste : on dit laquelle
+    const from = isMixSession() ? `${AppState.currentList.name} · ` : '';
+    const level = AppState.interrogationMode === 'complete'
+      ? 'Ninja 🥷'
+      : `Niveau ${AppState.listLevel + 1} (${levelName(AppState.listLevel, AppState.listMaxLevel)})`;
+    difficultyHint.textContent = `${from}${level} · ${what} · ${perWord} ⭐ par mot`;
+  }
+
+  const title = document.getElementById('word-card-title');
+  if (title) {
+    title.textContent = Storage.isLangList(AppState.currentList)
+      ? `Traduis en ${langInfo(AppState.currentList.langTo).nom}`
+      : 'Complète le mot';
   }
 
   console.log('showInterrogationScreen terminé');
@@ -1273,9 +1448,10 @@ function showInterrogationQuestion() {
   }
 
   updateInputDisplay();
+  showTranslationPrompt('interrogation-prompt');
 
-  // Dicte le mot (si Web Speech API disponible)
-  speakWord(AppState.currentWord);
+  // Dicte le mot, ou le mot à traduire (si Web Speech API disponible)
+  speakQuestion();
 
   // Réinitialise la barre de timer
   const timerBar = document.getElementById('interrogation-timer-fill');
@@ -1306,16 +1482,8 @@ function createWordPattern(word) {
 
   AppState.decoyCount = 0;
 
-  // MODE COMPLET : tout le mot est masqué
-  if (AppState.interrogationMode === 'complete') {
-    AppState.missingLettersStart = 0;
-    AppState.missingLettersCount = wordLength;
-    AppState.wordPattern = '_'.repeat(wordLength);
-    return;
-  }
-
-  // NIVEAU NINJA : mot entier masqué + 1 ou 2 cases pièges,
-  // pour ne pas savoir combien de lettres il faut écrire
+  // NIVEAU NINJA (et interrogation complète) : mot entier masqué + 1 ou 2
+  // cases pièges, pour ne pas savoir combien de lettres il faut écrire
   if (isNinjaLevel()) {
     AppState.missingLettersStart = 0;
     AppState.missingLettersCount = wordLength;
@@ -1359,13 +1527,34 @@ function createWordPattern(word) {
 function repeatWord() {
   if (!AppState.currentWord) return;
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-  speakWord(AppState.currentWord);
+  speakQuestion();
 }
 
-function speakWord(word, onEndCallback) {
+// Interrogation : le mot à écrire, ou pour une liste de langue le mot à
+// traduire (dire la traduction donnerait la réponse)
+function speakQuestion() {
+  const list = AppState.currentList;
+  const prompt = promptOf(list, AppState.currentWord);
+  if (prompt) speakWord(prompt, null, langInfo(list.langFrom).voix);
+  else speakWord(AppState.currentWord);
+}
+
+// Visite : le mot, ou le mot de départ puis sa traduction, chacun dans sa langue
+function speakCurrent(onEnd) {
+  const list = AppState.currentList;
+  const word = AppState.currentWord;
+  const prompt = promptOf(list, word);
+  if (!prompt) {
+    speakWord(word, onEnd);
+    return;
+  }
+  speakWord(prompt, () => speakWord(word, onEnd, langInfo(list.langTo).voix), langInfo(list.langFrom).voix);
+}
+
+function speakWord(word, onEndCallback, lang = 'fr-FR') {
   if ('speechSynthesis' in window) {
     const utterance = new SpeechSynthesisUtterance(word);
-    utterance.lang = 'fr-FR';
+    utterance.lang = lang;
     utterance.rate = 0.8;
     utterance.volume = AppState.volume;
 
@@ -1558,6 +1747,12 @@ function validateAnswer() {
 
   console.log(`Après normalisation: input="${normalizedInput}", expected="${normalizedExpected}", correct=${correct}`);
 
+  // Réussite par liste : dans un mix, chaque liste passe son niveau sur ses propres mots
+  const listId = AppState.currentList.id;
+  const stat = AppState.sessionByList[listId] || (AppState.sessionByList[listId] = { correct: 0, total: 0 });
+  stat.total++;
+  if (correct) stat.correct++;
+
   if (correct) {
     AppState.score++;
     AppState.sessionCorrect++;
@@ -1575,6 +1770,7 @@ function validateAnswer() {
     // Enregistre l'erreur
     AppState.errors.push({
       word: AppState.currentWord,
+      prompt: promptOf(AppState.currentList, AppState.currentWord),
       expected: expectedLetters,
       userInput: AppState.userInput,
       wordPattern: AppState.wordPattern
@@ -1652,7 +1848,9 @@ function finishInterrogationLevel() {
 
   // Sans-faute : bonus d'étoiles + coffre rare garanti
   if (perfect) {
-    const bonus = ECONOMIE.bonusSansFaute + AppState.listLevel;
+    // Dans un mix, le bonus suit la liste la moins avancée du paquet
+    const level = Math.min(...AppState.currentLevelWords.map(item => Storage.getListLevel(item.list)));
+    const bonus = ECONOMIE.bonusSansFaute + level;
     Storage.addStars(bonus);
     AppState.sessionStars += bonus;
     Storage.grantChest('rare');
@@ -1684,25 +1882,33 @@ function showResultsScreen() {
   const container = document.getElementById('results-content');
   if (!container) return;
 
-  const scorePercent = AppState.totalQuestions > 0
-    ? (AppState.score / AppState.totalQuestions) * 100
+  // Score de toute la session (tous les paquets de 10), pas seulement du dernier
+  const scorePercent = AppState.sessionTotal > 0
+    ? (AppState.sessionCorrect / AppState.sessionTotal) * 100
     : 0;
   const starsCount = Math.floor(scorePercent / 20); // 0-5 étoiles
   const freeStickers = Storage.getFreeStickers().reduce((sum, x) => sum + x.count, 0);
 
-  // Passage de niveau : session réussie à 80 % ou plus (mode progressif).
-  // Le niveau ne redescend jamais.
+  // Passage de niveau : session réussie à 80 % ou plus. En mode progressif,
+  // un niveau de plus ; en interrogation complète (jouée en Ninja), directement Ninja.
+  // Le niveau ne redescend jamais. Dans un mix, chaque liste est jugée sur ses propres mots.
   let levelHTML = '';
-  if (AppState.interrogationMode === 'progressive' && AppState.currentList && AppState.sessionTotal > 0) {
-    const list = AppState.currentList;
+  const complete = AppState.interrogationMode === 'complete';
+  const mix = isMixSession();
+  AppState.sessionLists.forEach(list => {
+    const stat = AppState.sessionByList[list.id];
+    if (!stat || stat.total === 0) return;
+
     const level = Storage.getListLevel(list);
     const maxLevel = Storage.getListMaxLevel(list);
-    const accuracy = AppState.sessionCorrect / AppState.sessionTotal;
+    const accuracy = stat.correct / stat.total;
+    const name = mix ? `${escapeText(list.name)} · ` : '';
 
     if (accuracy >= ECONOMIE.seuilPassageNiveau && level < maxLevel) {
-      const next = level + 1;
+      const next = complete ? maxLevel : level + 1;
       const slotsBefore = Storage.getCompanionSlots();
       Storage.setListLevel(list.id, next);
+      list.level = next; // la session garde sa copie de la liste : "Rejouer" repart du nouveau niveau
       const ninja = next >= maxLevel;
       if (ninja && Storage.getCompanionSlots() > slotsBefore) {
         AppState.newCompanionUnlocked = true;
@@ -1710,26 +1916,27 @@ function showResultsScreen() {
       const sub = ninja
         ? 'Mot entier avec des cases en trop'
         : `${2 + next} lettres à trouver`;
-      levelHTML = `
+      levelHTML += `
         <div class="level-up">
           <div class="level-up-icon">${ninja ? '🥷' : '🚀'}</div>
-          <div class="level-up-title">Niveau ${next + 1} atteint : ${levelName(next, maxLevel)} !</div>
+          <div class="level-up-title">${name}Niveau ${next + 1} atteint : ${levelName(next, maxLevel)} !</div>
           <div class="level-up-sub">${sub} · ${starsPerWord('progressive', next)} ⭐ par mot</div>
         </div>
       `;
     } else if (level >= maxLevel) {
-      levelHTML = `<div class="level-up quiet">🥷 Niveau maximum : ${levelName(level, maxLevel)}</div>`;
+      levelHTML += `<div class="level-up quiet">${name}🥷 Niveau maximum : ${levelName(level, maxLevel)}</div>`;
     } else {
       const needed = Math.ceil(ECONOMIE.seuilPassageNiveau * 100);
-      levelHTML = `<div class="level-up quiet">Niveau ${level + 1} (${levelName(level, maxLevel)}) · ${needed} % de réussite pour passer au suivant</div>`;
+      const goal = complete ? 'devenir Ninja 🥷' : 'passer au suivant';
+      levelHTML += `<div class="level-up quiet">${name}Niveau ${level + 1} (${levelName(level, maxLevel)}) · ${needed} % de réussite pour ${goal}</div>`;
     }
-  }
+  });
 
   let html = `
     <div class="result-hero">
       <div class="result-icon">${scorePercent === 100 ? '🏆' : '👏'}</div>
       <h2>${scorePercent === 100 ? 'Parfait !' : 'Bien joué !'}</h2>
-      <p class="result-score">${AppState.score} / ${AppState.totalQuestions}</p>
+      <p class="result-score">${AppState.sessionCorrect} / ${AppState.sessionTotal}</p>
       <div class="result-stars">${'⭐'.repeat(starsCount)}${'☆'.repeat(5 - starsCount)}</div>
       ${AppState.sessionStars > 0 ? `<div class="stars-earned">+${AppState.sessionStars} ⭐ gagnées</div>` : ''}
     </div>
@@ -1744,7 +1951,7 @@ function showResultsScreen() {
     AppState.errors.forEach(error => {
       html += `
         <div class="error-item">
-          <div class="error-word">${error.word}</div>
+          <div class="error-word">${error.prompt ? `${escapeText(error.prompt)} → ` : ''}${escapeText(error.word)}</div>
           <div class="error-detail">Il fallait : <span class="error-expected">${error.expected}</span></div>
           <div class="error-detail">Tu as écrit : <span class="error-given">${error.userInput || '(rien)'}</span></div>
         </div>
@@ -1800,23 +2007,25 @@ function updateScoreDisplay() {
   updateProgressStars();
 }
 
+// Avancement de la session : une case par mot, remplie quand le mot est fait,
+// entourée pour le mot en cours. Neutre : elle ne dit pas si c'était juste
+// (les ⭐ sont réservées aux étoiles gagnées, à droite).
+function renderSessionProgress(containerId, total, done) {
+  const bar = document.getElementById(containerId);
+  if (!bar) return;
+  let html = '';
+  for (let i = 0; i < total; i++) {
+    html += `<span class="seg${i < done ? ' done' : (i === done ? ' current' : '')}"></span>`;
+  }
+  bar.innerHTML = html;
+}
+
 function updateProgressStars() {
-  const stars = document.querySelectorAll('.star');
-  const scorePercent = (AppState.score / AppState.totalQuestions) * 10;
+  renderSessionProgress('session-progress', AppState.currentLevelWords.length, AppState.totalQuestions);
 
-  // Paliers : 3/10, 5/10, 7/10, 9/10, 10/10
-  const thresholds = [3, 5, 7, 9, 10];
-
-  stars.forEach((star, index) => {
-    if (scorePercent >= thresholds[index]) {
-      star.classList.add('filled');
-    } else {
-      star.classList.remove('filled');
-    }
-  });
-
-  // Feux d'artifice si score parfait (5 étoiles = 10/10)
-  if (scorePercent === 10 && AppState.totalQuestions >= 5) {
+  // Feux d'artifice si sans-faute à la fin du niveau
+  const total = AppState.currentLevelWords.length;
+  if (AppState.totalQuestions === total && AppState.score === total && total >= 5) {
     triggerFireworks();
   }
 }
@@ -1990,50 +2199,346 @@ function refreshListsDisplay() {
     return;
   }
 
-  let html = '';
-  lists.forEach(list => {
-    const wordCount = list.words.length;
-    const masteredCount = list.words.filter(w => {
-      const p = list.progress[w];
-      return p && p.lastScore >= 0.8;
-    }).length;
-    const gold = isListGold(list);
-    const pct = wordCount ? Math.round((masteredCount / wordCount) * 100) : 0;
-    const level = Storage.getListLevel(list);
-    const maxLevel = Storage.getListMaxLevel(list);
+  // Sections toujours visibles : mots à réécrire, mots de langue, cartes questions
+  const spellLists = lists.filter(l => !Storage.isCardList(l) && !Storage.isLangList(l));
+  const langLists = lists.filter(l => Storage.isLangList(l));
+  const cardLists = lists.filter(l => Storage.isCardList(l));
+  const titled = [spellLists, langLists, cardLists].filter(g => g.length > 0).length > 1;
 
+  let html = '';
+  if (spellLists.length + langLists.length >= 2) {
     html += `
-      <div class="card">
-        <div class="list-card-head">
-          <h3>${gold ? '🏅 ' : ''}${list.name}</h3>
-          <div style="display:flex; gap:6px;">
-            <button class="btn-icon" onclick="showEditListScreen(${list.id})" title="Éditer" aria-label="Éditer">✏️</button>
-            <button class="btn-icon" onclick="confirmDeleteList(${list.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
-          </div>
-        </div>
-        <p class="list-meta">${wordCount} mot${wordCount > 1 ? 's' : ''} · ${masteredCount} maîtrisé${masteredCount > 1 ? 's' : ''}${gold ? ' · Liste dorée !' : ''}</p>
-        <div class="list-level">
-          <span class="level-badge">Niveau ${level + 1} · ${levelName(level, maxLevel)}${level >= maxLevel ? ' 🥷' : ''}</span>
-          <span class="level-stars">${starsPerWord('progressive', level)} ⭐ par mot</span>
-        </div>
-        <div class="list-mastery"><div class="list-mastery-fill" style="width:${pct}%"></div></div>
-        <div class="list-actions">
-          <button class="btn btn-primary" onclick="startApprentissage(${list.id})">📖 Apprendre</button>
-          <button class="btn btn-secondary" onclick="startInterrogationProgressive(${list.id})">🎯 S'entraîner</button>
-          <button class="btn btn-ghost" onclick="startInterrogationComplete(${list.id})">🏆 Interrogation complète</button>
-        </div>
+      <div class="mix-entry">
+        <button class="btn btn-secondary" onclick="showMixScreen()">🔀 Mélanger plusieurs listes</button>
       </div>
     `;
-  });
+  }
+  if (titled && spellLists.length) html += '<h2 class="lists-section">✏️ Mots à réécrire</h2>';
+  spellLists.forEach(list => { html += wordListHTML(list); });
+  if (titled && langLists.length) html += '<h2 class="lists-section">🌍 Mots de langue</h2>';
+  langLists.forEach(list => { html += wordListHTML(list); });
+  if (titled && cardLists.length) html += '<h2 class="lists-section">🃏 Cartes questions</h2>';
+  cardLists.forEach(list => { html += cardListHTML(list); });
 
   container.innerHTML = html;
 }
 
+// « 🇫🇷 → 🇬🇧 » pour une liste de langue, rien sinon
+function langDirection(list) {
+  if (!Storage.isLangList(list)) return '';
+  return `${langInfo(list.langFrom).drapeau} → ${langInfo(list.langTo).drapeau} · `;
+}
+
+// Carte d'une liste de mots ou de langue (mêmes niveaux, mêmes modes)
+function wordListHTML(list) {
+  const wordCount = list.words.length;
+  const masteredCount = list.words.filter(w => {
+    const p = list.progress[w];
+    return p && p.lastScore >= 0.8;
+  }).length;
+  const gold = isListGold(list);
+  const pct = wordCount ? Math.round((masteredCount / wordCount) * 100) : 0;
+  const level = Storage.getListLevel(list);
+  const maxLevel = Storage.getListMaxLevel(list);
+
+  return `
+    <div class="card">
+      <div class="list-card-head">
+        <h3>${gold ? '🏅 ' : ''}${escapeText(list.name)}</h3>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-icon" onclick="showEditListScreen(${list.id})" title="Éditer" aria-label="Éditer">✏️</button>
+          <button class="btn-icon" onclick="confirmDeleteList(${list.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
+        </div>
+      </div>
+      <p class="list-meta">${langDirection(list)}${wordCount} mot${wordCount > 1 ? 's' : ''} · ${masteredCount} maîtrisé${masteredCount > 1 ? 's' : ''}${gold ? ' · Liste dorée !' : ''}</p>
+      <div class="list-level">
+        <span class="level-badge">Niveau ${level + 1} · ${levelName(level, maxLevel)}${level >= maxLevel ? ' 🥷' : ''}</span>
+        <span class="level-stars">${starsPerWord('progressive', level)} ⭐ par mot</span>
+      </div>
+      <div class="list-mastery"><div class="list-mastery-fill" style="width:${pct}%"></div></div>
+      <div class="list-actions">
+        <button class="btn btn-primary" onclick="startApprentissage(${list.id})">📖 Apprendre</button>
+        <button class="btn btn-secondary" onclick="startInterrogationProgressive(${list.id})">🎯 S'entraîner</button>
+        <button class="btn btn-ghost" onclick="startInterrogationComplete(${list.id})">🏆 Interrogation complète 🥷</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── Mix : une session sur plusieurs listes de mots ──
+
+function showMixScreen() {
+  showScreen('mix');
+  renderMix();
+}
+
+function renderMix() {
+  const container = document.getElementById('mix-content');
+  if (!container) return;
+
+  const lists = Storage.getLists().filter(l => !Storage.isCardList(l));
+  const selected = Storage.getMixSelection().filter(id => lists.some(l => l.id === id));
+  const chosen = lists.filter(l => selected.includes(l.id));
+  const wordCount = chosen.reduce((sum, l) => sum + l.words.length, 0);
+  const ready = chosen.length >= 2;
+  const allChecked = chosen.length === lists.length;
+
+  let html = '<p class="intro">Coche les listes à mélanger. Chaque mot garde son lieu et le niveau de sa liste.</p>';
+
+  lists.forEach(list => {
+    const on = selected.includes(list.id);
+    const n = list.words.length;
+    const level = Storage.getListLevel(list);
+    const maxLevel = Storage.getListMaxLevel(list);
+    html += `
+      <button class="mix-row${on ? ' selected' : ''}" onclick="toggleMixList(${list.id})" aria-pressed="${on}">
+        <span class="mix-check">${on ? '✅' : '⬜'}</span>
+        <span class="mix-info">
+          <strong>${escapeText(list.name)}</strong>
+          <span>${langDirection(list)}${n} mot${n > 1 ? 's' : ''} · Niveau ${level + 1} · ${levelName(level, maxLevel)}${level >= maxLevel ? ' 🥷' : ''}</span>
+        </span>
+      </button>
+    `;
+  });
+
+  const packets = Math.ceil(wordCount / 10);
+  const summary = ready
+    ? `${chosen.length} listes · ${wordCount} mots · ${packets} paquet${packets > 1 ? 's' : ''} de 10`
+    : 'Coche au moins 2 listes';
+  const disabled = ready ? '' : ' disabled';
+
+  html += `
+    <div class="text-center">
+      <button class="btn btn-ghost" onclick="toggleMixAll()">${allChecked ? '⬜ Tout décocher' : '✅ Tout cocher'}</button>
+    </div>
+    <div class="card mix-start">
+      <p class="mix-summary">${summary}</p>
+      <div class="list-actions">
+        <button class="btn btn-primary"${disabled} onclick="startMix('apprendre')">📖 Apprendre</button>
+        <button class="btn btn-secondary"${disabled} onclick="startMix('progressive')">🎯 S'entraîner</button>
+        <button class="btn btn-ghost"${disabled} onclick="startMix('complete')">🏆 Interrogation complète 🥷</button>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+function toggleMixList(listId) {
+  const selected = Storage.getMixSelection();
+  const index = selected.indexOf(listId);
+  if (index === -1) selected.push(listId);
+  else selected.splice(index, 1);
+  Storage.saveMixSelection(selected);
+  renderMix();
+}
+
+function toggleMixAll() {
+  const ids = Storage.getLists().filter(l => !Storage.isCardList(l)).map(l => l.id);
+  const allChecked = ids.every(id => Storage.getMixSelection().includes(id));
+  Storage.saveMixSelection(allChecked ? [] : ids);
+  renderMix();
+}
+
+function startMix(mode) {
+  const listIds = wordListsByIds(Storage.getMixSelection()).map(l => l.id);
+  if (listIds.length < 2) return;
+
+  if (mode === 'apprendre') startApprentissageOnLists(listIds);
+  else startInterrogationOnLists(listIds, mode);
+}
+
+function cardListHTML(list) {
+  const cards = list.cards || [];
+  const count = (box) => cards.filter(c => c.box === box).length;
+  const known = count(3);
+  const pct = cards.length ? Math.round((known / cards.length) * 100) : 0;
+
+  return `
+    <div class="card">
+      <div class="list-card-head">
+        <h3>${isListGold(list) ? '🏅 ' : ''}${escapeText(list.name)}</h3>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-icon" onclick="showEditListScreen(${list.id})" title="Éditer" aria-label="Éditer">✏️</button>
+          <button class="btn-icon" onclick="confirmDeleteList(${list.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
+        </div>
+      </div>
+      <p class="list-meta">${cards.length} carte${cards.length > 1 ? 's' : ''} · ${known} connue${known > 1 ? 's' : ''}</p>
+      <div class="list-level">
+        <span class="level-badge">${list.ninja ? 'Ninja 🥷' : 'Toutes les cartes connues = Ninja 🥷'}</span>
+        <span class="level-stars">${CARTES.etoilesSession} ⭐ par session</span>
+      </div>
+      <div class="card-boxes">
+        <span class="card-box">🆕 ${count(0)} nouvelle${count(0) > 1 ? 's' : ''}</span>
+        <span class="card-box box-1">🔁 ${count(1)} à revoir</span>
+        <span class="card-box box-2">🙂 ${count(2)} ça vient</span>
+        <span class="card-box box-3">✅ ${known} connue${known > 1 ? 's' : ''}</span>
+      </div>
+      <div class="list-mastery"><div class="list-mastery-fill" style="width:${pct}%"></div></div>
+      <div class="list-actions">
+        <button class="btn btn-primary" onclick="startCartes(${list.id})">🃏 Jouer aux cartes</button>
+      </div>
+    </div>
+  `;
+}
+
 function showNewListScreen() {
   showScreen('new-list');
+  setNewListType(AppState.newListType || 'mots');
+}
+
+// Type de la liste en cours de création : 'mots', 'langue' ou 'cartes-questions'
+function setNewListType(type) {
+  AppState.newListType = type;
+  const cartes = type === 'cartes-questions';
+  const langue = type === 'langue';
+  document.getElementById('type-btn-mots').classList.toggle('selected', !cartes && !langue);
+  document.getElementById('type-btn-langue').classList.toggle('selected', langue);
+  document.getElementById('type-btn-cartes').classList.toggle('selected', cartes);
+  document.getElementById('new-list-mots').classList.toggle('hidden', cartes || langue);
+  document.getElementById('new-list-langue').classList.toggle('hidden', !langue);
+  document.getElementById('new-list-cartes').classList.toggle('hidden', !cartes);
+  document.getElementById('scan-card').classList.toggle('hidden', cartes || langue);
+  if (langue && !document.getElementById('new-lang-from').options.length) fillLangSelects('new-', 'fr', 'en');
+}
+
+// ── Listes de langue : choix des langues et saisie « mot = traduction » ──
+// prefix = 'new-' (création) ou 'edit-' (édition)
+
+function fillLangSelects(prefix, from, to) {
+  const options = (selected) => Object.entries(LANGUES)
+    .map(([code, l]) => `<option value="${code}"${code === selected ? ' selected' : ''}>${l.drapeau} ${capitalizeFirst(l.nom)}</option>`)
+    .join('');
+  document.getElementById(`${prefix}lang-from`).innerHTML = options(from);
+  document.getElementById(`${prefix}lang-to`).innerHTML = options(to);
+  renderLangLabel(prefix);
+}
+
+function renderLangLabel(prefix) {
+  const from = langInfo(document.getElementById(`${prefix}lang-from`).value);
+  const to = langInfo(document.getElementById(`${prefix}lang-to`).value);
+  document.getElementById(`${prefix}lang-label`).textContent =
+    `Une ligne par mot : ${from.drapeau} mot en ${from.nom} = ${to.drapeau} mot en ${to.nom}`;
+}
+
+// Inverse les langues et les deux côtés de chaque ligne déjà saisie
+function swapLangs(prefix) {
+  const fromSel = document.getElementById(`${prefix}lang-from`);
+  const toSel = document.getElementById(`${prefix}lang-to`);
+  [fromSel.value, toSel.value] = [toSel.value, fromSel.value];
+  const input = document.getElementById(`${prefix}lang-input`);
+  input.value = input.value.split('\n').map(line => {
+    const sep = line.includes('|') ? '|' : '=';
+    const parts = line.split(sep);
+    return parts.length === 2 ? `${parts[1].trim()} ${sep} ${parts[0].trim()}` : line;
+  }).join('\n');
+  renderLangLabel(prefix);
+}
+
+// Lit la saisie d'une liste de langue. null si quelque chose est à corriger.
+function readLangInput(prefix) {
+  const langFrom = document.getElementById(`${prefix}lang-from`).value;
+  const langTo = document.getElementById(`${prefix}lang-to`).value;
+  const parsed = parseCards(document.getElementById(`${prefix}lang-input`).value);
+  if (langFrom === langTo) parsed.errors.unshift('Choisis deux langues différentes');
+  // La traduction est la clé du mot (lieu, progression) : pas de doublon
+  const seen = new Set();
+  parsed.pairs.forEach(p => {
+    if (seen.has(p.a)) parsed.errors.push(`« ${p.a} » est écrit deux fois comme traduction`);
+    seen.add(p.a);
+  });
+  if (!checkCards(parsed, `${prefix}lang-errors`)) return null;
+  return { langFrom, langTo, pairs: parsed.pairs };
+}
+
+function createLangListFromInput() {
+  const name = document.getElementById('list-name-input').value.trim();
+  if (!name) {
+    alert('Il faut un nom pour la liste');
+    return;
+  }
+  const input = readLangInput('new-');
+  if (!input) return;
+
+  Storage.addLangList(name, input.langFrom, input.langTo, input.pairs);
+  document.getElementById('list-name-input').value = '';
+  document.getElementById('new-lang-input').value = '';
+  showFeedback(`Liste créée : ${input.pairs.length} mots ! 🎉`, 'success');
+  setTimeout(() => showListsScreen(), 1500);
+}
+
+// Lit la saisie des cartes : une carte par ligne, « question = réponse ».
+// Avec un « | » dans la ligne, c'est lui qui sépare (le = peut alors servir
+// dans le texte : « 2 + 2 = ? | 4 »). Retourne { pairs, errors }.
+function parseCards(text) {
+  const pairs = [];
+  const errors = [];
+  text.split('\n').forEach((raw, i) => {
+    const line = normalizeApostrophes(raw.trim());
+    if (!line) return;
+    const sep = line.includes('|') ? '|' : '=';
+    const parts = line.split(sep);
+    const q = (parts[0] || '').trim().replace(/\s+/g, ' ');
+    const a = parts.slice(1).join(sep).trim().replace(/\s+/g, ' ');
+    if (parts.length < 2) errors.push(`Ligne ${i + 1} : il manque le « = » entre la question et la réponse`);
+    else if (parts.length > 2) errors.push(`Ligne ${i + 1} : plusieurs « ${sep} ». Sépare la question et la réponse par un seul « | »`);
+    else if (!q || !a) errors.push(`Ligne ${i + 1} : question ou réponse vide`);
+    else pairs.push({ q, a });
+  });
+  return { pairs, errors };
+}
+
+// Affiche les lignes à corriger sous la zone de saisie. true = tout est bon.
+function checkCards(parsed, errorsId) {
+  const box = document.getElementById(errorsId);
+  const errors = parsed.errors.length > 0 ? parsed.errors
+    : (parsed.pairs.length === 0 ? ['Aucune carte détectée'] : []);
+  box.innerHTML = errors.map(e => `<div>⚠️ ${escapeText(e)}</div>`).join('');
+  box.classList.toggle('hidden', errors.length === 0);
+  if (errors.length > 0) showFeedback('Des lignes sont à corriger', 'error');
+  return errors.length === 0;
+}
+
+// Consigne à coller dans une IA pour fabriquer une liste de cartes
+function copyCardsPrompt() {
+  const prompt = `Crée 30 questions-réponses pour un enfant de primaire sur le thème : [THÈME].
+Format strict : une par ligne, « question = réponse », sans numéro, sans puce, sans ligne vide.
+Réponses très courtes (quelques mots). Jamais de « = » dans la question ni dans la réponse
+(si c'est indispensable, sépare alors la question et la réponse par « | » à la place).`;
+  const done = () => showFeedback('Consigne copiée ! Colle-la dans ton IA 📋', 'success');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(prompt).then(done).catch(() => window.prompt('Copie cette consigne :', prompt));
+  } else {
+    window.prompt('Copie cette consigne :', prompt);
+  }
+}
+
+function createCardListFromInput() {
+  const name = document.getElementById('list-name-input').value.trim();
+  if (!name) {
+    alert('Il faut un nom pour la liste');
+    return;
+  }
+  const parsed = parseCards(document.getElementById('cards-input').value);
+  if (!checkCards(parsed, 'cards-errors')) return;
+
+  Storage.addCardList(name, parsed.pairs);
+  document.getElementById('list-name-input').value = '';
+  document.getElementById('cards-input').value = '';
+  showFeedback(`Liste créée : ${parsed.pairs.length} cartes ! 🎉`, 'success');
+  setTimeout(() => showListsScreen(), 1500);
 }
 
 function createListFromManualInput() {
+  if (AppState.newListType === 'cartes-questions') {
+    createCardListFromInput();
+    return;
+  }
+  if (AppState.newListType === 'langue') {
+    createLangListFromInput();
+    return;
+  }
+
   const name = document.getElementById('list-name-input').value.trim();
   const wordsText = document.getElementById('words-input').value.trim();
 
@@ -2070,15 +2575,78 @@ function showEditListScreen(listId) {
   AppState.editingListId = listId;
 
   document.getElementById('edit-list-name-input').value = list.name;
-  document.getElementById('edit-words-input').value = list.words.join('\n');
+
+  const cartes = Storage.isCardList(list);
+  const langue = Storage.isLangList(list);
+  document.getElementById('edit-list-mots').classList.toggle('hidden', cartes || langue);
+  document.getElementById('edit-list-langue').classList.toggle('hidden', !langue);
+  document.getElementById('edit-list-cartes').classList.toggle('hidden', !cartes);
+  document.getElementById('edit-cards-errors').classList.add('hidden');
+  document.getElementById('edit-lang-errors').classList.add('hidden');
+  if (langue) {
+    fillLangSelects('edit-', list.langFrom, list.langTo);
+    document.getElementById('edit-lang-input').value = list.words
+      .map(w => {
+        const q = promptOf(list, w) || '';
+        return (q + w).includes('=') ? `${q} | ${w}` : `${q} = ${w}`;
+      })
+      .join('\n');
+  } else if (cartes) {
+    // Le « | » sert de séparateur dès qu'un = traîne dans le texte
+    document.getElementById('edit-cards-input').value = (list.cards || [])
+      .map(c => (c.q + c.a).includes('=') ? `${c.q} | ${c.a}` : `${c.q} = ${c.a}`)
+      .join('\n');
+  } else {
+    document.getElementById('edit-words-input').value = list.words.join('\n');
+  }
 
   showScreen('edit-list');
+}
+
+function saveEditedCardList(listId) {
+  const name = document.getElementById('edit-list-name-input').value.trim();
+  if (!name) {
+    alert('Il faut un nom pour la liste');
+    return;
+  }
+  const parsed = parseCards(document.getElementById('edit-cards-input').value);
+  if (!checkCards(parsed, 'edit-cards-errors')) return;
+
+  Storage.updateCardList(listId, name, parsed.pairs);
+  showFeedback('Liste modifiée ! ✅', 'success');
+  AppState.editingListId = null;
+  setTimeout(() => showListsScreen(), 1500);
+}
+
+function saveEditedLangList(listId) {
+  const name = document.getElementById('edit-list-name-input').value.trim();
+  if (!name) {
+    alert('Il faut un nom pour la liste');
+    return;
+  }
+  const input = readLangInput('edit-');
+  if (!input) return;
+
+  Storage.updateLangList(listId, name, input.langFrom, input.langTo, input.pairs);
+  showFeedback('Liste modifiée ! ✅', 'success');
+  AppState.editingListId = null;
+  setTimeout(() => showListsScreen(), 1500);
 }
 
 function saveEditedList() {
   const listId = AppState.editingListId;
   if (!listId) {
     alert('Erreur : aucune liste en cours d\'édition');
+    return;
+  }
+
+  const edited = Storage.getLists().find(l => l.id === listId);
+  if (edited && Storage.isCardList(edited)) {
+    saveEditedCardList(listId);
+    return;
+  }
+  if (edited && Storage.isLangList(edited)) {
+    saveEditedLangList(listId);
     return;
   }
 
@@ -2232,6 +2800,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Écran d'accueil par défaut
   showScreen('home');
+
+  // Compte en ligne (js/sync.js) : envoie les données, récupère celles des autres appareils
+  Sync.onChange = () => {
+    renderSyncStatus();
+    renderAccountCard();
+  };
+  Sync.onRemoteData = () => {
+    const calm = AppState.currentScreen === 'parents' ||
+      (AppState.currentScreen === 'home' && !document.getElementById('sheet-overlay'));
+    if (calm) window.location.reload();
+    else AppState.reloadOnHome = true;
+  };
+  Sync.start();
 
   // Active l'audio au premier tap/click (requis par iOS/Safari)
   const initAudioOnFirstInteraction = () => {
@@ -2478,7 +3059,11 @@ function countGoldLists(lists) {
 }
 
 // Liste dorée : chaque mot a été interrogé et réussi à 80 % ou plus
+// (cartes questions : toutes les cartes dans la boîte 3)
 function isListGold(list) {
+  if (Storage.isCardList(list)) {
+    return (list.cards || []).length > 0 && list.cards.every(c => c.box >= 3);
+  }
   if (!list.words.length) return false;
   return list.words.every(word => {
     const p = list.progress[word];
@@ -2613,7 +3198,9 @@ function wordsAtPlace(piece, emplacement) {
   const words = [];
   Storage.getLists().forEach(list => {
     Object.entries(list.wordLocations || {}).forEach(([word, loc]) => {
-      if (loc.piece === piece && loc.emplacement === emplacement) words.push(word);
+      if (loc.piece !== piece || loc.emplacement !== emplacement) return;
+      const prompt = promptOf(list, word);
+      words.push(prompt ? `${word} (${prompt})` : word);
     });
   });
   return words;
@@ -2652,7 +3239,7 @@ function showPieceScreen(piece) {
         <div class="place-head">
           <div>
             <div class="place-name">${emplacement.replace(/_/g, ' ')}</div>
-            ${words.length ? `<div class="place-word">📝 ${words.join(', ')}</div>` : ''}
+            ${words.length ? `<div class="place-word">📝 ${words.map(escapeText).join(', ')}</div>` : ''}
           </div>
         </div>
         <div class="place-slots">${slots}</div>
@@ -3342,7 +3929,7 @@ function showStrugglingWordsScreen() {
 
     html += `
       <div class="card">
-        <div class="list-card-head"><h3>${list.name}</h3></div>
+        <div class="list-card-head"><h3>${escapeText(list.name)}</h3></div>
     `;
     struggling.forEach(word => {
       const p = list.progress[word];
@@ -3351,7 +3938,7 @@ function showStrugglingWordsScreen() {
       html += `
         <div class="word-item">
           <div>
-            <strong>${word}</strong>
+            <strong>${promptOf(list, word) ? `${escapeText(promptOf(list, word))} → ` : ''}${escapeText(word)}</strong>
             ${loc ? `<span class="word-place">${roomEmoji(loc.piece)} ${loc.piece} · ${loc.emplacement}</span>` : ''}
           </div>
           <span class="word-score ${pct < 50 ? 'low' : 'mid'}">${p.successes}/${p.attempts}</span>
@@ -3399,6 +3986,509 @@ function startInterrogationOnWords(listId) {
 
 function startScan() {
   alert('Le scanner arrive bientôt. En attendant, saisis la liste à la main.');
+}
+
+// ───────────────────────────────────────────────────────────────
+// CARTES QUESTIONS : cartes à retourner, rangées en boîtes
+// ───────────────────────────────────────────────────────────────
+// On lit la question, on répond à voix haute, on retourne la carte, puis
+// on dit soi-même « Je savais » ou « À revoir ». Seule ou avec un parent,
+// c'est le même écran : seul change celui qui appuie.
+
+const CartesGame = {
+  listId: null,
+  cards: {},      // id → carte (copie de travail)
+  queue: [],      // ids des cartes à venir, la première est à l'écran
+  total: 0,       // cartes tirées pour la session
+  done: 0,        // cartes terminées
+  returns: {},    // id → nombre de retours dans la session
+  toReview: [],   // ids des cartes ratées au moins une fois
+  becameNinja: false
+};
+
+// Tirage pondéré : les cartes à revoir et les nouvelles sortent en premier,
+// les cartes connues reviennent de temps en temps.
+function drawCards(cards) {
+  return cards
+    .map(card => ({ card, key: Math.random() * (CARTES.poidsTirage[card.box] || 1) }))
+    .sort((a, b) => a.key - b.key)
+    .slice(0, CARTES.parSession)
+    .map(x => x.card);
+}
+
+function startCartes(listId) {
+  const list = Storage.getLists().find(l => l.id === listId);
+  if (!list || !(list.cards || []).length) return;
+
+  const drawn = shuffleArray(drawCards(list.cards));
+  CartesGame.listId = listId;
+  CartesGame.cards = {};
+  drawn.forEach(c => { CartesGame.cards[c.id] = { ...c }; });
+  CartesGame.queue = drawn.map(c => c.id);
+  CartesGame.total = drawn.length;
+  CartesGame.done = 0;
+  CartesGame.returns = {};
+  CartesGame.toReview = [];
+  CartesGame.becameNinja = false;
+  AppState.currentList = list;
+  AppState.sessionReplay = () => startCartes(listId);
+
+  showScreen('cartes');
+  document.getElementById('cartes-list-name').textContent = list.name;
+  showCarte();
+}
+
+function currentCarte() {
+  return CartesGame.cards[CartesGame.queue[0]];
+}
+
+// Taille du texte selon sa longueur, pour que tout tienne sur la carte
+function carteTextClass(text) {
+  if (text.length > 120) return 'xs';
+  if (text.length > 60) return 's';
+  if (text.length > 25) return 'm';
+  return '';
+}
+
+function showCarte() {
+  const card = currentCarte();
+  const flip = document.getElementById('flip-card');
+  const again = (CartesGame.returns[card.id] || 0) > 0;
+
+  // Revient côté question sans animation : sinon on verrait passer la réponse suivante
+  flip.classList.add('no-anim');
+  flip.classList.remove('flipped');
+  const q = document.getElementById('carte-question');
+  const a = document.getElementById('carte-answer');
+  q.textContent = card.q;
+  q.className = `carte-text ${carteTextClass(card.q)}`;
+  a.textContent = card.a;
+  a.className = `carte-text ${carteTextClass(card.a)}`;
+  void flip.offsetWidth;
+  flip.classList.remove('no-anim');
+
+  renderSessionProgress('cartes-session-progress', CartesGame.total, CartesGame.done);
+  document.getElementById('cartes-progress').textContent =
+    again ? '🔁 On la revoit' : `Carte ${Math.min(CartesGame.done + 1, CartesGame.total)}/${CartesGame.total}`;
+  document.getElementById('cartes-flip-zone').classList.remove('hidden');
+  document.getElementById('cartes-verdict-zone').classList.add('hidden');
+}
+
+function flipCarte() {
+  const flip = document.getElementById('flip-card');
+  flip.classList.toggle('flipped');
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  // Une fois la réponse vue, on peut la valider (et re-regarder la question)
+  document.getElementById('cartes-flip-zone').classList.add('hidden');
+  document.getElementById('cartes-verdict-zone').classList.remove('hidden');
+}
+
+// Lit à voix haute le côté visible de la carte
+function speakCarte() {
+  const card = currentCarte();
+  if (!card || !AppState.soundEnabled) return;
+  const flipped = document.getElementById('flip-card').classList.contains('flipped');
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  speakWord(flipped ? card.a : card.q);
+}
+
+function answerCarte(known) {
+  const card = currentCarte();
+  if (!card) return;
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  const failedBefore = CartesGame.toReview.includes(card.id);
+
+  if (known) {
+    // Ratée plus tôt dans la session : elle reste « à revoir » jusqu'à la prochaine fois
+    const box = failedBefore ? 1 : (card.box === 0 ? 2 : Math.min(3, card.box + 1));
+    const slotsBefore = Storage.getCompanionSlots();
+    if (Storage.setCardBox(CartesGame.listId, card.id, box)) {
+      CartesGame.becameNinja = true;
+      if (Storage.getCompanionSlots() > slotsBefore) AppState.newCompanionUnlocked = true;
+    }
+    card.box = box;
+    CartesGame.queue.shift();
+    CartesGame.done++;
+  } else {
+    Storage.setCardBox(CartesGame.listId, card.id, 1);
+    card.box = 1;
+    if (!failedBefore) CartesGame.toReview.push(card.id);
+    CartesGame.queue.shift();
+    // La carte revient un peu plus loin dans la session
+    const returns = CartesGame.returns[card.id] || 0;
+    if (returns < CARTES.retoursMaxParCarte) {
+      CartesGame.returns[card.id] = returns + 1;
+      CartesGame.queue.splice(Math.min(3, CartesGame.queue.length), 0, card.id);
+    } else {
+      CartesGame.done++;
+    }
+  }
+
+  if (CartesGame.queue.length === 0) finishCartes();
+  else showCarte();
+}
+
+function finishCartes() {
+  // La récompense est pour la session terminée, pas pour les bonnes réponses
+  Storage.addStars(CARTES.etoilesSession);
+  playStarSound();
+  if (CartesGame.becameNinja) Storage.grantChest('rare');
+  openPendingChests(showCartesResults);
+}
+
+function showCartesResults() {
+  showScreen('results');
+  const container = document.getElementById('results-content');
+  if (!container) return;
+
+  const review = CartesGame.toReview.map(id => CartesGame.cards[id]);
+  const knownCount = CartesGame.total - review.length;
+  const freeStickers = Storage.getFreeStickers().reduce((sum, x) => sum + x.count, 0);
+
+  let html = `
+    <div class="result-hero">
+      <div class="result-icon">${review.length === 0 ? '🏆' : '👏'}</div>
+      <h2>Session terminée !</h2>
+      <p class="result-score">${knownCount} / ${CartesGame.total}</p>
+      <p class="result-sub">carte${knownCount > 1 ? 's' : ''} connue${knownCount > 1 ? 's' : ''} du premier coup</p>
+      <div class="stars-earned">+${CARTES.etoilesSession} ⭐ gagnées</div>
+    </div>
+  `;
+
+  if (CartesGame.becameNinja) {
+    html += `
+      <div class="level-up">
+        <div class="level-up-icon">🥷</div>
+        <div class="level-up-title">Liste Ninja !</div>
+        <div class="level-up-sub">Tu connais toutes les cartes de cette liste</div>
+      </div>
+    `;
+  }
+
+  if (review.length > 0) {
+    html += `<div class="error-card"><h3>À revoir (${review.length})</h3>`;
+    review.forEach(card => {
+      html += `
+        <div class="error-item">
+          <div class="error-word">${escapeText(card.q)}</div>
+          <div class="error-detail">Réponse : <span class="error-expected">${escapeText(card.a)}</span></div>
+        </div>
+      `;
+    });
+    html += '<p class="hint">Ces cartes reviendront en premier la prochaine fois.</p></div>';
+  } else {
+    html += '<div class="success-card">✅ Toutes les cartes connues !</div>';
+  }
+
+  if (AppState.newCompanionUnlocked) {
+    AppState.newCompanionUnlocked = false;
+    html += `
+      <div class="level-up">
+        <div class="level-up-icon">🐾</div>
+        <div class="level-up-title">Nouveau compagnon débloqué !</div>
+        <div class="level-up-sub">Va choisir ton kawaii de compagnie</div>
+        <div class="team-actions"><button class="btn btn-secondary" onclick="showKawaiiScreen()">🎨 Choisir mon compagnon</button></div>
+      </div>
+    `;
+  }
+
+  html += `
+    <div class="result-actions">
+      <button class="btn btn-primary btn-big" onclick="replaySession()">🃏 Encore une session</button>
+      ${freeStickers > 0 ? `<button class="btn btn-secondary" onclick="showPalaisScreen()">🏠 Coller mes ${freeStickers} sticker${freeStickers > 1 ? 's' : ''}</button>` : ''}
+    </div>
+  `;
+  container.innerHTML = html;
+}
+
+// ───────────────────────────────────────────────────────────────
+// ESPACE PARENTS : sauvegarde et restauration des données
+// ───────────────────────────────────────────────────────────────
+// Tout est dans le localStorage de l'appareil : sans sauvegarde, un
+// nettoyage de Safari efface tout. L'entrée est protégée par un calcul.
+
+let parentGateAnswer = null;
+
+function askParentGate() {
+  const a = 12 + Math.floor(Math.random() * 8);
+  const b = 6 + Math.floor(Math.random() * 4);
+  parentGateAnswer = a * b;
+  showSheet(`
+    <h3>👨‍👩‍👧 Espace parents</h3>
+    <p class="hint">Pour entrer : combien font ${a} × ${b} ?</p>
+    <input type="text" inputmode="numeric" id="parent-gate-input" class="field" autocomplete="off">
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" onclick="closeSheet()">Annuler</button>
+      <button class="btn btn-success" onclick="submitParentGate()">✅ Valider</button>
+    </div>
+  `);
+  const input = document.getElementById('parent-gate-input');
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitParentGate(); });
+  setTimeout(() => input.focus(), 50);
+}
+
+function submitParentGate() {
+  const input = document.getElementById('parent-gate-input');
+  if (!input || parseInt(input.value.trim(), 10) !== parentGateAnswer) {
+    showFeedback('Ce n\'est pas ça', 'error');
+    return;
+  }
+  closeSheet();
+  showParentsScreen();
+}
+
+function showParentsScreen() {
+  showScreen('parents');
+  renderAccountCard();
+  const last = localStorage.getItem('lastExportAt');
+  const lists = Storage.getLists();
+  document.getElementById('parents-summary').textContent =
+    `${lists.length} liste${lists.length > 1 ? 's' : ''} · ${Storage.getEconomy().stars} ⭐ · ` +
+    (last ? `dernière sauvegarde le ${new Date(last).toLocaleDateString('fr-FR')}` : 'jamais sauvegardé');
+}
+
+function exportData() {
+  localStorage.setItem('lastExportAt', new Date().toISOString());
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    // La session du compte ne sort pas de l'appareil
+    if (Sync.LOCAL_ONLY_KEYS.includes(key)) continue;
+    data[key] = localStorage.getItem(key);
+  }
+  const json = JSON.stringify({ app: 'mental-palace', format: 1, exportedAt: new Date().toISOString(), data }, null, 1);
+  const name = `mental-palace-${new Date().toISOString().slice(0, 10)}.json`;
+  const file = new File([json], name, { type: 'application/json' });
+
+  const download = () => {
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+
+  // iPad : la feuille de partage permet « Enregistrer dans Fichiers », AirDrop, Mail…
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: 'Sauvegarde Mental Palace' })
+      .catch(err => { if (err.name !== 'AbortError') download(); });
+  } else {
+    download();
+  }
+  showParentsScreen();
+}
+
+function importData(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    let payload;
+    try {
+      payload = JSON.parse(reader.result);
+    } catch (e) {
+      payload = null;
+    }
+    if (!payload || payload.app !== 'mental-palace' || !payload.data || typeof payload.data !== 'object') {
+      alert('Ce fichier n\'est pas une sauvegarde Mental Palace.');
+      return;
+    }
+
+    let savedLists = [];
+    let savedStars = 0;
+    try {
+      savedLists = JSON.parse(payload.data.wordLists || '[]');
+      savedStars = JSON.parse(payload.data.economy || '{}').stars || 0;
+    } catch (e) {
+      alert('Sauvegarde illisible.');
+      return;
+    }
+    const date = payload.exportedAt ? new Date(payload.exportedAt).toLocaleDateString('fr-FR') : '?';
+    const ok = confirm(
+      `Sauvegarde du ${date} : ${savedLists.length} liste(s), ${savedStars} ⭐.\n\n` +
+      `Elle va REMPLACER les données de cet appareil : ${Storage.getLists().length} liste(s), ${Storage.getEconomy().stars} ⭐.\n\nContinuer ?`
+    );
+    if (!ok) return;
+
+    // Connecté à un compte : ces données y seront envoyées au rechargement
+    Object.entries(payload.data).forEach(([key, value]) => {
+      if (typeof value === 'string' && !Sync.LOCAL_ONLY_KEYS.includes(key)) localStorage.setItem(key, value);
+    });
+    window.location.reload();
+  };
+  reader.readAsText(file);
+}
+
+// ───────────────────────────────────────────────────────────────
+// ESPACE PARENTS : compte en ligne (moteur dans js/sync.js)
+// ───────────────────────────────────────────────────────────────
+// Un compte = un enfant. Connexion par code reçu par email ; la session
+// reste ouverte sur l'appareil, l'enfant ne tape jamais de code.
+
+const AccountForm = { email: '', codeSent: false, busy: false };
+
+function syncStatusText(s) {
+  const at = s.lastSyncAt
+    ? new Date(s.lastSyncAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : '';
+  switch (s.status) {
+    case 'signedOut': return '☁️ Pas de compte : le palais reste sur cet appareil';
+    case 'expired': return '⚠️ Compte déconnecté : à reconnecter dans l\'espace parents';
+    case 'choice': return '⚠️ Compte : un choix attend dans l\'espace parents';
+    case 'syncing': return '☁️ Enregistrement en ligne…';
+    case 'pending': return '☁️ Enregistrement en ligne dans un instant';
+    case 'error': return '☁️ Pas de connexion : ce sera enregistré en ligne plus tard' + (at ? ` (dernier envoi le ${at})` : '');
+    case 'synced': return `☁️ Enregistré en ligne le ${at}`;
+    default: return '';
+  }
+}
+
+// Ligne d'état sous l'entrée de l'espace parents, sur l'accueil
+function renderSyncStatus() {
+  const line = document.getElementById('sync-status');
+  if (line) line.textContent = syncStatusText(Sync.state());
+}
+
+function renderAccountCard() {
+  const card = document.getElementById('account-card');
+  if (!card) return;
+  const s = Sync.state();
+  card.classList.toggle('hidden', s.status === 'off');
+  // Ne pas effacer ce qu'un parent est en train de taper
+  const typing = card.contains(document.activeElement) && document.activeElement.tagName === 'INPUT';
+  if (s.status === 'off' || typing) return;
+
+  const busy = AccountForm.busy ? 'disabled' : '';
+  const summary = x => `${x.lists} liste${x.lists > 1 ? 's' : ''} · ${x.stars} ⭐`;
+  let html = '<h2>☁️ Compte</h2>';
+
+  if (s.status === 'signedOut' || s.status === 'expired') {
+    if (s.status === 'expired') {
+      html += `<p>La connexion au compte <strong>${escapeText(s.email || '')}</strong> a expiré. Rien n'est perdu : le palais est sur cet appareil et sera enregistré en ligne dès la reconnexion.</p>`;
+    } else {
+      html += '<p>Avec un compte, le palais est enregistré en ligne : on le retrouve sur l\'iPad, le téléphone ou l\'ordinateur, sans fichier à transférer. Un compte par enfant.</p>';
+    }
+    if (!AccountForm.codeSent) {
+      html += `
+        <label class="field-label" for="account-email">Email d'un parent</label>
+        <input type="email" id="account-email" class="field" autocomplete="email" autocapitalize="off" spellcheck="false" value="${escapeText(AccountForm.email || s.email || '').replace(/"/g, '&quot;')}">
+        <button class="btn btn-primary btn-block mt-20" onclick="sendAccountCode()" ${busy}>📧 Recevoir un code</button>
+        <p class="hint">Première fois ? Le compte est créé tout seul.</p>`;
+    } else {
+      html += `
+        <p>Un code a été envoyé à <strong>${escapeText(AccountForm.email)}</strong>. S'il n'arrive pas en une minute, regarde dans les indésirables.</p>
+        <label class="field-label" for="account-code">Code reçu</label>
+        <input type="text" id="account-code" class="field" inputmode="numeric" autocomplete="one-time-code">
+        <button class="btn btn-success btn-block mt-20" onclick="submitAccountCode()" ${busy}>✅ Valider</button>
+        <button class="btn btn-ghost btn-block mt-10" onclick="resetAccountForm()" ${busy}>Changer d'adresse ou redemander un code</button>`;
+    }
+  } else if (s.status === 'choice') {
+    html += `<p><strong>${escapeText(s.email || '')}</strong></p>`;
+    if (!s.choice.remote) {
+      html += `
+        <p>Le compte n'a pas pu être lu (pas de connexion ?). Rien n'a été modifié.</p>
+        <button class="btn btn-primary btn-block mt-20" onclick="retryAccountFirstSync()" ${busy}>🔄 Réessayer</button>`;
+    } else {
+      const when = s.choice.remote.updatedAt ? new Date(s.choice.remote.updatedAt).toLocaleDateString('fr-FR') : '?';
+      const where = s.choice.remote.device ? ` sur ${escapeText(s.choice.remote.device)}` : '';
+      html += `
+        <p>Ce compte contient déjà un palais, et cet appareil aussi. Lequel garder ?</p>
+        <button class="btn btn-primary btn-block mt-20" onclick="chooseAccountData('remote')" ${busy}>☁️ Celui du compte : ${summary(s.choice.remote)}</button>
+        <p class="hint">Modifié le ${when}${where}.</p>
+        <button class="btn btn-ghost btn-block mt-20" onclick="chooseAccountData('local')" ${busy}>📱 Celui de cet appareil : ${summary(s.choice.local)}</button>
+        <p class="hint">Une copie de secours de l'autre est gardée.</p>`;
+    }
+    html += `<button class="btn btn-ghost btn-block mt-20" onclick="logoutAccount()" ${busy}>Annuler la connexion</button>`;
+  } else {
+    html += `
+      <p><strong>${escapeText(s.email || '')}</strong></p>
+      <p class="hint">${escapeText(syncStatusText(s))}</p>
+      <button class="btn btn-primary btn-block mt-20" onclick="syncAccountNow()" ${busy}>🔄 Synchroniser maintenant</button>
+      <button class="btn btn-ghost btn-block mt-10" onclick="logoutAccount()" ${busy}>Se déconnecter</button>`;
+  }
+  card.innerHTML = html;
+}
+
+// Exécute une action du compte en grisant les boutons ; renvoie son résultat, ou null si elle échoue
+async function runAccountAction(action) {
+  if (AccountForm.busy) return null;
+  AccountForm.busy = true;
+  if (document.activeElement) document.activeElement.blur();
+  renderAccountCard();
+  try {
+    return await action();
+  } catch (e) {
+    showFeedback(e.message || 'Ça n\'a pas marché', 'error');
+    return null;
+  } finally {
+    AccountForm.busy = false;
+    renderAccountCard();
+  }
+}
+
+async function sendAccountCode() {
+  const email = document.getElementById('account-email').value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showFeedback('Adresse email incomplète', 'error');
+    return;
+  }
+  AccountForm.email = email;
+  const sent = await runAccountAction(() => Sync.requestCode(email).then(() => true));
+  if (!sent) return;
+  AccountForm.codeSent = true;
+  renderAccountCard();
+  const input = document.getElementById('account-code');
+  if (input) input.focus();
+}
+
+async function submitAccountCode() {
+  const code = document.getElementById('account-code').value.replace(/\D/g, '');
+  if (code.length < 6) {
+    showFeedback('Le code a au moins 6 chiffres', 'error');
+    return;
+  }
+  const result = await runAccountAction(() => Sync.verifyCode(AccountForm.email, code));
+  if (!result) return;
+  resetAccountForm();
+  if (result.status === 'ok') showFeedback('Connecté : le palais est enregistré en ligne', 'success');
+}
+
+function resetAccountForm() {
+  AccountForm.codeSent = false;
+  renderAccountCard();
+}
+
+async function retryAccountFirstSync() {
+  await runAccountAction(() => Sync.retryFirstSync());
+}
+
+async function chooseAccountData(which) {
+  const choice = Sync.state().choice;
+  const summary = x => `${x.lists} liste(s), ${x.stars} ⭐`;
+  const ok = which === 'remote'
+    ? confirm(`Le palais du compte (${summary(choice.remote)}) va REMPLACER celui de cet appareil (${summary(choice.local)}).\n\nContinuer ?`)
+    : confirm(`Le palais de cet appareil (${summary(choice.local)}) va REMPLACER celui du compte (${summary(choice.remote)}), sur tous les appareils.\n\nContinuer ?`);
+  if (!ok) return;
+  const done = await runAccountAction(() => Sync.resolveChoice(which));
+  if (done === false) showFeedback('Pas de connexion : réessaie dans un instant', 'error');
+}
+
+async function syncAccountNow() {
+  const ok = await runAccountAction(() => Sync.syncNow());
+  if (ok) showFeedback('Tout est enregistré en ligne', 'success');
+  else if (ok === false) showFeedback(Sync.state().error || 'Pas de connexion', 'error');
+}
+
+async function logoutAccount() {
+  const merged = Sync.state().status !== 'choice';
+  if (merged && !confirm('Se déconnecter ?\n\nLe palais reste enregistré dans le compte. Il sera retiré de cet appareil, et reviendra à la prochaine connexion.')) return;
+  const emptied = await runAccountAction(() => Sync.logout());
+  if (emptied) window.location.reload();
 }
 
 // ───────────────────────────────────────────────────────────────

@@ -6,15 +6,17 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v11'; // v11 : emoji des pièces
+const CACHE_NAME = 'mental-palace-v15'; // v15 : listes de langue
 // Même ?v= que dans index.html
-const V = '11';
+const V = '15';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './css/style.css?v=' + V,
   './js/app.js?v=' + V,
   './js/kawaii.js?v=' + V,
+  './js/config.js?v=' + V,
+  './js/sync.js?v=' + V,
   './data/lieux.js?v=' + V,
   './manifest.json'
 ];

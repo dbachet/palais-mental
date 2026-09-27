@@ -4,6 +4,10 @@ Application web pour aider les enfants (notamment avec TDAH et dysorthographie) 
 
 ## 🚀 Lancement de l'application
 
+### En ligne, avec comptes (recommandé)
+
+Hébergée sur GitHub Pages, l'app s'ouvre sans le Mac, fonctionne hors-ligne, et le palais de chaque enfant est enregistré dans son compte (connexion par code reçu par email). Mise en place pas à pas, et déménagement des données existantes : **[EN-LIGNE.md](EN-LIGNE.md)**.
+
 ### Sur Mac (serveur local)
 
 1. Ouvrez un terminal
@@ -44,6 +48,8 @@ palais-mental/
 │   └── style.css       # Tous les styles (tokens de couleur dans :root)
 ├── js/
 │   ├── app.js          # Logique principale
+│   ├── config.js       # Adresse et clé publique Supabase (vide = app 100 % locale)
+│   ├── sync.js         # Compte et enregistrement en ligne (fusion, hors-ligne)
 │   └── kawaii.js       # Moteur de dessin des personnages kawaii (SVG, sans image)
 └── data/
     └── lieux.js        # LIEUX, emojis des pièces, économie, temps, catalogue de stickers
@@ -80,12 +86,24 @@ Boucle de jeu :
   - Son synchronisé à chaque lettre, bouton Rejouer, curseur de vitesse (sauvegardé)
 - **Mode interrogation** : « Retour au palais » avec dictée et clavier virtuel
   - Mot affiché en **cases de lettres** : lettres visibles, cases à trouver, saisie en rose, vert si juste, rouge si faux
-  - **Niveau mémorisé par liste** : niveau 1 = 2 lettres à trouver, +1 lettre par niveau. Une session réussie à 80 % fait monter d'un niveau, et ça ne redescend jamais. Dernier niveau **Ninja** : mot entier plus une ou deux cases pièges, pour ne pas connaître le nombre de lettres. Mode complet = tout le mot
+  - **Niveau mémorisé par liste** : niveau 1 = 2 lettres à trouver, +1 lettre par niveau. Une session réussie à 80 % fait monter d'un niveau, et ça ne redescend jamais. Dernier niveau **Ninja** : mot entier plus une ou deux cases pièges, pour ne pas connaître le nombre de lettres. **Interrogation complète = niveau Ninja** : réussie à 80 %, la liste passe directement Ninja (et débloque un compagnon) sans passer tous les niveaux
   - Ordre aléatoire des mots, timer qui passe à l'orange quand il reste peu de temps. Temps = 30 s + 5 s par lettre à trouver, réglable via `TEMPS` dans `data/lieux.js`
   - Clavier en rangées : lettres, signes (' - ( )), **accents toujours visibles**, espace large, Valider à droite
-  - Étoiles de score du niveau + compteur d'étoiles gagnées
+  - Barre d'avancement de la session (une case par mot) + compteur d'étoiles gagnées
   - Feux d'artifice pour un sans-faute
 - **Récompenses** : étoiles, coffres à ouvrir, boutique, stickers à coller sur les lieux (voir plus haut)
+- **Mélanger plusieurs listes** (Mes listes → 🔀) : on coche 2 listes de mots ou plus, puis Apprendre, S'entraîner ou Interrogation complète sur tous leurs mots, tirés au hasard parmi toutes les listes cochées
+  - Chaque mot garde son lieu, le niveau de sa liste et sa progression ; chaque liste passe son niveau sur ses propres mots (80 %)
+  - Les listes cochées sont retenues pour la fois suivante
+- **Mots de langue** (anglais, espagnol, allemand…) : une ligne par mot, `mot = traduction`, avec la langue montrée et la langue à écrire (⇄ inverse les deux, mots compris)
+  - Même jeu que les mots à réécrire (lieux, niveaux, Ninja, mélange) : on voit et on entend le mot de départ, on écrit la traduction en cases de lettres
+  - À la visite, le mot de départ est dit dans sa langue puis la traduction dans la sienne. En interrogation, seul le mot de départ est dit
+  - Langues et voix : `LANGUES` dans `data/lieux.js`
+- **Cartes questions** : listes de questions/réponses (`question = réponse`, une par ligne), jouées en cartes à retourner
+  - 10 cartes par session, « Je savais » / « À revoir », seule ou avec un parent
+  - Boîtes 1-2-3 : les cartes à revoir reviennent en premier ; toutes en boîte 3 = liste **Ninja**
+  - On gagne des étoiles pour la session terminée, pas pour les bonnes réponses (réglages : `CARTES` dans `data/lieux.js`)
+- **Espace parents** : sauvegarde de toutes les données dans un fichier, et restauration (entrée protégée par un calcul)
 - **Mots à travailler** : liste des mots en difficulté par liste, avec bouton pour s'entraîner dessus uniquement
 - **Design** : tokens de couleur, une action héro par écran, contrastes renforcés pour la lecture, mouvement calme pendant la tâche
 - **Responsive** : optimisé pour iPad, fonctionne sur téléphone
@@ -184,7 +202,9 @@ Toutes les données sont stockées en **localStorage** :
 - `kawaiiTeam` : Kawaii principal et compagnons
 - `maison` : Pièces et endroits (modifiables dans l'app)
 
-⚠️ **Attention** : Effacer les données du navigateur supprimera tout le progrès !
+Avec un compte (espace parents), ces clés, plus `mixSelection` et `animationSpeed`, sont recopiées en ligne et suivent l'enfant d'un appareil à l'autre : voir [EN-LIGNE.md](EN-LIGNE.md). Pour qu'une nouvelle clé suive aussi, l'ajouter à `SYNC_KEYS` dans `js/sync.js`.
+
+⚠️ **Attention** : sans compte, effacer les données du navigateur supprime tout le progrès ! (Espace parents → sauvegarde dans un fichier.)
 
 ## 🎵 Sons
 

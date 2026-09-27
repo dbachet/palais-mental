@@ -137,6 +137,36 @@ const TEMPS = {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// CARTES QUESTIONS
+// ═══════════════════════════════════════════════════════════════
+// Cartes à retourner, rangées dans 3 boîtes : 1 = à revoir, 2 = ça vient,
+// 3 = connue. L'enfant (ou le parent) valide lui-même : on récompense donc
+// la session terminée, jamais les bonnes réponses.
+// Une liste devient Ninja quand toutes ses cartes sont dans la boîte 3.
+
+const CARTES = {
+  parSession: 10,        // cartes tirées par session
+  etoilesSession: 5,     // étoiles pour une session terminée
+  retoursMaxParCarte: 2, // une carte « à revoir » revient au plus N fois dans la session
+  // Tirage : plus le poids est petit, plus la carte sort souvent
+  poidsTirage: { 1: 1, 0: 1.5, 2: 3, 3: 6 } // 0 = jamais vue
+};
+
+// ═══════════════════════════════════════════════════════════════
+// LISTES DE LANGUE (traduction)
+// ═══════════════════════════════════════════════════════════════
+// On montre un mot dans la langue de départ, l'enfant écrit sa traduction
+// dans la langue d'arrivée (lettres à trouver, comme une liste de mots).
+// voix = langue de la synthèse vocale. Ajouter une langue = ajouter une ligne.
+
+const LANGUES = {
+  fr: { nom: "français", drapeau: "🇫🇷", voix: "fr-FR" },
+  en: { nom: "anglais",  drapeau: "🇬🇧", voix: "en-GB" },
+  es: { nom: "espagnol", drapeau: "🇪🇸", voix: "es-ES" },
+  de: { nom: "allemand", drapeau: "🇩🇪", voix: "de-DE" }
+};
+
+// ═══════════════════════════════════════════════════════════════
 // STICKERS (récompenses)
 // ═══════════════════════════════════════════════════════════════
 // Pas d'images : chaque sticker est un emoji. On les gagne dans les

@@ -6,9 +6,9 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v17'; // v17 : kawaii vivants
+const CACHE_NAME = 'mental-palace-v18'; // v18 : kawaii (nom, fonds, caresse, journée)
 // Même ?v= que dans index.html
-const V = '17';
+const V = '18';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

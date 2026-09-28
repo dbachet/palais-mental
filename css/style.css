@@ -2972,8 +2972,10 @@ header h1 {
 .k-alive {
   overflow: visible;
   cursor: pointer;
-  touch-action: manipulation;
+  touch-action: none; /* on peut le caresser en glissant le doigt */
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
   transform-origin: 50% 92%;
   animation: kBreath var(--kb, 4s) ease-in-out var(--kbd, 0s) infinite;
 }
@@ -2993,7 +2995,9 @@ header h1 {
 }
 
 .k-alive .k-head {
-  transform: translate(calc(var(--lx, 0px) * 0.35), calc(var(--ly, 0px) * 0.35));
+  transform-box: fill-box;
+  transform-origin: 50% 85%;
+  transform: translate(calc(var(--lx, 0px) * 0.35), calc(var(--ly, 0px) * 0.35)) rotate(var(--tilt, 0deg));
   transition: transform 0.5s ease;
 }
 
@@ -3007,7 +3011,7 @@ header h1 {
 .k-alive .k-eyes.k-noblink { animation: none; }
 
 @keyframes kBlink {
-  0%, 44%, 48%, 88%, 91%, 92.5%, 95.5%, 100% { transform: scaleY(1); }
+  0%, 44%, 48%, 88%, 91%, 92.5%, 95.5%, 100% { transform: scaleY(var(--lid, 1)); }
   46%, 89.5%, 94% { transform: scaleY(0.1); }
 }
 
@@ -3039,7 +3043,9 @@ header h1 {
 
 /* Yeux de réaction (rieurs, étoiles) : cachés hors réaction */
 .k-alive .k-joy,
-.k-alive .k-star {
+.k-alive .k-star,
+.k-alive .k-shut,
+.k-alive .k-yawn {
   opacity: 0;
   transition: opacity 0.12s;
 }
@@ -3050,8 +3056,14 @@ header h1 {
 }
 
 .k-alive.k-happy .k-look,
-.k-alive.k-starry .k-look { opacity: 0; }
-.k-alive.k-happy .k-joy { opacity: 1; }
+.k-alive.k-petting .k-look,
+.k-alive.k-starry .k-look,
+.k-alive.k-shut-eyes .k-look { opacity: 0; }
+.k-alive.k-happy .k-joy,
+.k-alive.k-petting .k-joy { opacity: 1; }
+.k-alive.k-shut-eyes .k-shut { opacity: 1; }
+.k-alive.k-shut-eyes .k-joy,
+.k-alive.k-shut-eyes .k-star { opacity: 0; }
 .k-alive.k-starry .k-star { opacity: 1; }
 .k-alive.k-starry .k-star1 { animation: kStarEyes 1s ease-out; }
 
@@ -3118,7 +3130,7 @@ header h1 {
 @keyframes kHeart {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
   15% { opacity: 1; transform: translate(-50%, -80%) scale(1.15); }
-  100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), -380%) scale(0.9); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), -380%) rotate(var(--rot, 0deg)) scale(0.9); }
 }
 
 /* Kawaii dans l'interrogation et dans les célébrations */
@@ -3138,6 +3150,167 @@ header h1 {
 }
 
 .level-up-kawaii svg { width: 110px; height: 110px; }
+
+/* Caresse : il se blottit contre le doigt */
+.k-alive.k-petting { animation: kPetting 0.9s ease-in-out infinite; }
+
+@keyframes kPetting {
+  0%, 100% { transform: scale(1.02, 0.97); }
+  50% { transform: scale(0.99, 1.02); }
+}
+
+/* Petit hochement à chaque lettre, penché en avant à la fin du mot */
+.k-alive.k-nod1 { animation: kNod1 0.3s ease-out; }
+
+@keyframes kNod1 {
+  0%, 100% { transform: translateY(0) scale(1); }
+  45% { transform: translateY(3%) scale(1.03, 0.96); }
+}
+
+.k-alive.k-lean:not(.k-hop):not(.k-nod1) { animation: kLean 0.7s ease-in-out infinite alternate; }
+
+@keyframes kLean {
+  from { transform: translateY(2%) scale(1.06); }
+  to { transform: translateY(0) scale(1.1); }
+}
+
+/* Il tremble en cachant ses yeux (coffre) */
+.k-alive.k-shake { animation: kShake 0.35s linear infinite; }
+
+@keyframes kShake {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-5deg) scale(0.97, 1.02); }
+  75% { transform: rotate(5deg) scale(0.97, 1.02); }
+}
+
+/* Impatient devant un coffre fermé */
+.k-alive.k-impatient:not(.k-shake):not(.k-hop) { animation: kImpatient 0.9s ease-in-out infinite; }
+
+@keyframes kImpatient {
+  0%, 60%, 100% { transform: translateY(0) scale(1, 1); }
+  70% { transform: translateY(0) scale(1.08, 0.92); }
+  82% { transform: translateY(-10%) scale(0.96, 1.05); }
+  92% { transform: translateY(0) scale(1.04, 0.96); }
+}
+
+/* ── La journée du kawaii ── */
+
+/* Matin : il s'étire */
+.k-alive.k-stretch { animation: kStretch 1.7s ease-in-out; }
+
+@keyframes kStretch {
+  0%, 100% { transform: scale(1, 1); }
+  15% { transform: scale(1.06, 0.92); }
+  45%, 65% { transform: scale(0.9, 1.14); }
+  80% { transform: scale(1.04, 0.96); }
+}
+
+/* Soir : paupières lourdes, et il bâille de temps en temps */
+.k-alive.k-soir,
+.k-alive.k-nuit.k-awake { --lid: 0.72; }
+
+.k-alive.k-yawning .k-mouth { opacity: 0; }
+.k-alive.k-yawning .k-yawn { opacity: 1; }
+.k-alive.k-yawning .k-yawn { transform-box: fill-box; transform-origin: center; animation: kYawnMouth 1.9s ease-in-out; }
+.k-alive.k-yawning { animation: kYawn 1.9s ease-in-out; }
+
+@keyframes kYawnMouth {
+  0%, 100% { transform: scale(0.3); }
+  30%, 70% { transform: scale(1.15, 1.25); }
+}
+
+@keyframes kYawn {
+  0%, 100% { transform: scale(1, 1); }
+  35%, 70% { transform: scale(0.97, 1.07) rotate(-2deg); }
+}
+
+/* Nuit : il dort (yeux fermés, respiration lente, « z ») jusqu'à ce qu'on le touche */
+.k-alive.k-nuit:not(.k-awake) .k-look { opacity: 0; }
+.k-alive.k-nuit:not(.k-awake) .k-shut { opacity: 1; }
+.k-alive.k-nuit:not(.k-awake) { animation-duration: calc(var(--kb, 4s) * 1.6); }
+.k-alive.k-nuit:not(.k-awake) .k-ear { animation: none; }
+
+.k-alive .k-zzz { opacity: 0; transition: opacity 0.3s; }
+.k-alive.k-nuit:not(.k-awake) .k-zzz { opacity: 1; }
+
+.k-alive .k-zzz text { animation: kZzz 2.4s ease-in-out infinite; }
+
+@keyframes kZzz {
+  0% { opacity: 0; transform: translate(-6px, 10px); }
+  30%, 70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(8px, -12px); }
+}
+
+/* ── Fonds animés (scènes) ── */
+.k-alive .k-tw { animation: kTwinkle 2s ease-in-out infinite; }
+
+@keyframes kTwinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.k-alive .k-bub { animation: kBubble 4s linear infinite; }
+
+@keyframes kBubble {
+  from { transform: translateY(40px); opacity: 0; }
+  20% { opacity: 0.8; }
+  to { transform: translateY(-120px); opacity: 0; }
+}
+
+.k-alive .k-snow { animation: kSnow 6s linear infinite; }
+
+@keyframes kSnow {
+  from { transform: translate(0, -60px); opacity: 0; }
+  15% { opacity: 1; }
+  to { transform: translate(14px, 200px); opacity: 0.4; }
+}
+
+.k-alive .k-wave { animation: kWave 3s linear infinite; }
+
+@keyframes kWave {
+  from { transform: translateX(0); }
+  to { transform: translateX(-40px); }
+}
+
+/* Kawaii devant le coffre */
+.chest-buddy {
+  display: flex;
+  justify-content: center;
+  margin-bottom: -8px;
+}
+
+.chest-buddy svg { width: 96px; height: 96px; }
+
+/* Fonds dans l'atelier : petites pastilles avec la scène */
+.kchip.bgchip {
+  padding: 2px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.kchip.bgchip svg { width: 52px; height: 52px; }
+
+.kchip.bgchip .bg-lock {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  font-size: 0.9rem;
+}
+
+.kstage-nom {
+  display: block;
+  margin: 6px auto 0;
+  max-width: 240px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: #1F6B66;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .k-alive, .k-alive * { animation: none !important; }

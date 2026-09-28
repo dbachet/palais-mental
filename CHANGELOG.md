@@ -1,3 +1,20 @@
+## [2026-09-28] - Kawaii : nom, fonds, caresse et journée
+
+### Ajouté
+- **Un nom pour chaque kawaii** : champ « Donne-lui un nom » dans l'atelier (16 lettres max). Vide = nom du personnage
+- **Fonds** derrière le kawaii, à débloquer en boutique ou dans les coffres, et à choisir dans l'atelier : couleurs (rose, lilas, menthe, ciel, 6 ⭐) et scènes dessinées (arc-en-ciel, plage, sous la mer, espace, prairie, pays des bonbons, neige, château, 18 ⭐). Étoiles qui scintillent, bulles, neige qui tombe, vagues
+- **Chaque kawaii a ses objets** qui s'envolent quand on le touche : 🥕 lapin, 🌈 licorne, 🍯 ourson, 🐟 chat, 🎋 panda…
+- **Vraie caresse** : glisser le doigt dessus → il ferme les yeux de bonheur, penche la tête du côté du doigt et ronronne (objets et petites notes pour les kawaii qui ne sont pas des animaux)
+- **Un cri par personnage** quand on le tapote (miaou, couinement du lapin, groin du cochon, notes magiques de la licorne…), synthétisés comme les autres sons
+- **La journée du kawaii** : le matin il s'étire, le soir il a les paupières lourdes et bâille, après 20 h il dort avec un bonnet de nuit et des « z ». On le réveille en le touchant, il se rendort ensuite. Dans l'interrogation, il reste éveillé
+- **Interrogation** : le kawaii regarde la case à remplir, hoche la tête à chaque lettre et se penche quand il ne reste qu'une lettre
+- **Coffres** : le kawaii trépigne devant le coffre, se cache les yeux en tremblant à l'ouverture, puis découvre la surprise avec les yeux étoiles
+
+### Technique
+- Config kawaii : champs `bg` (`Kawaii.BACKGROUNDS`) et `nom`. Accessoires `bg:<id>` dans la garde-robe, prix `ECONOMIE.prixAccessoires.fond` / `.scene`
+- `Kawaii.onSound(personnage, sorte)` fixé par l'app (`playKawaiiSound`, `startPurr`) ; `Kawaii.period()`, `Kawaii.lookAt()`, `Kawaii.setLean()` ; évènement `kawaii-period` pour redessiner quand le moment de la journée change
+- Service worker et `?v=` : `v18`
+
 ## [2026-09-28] - Kawaii vivants
 
 ### Ajouté

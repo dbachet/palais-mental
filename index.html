@@ -21,7 +21,7 @@
 
   <!-- Styles. Le ?v= force les navigateurs sans service worker (http://IP:port)
        à recharger les fichiers : l'augmenter à chaque version, ici et dans sw.js. -->
-  <link rel="stylesheet" href="css/style.css?v=17">
+  <link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
   <div id="app">
@@ -579,6 +579,7 @@
           <div class="kstage">
             <div id="atelier-stage"></div>
             <div class="kstage-name" id="atelier-name"></div>
+            <input type="text" id="atelier-nom" class="field kstage-nom" maxlength="16" placeholder="✏️ Donne-lui un nom" autocomplete="off" oninput="atelierSetName(this.value)">
             <div class="kstage-actions">
               <button class="btn btn-ghost" onclick="atelierRandom()">🎲 Au hasard</button>
               <button class="btn btn-primary" onclick="atelierSave()">✅ C'est lui !</button>
@@ -641,10 +642,10 @@
   </div>
 
   <!-- Scripts -->
-  <script src="data/lieux.js?v=17"></script>
-  <script src="js/kawaii.js?v=17"></script>
-  <script src="js/config.js?v=17"></script>
-  <script src="js/sync.js?v=17"></script>
-  <script src="js/app.js?v=17"></script>
+  <script src="data/lieux.js?v=18"></script>
+  <script src="js/kawaii.js?v=18"></script>
+  <script src="js/config.js?v=18"></script>
+  <script src="js/sync.js?v=18"></script>
+  <script src="js/app.js?v=18"></script>
 </body>
 </html>

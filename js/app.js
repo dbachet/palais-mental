@@ -1078,6 +1078,7 @@ function accessoryCatalog() {
   K.GLASSES.filter(g => g.id !== 'aucune').forEach(g => cat.push({ id: `glasses:${g.id}`, type: 'glasses', value: g.id, nom: `Lunettes ${g.nom.toLowerCase()}`, prix: ECONOMIE.prixAccessoires.glasses }));
   K.HATS.filter(h => h.id !== 'aucun').forEach(h => cat.push({ id: `hat:${h.id}`, type: 'hat', value: h.id, nom: h.nom, prix: ECONOMIE.prixAccessoires.hat }));
   K.OUTFITS.filter(o => o.id !== 'aucune').forEach(o => cat.push({ id: `outfit:${o.id}`, type: 'outfit', value: o.id, nom: o.nom, prix: ECONOMIE.prixAccessoires.outfit }));
+  K.BACKGROUNDS.filter(b => b.id !== 'aucun').forEach(b => cat.push({ id: `bg:${b.id}`, type: 'bg', value: b.id, nom: `Fond ${b.nom.toLowerCase()}`, prix: b.scene ? ECONOMIE.prixAccessoires.scene : ECONOMIE.prixAccessoires.fond }));
   return cat;
 }
 
@@ -1087,7 +1088,8 @@ function getAccessory(id) {
 
 function isAccessoryFree(type, value) {
   return (type === 'fur' && value === 'nature') || (type === 'glasses' && value === 'aucune')
-    || (type === 'hat' && value === 'aucun') || (type === 'outfit' && value === 'aucune');
+    || (type === 'hat' && value === 'aucun') || (type === 'outfit' && value === 'aucune')
+    || (type === 'bg' && value === 'aucun');
 }
 
 // Dessin d'un accessoire porté par le kawaii principal (ou le chat)
@@ -1401,7 +1403,9 @@ function renderQuizBuddy() {
   const buddy = document.getElementById('quiz-buddy');
   if (!buddy) return;
   const main = Storage.getTeam().main;
-  buddy.innerHTML = main ? Kawaii.draw(main, 58, { alive: true }) : '';
+  // La nuit, il reste éveillé pour aider (il bâille quand même)
+  const mood = Kawaii.period() === 'nuit' ? 'soir' : undefined;
+  buddy.innerHTML = main ? Kawaii.draw(main, 58, { alive: true, mood }) : '';
   buddy.classList.toggle('hidden', !main);
 }
 
@@ -1413,7 +1417,7 @@ function celebrationArt(emoji) {
   setTimeout(() => {
     document.querySelectorAll('.level-up .k-alive').forEach(svg => Kawaii.react(svg, 'pirouette'));
   }, 450);
-  return `<div class="level-up-kawaii">${Kawaii.draw(main, 110, { alive: true })}</div>`;
+  return `<div class="level-up-kawaii">${Kawaii.draw(main, 110, { alive: true, mood: 'jour' })}</div>`;
 }
 
 function shuffleArray(array) {
@@ -1657,9 +1661,26 @@ function handleKeyPress(key) {
     // Limite la saisie au nombre de lettres manquantes
     if (AppState.userInput.length < AppState.missingLettersCount + AppState.decoyCount) {
       AppState.userInput += key;
+      Kawaii.react(document.getElementById('quiz-buddy'), 'hoche');
     }
     updateInputDisplay();
   }
+  if (key !== 'VALIDER') quizBuddyFollow();
+}
+
+// Le kawaii de l'interrogation regarde la case à remplir et se penche
+// quand il ne reste qu'une lettre
+function quizBuddyFollow() {
+  const buddy = document.getElementById('quiz-buddy');
+  if (!buddy) return;
+  const tile = document.querySelector('#user-input-display .tile.cursor')
+    || [...document.querySelectorAll('#user-input-display .tile.typed')].pop();
+  if (tile) {
+    const b = tile.getBoundingClientRect();
+    Kawaii.lookAt(buddy, b.left + b.width / 2, b.top + b.height / 2, 3000);
+  }
+  const left = AppState.missingLettersCount + AppState.decoyCount - AppState.userInput.length;
+  Kawaii.setLean(buddy, left <= 1 && AppState.userInput.length > 0);
 }
 
 function updateInputDisplay() {
@@ -1816,6 +1837,7 @@ function validateAnswer() {
     animateWordSuccess();
 
     showFeedback('Bravo ! ✨', 'success');
+    Kawaii.setLean(document.getElementById('quiz-buddy'), false);
     Kawaii.react(document.getElementById('quiz-buddy'), 'bravo');
     console.log('Réponse correcte !');
   } else {
@@ -1833,6 +1855,7 @@ function validateAnswer() {
     // Le mot affiche déjà les bonnes lettres, en rouge là où c'était faux :
     // pas de notification pour ne pas détourner le regard du mot
     animateWordError(expectedLetters);
+    Kawaii.setLean(document.getElementById('quiz-buddy'), false);
     Kawaii.react(document.getElementById('quiz-buddy'), 'oups');
     console.log('Réponse incorrecte');
   }
@@ -3070,6 +3093,119 @@ function playChestSound() {
 }
 
 // ───────────────────────────────────────────────────────────────
+// SONS DES KAWAII : un petit cri par personnage, ronron pendant la caresse
+// ───────────────────────────────────────────────────────────────
+
+// Une note qui glisse d'une fréquence à l'autre (points = [[temps, fréquence], ...])
+function playGlide(points, { type = 'triangle', volume = 0.16, delay = 0, filter = 0 } = {}) {
+  if (!AppState.soundEnabled || !AppState.audioContext) return;
+  try {
+    const ctx = AppState.audioContext;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    let out = osc;
+    if (filter) {
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = filter;
+      osc.connect(lp);
+      out = lp;
+    }
+    out.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = type;
+    const t = ctx.currentTime + delay;
+    const end = points[points.length - 1][0];
+    osc.frequency.setValueAtTime(points[0][1], t);
+    points.slice(1).forEach(([dt, f]) => osc.frequency.exponentialRampToValueAtTime(f, t + dt));
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(volume * AppState.volume, t + 0.03);
+    gain.gain.setValueAtTime(volume * AppState.volume, t + end * 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + end);
+    osc.start(t);
+    osc.stop(t + end + 0.02);
+  } catch (e) {
+  }
+}
+
+const KAWAII_CRIS = {
+  chat:     () => playGlide([[0, 620], [0.18, 880], [0.45, 520]], { filter: 1800 }),
+  lapin:    () => { playGlide([[0, 1400], [0.1, 1900]], { type: 'sine', volume: 0.12 }); playGlide([[0, 1500], [0.1, 2000]], { type: 'sine', volume: 0.12, delay: 0.14 }); },
+  ours:     () => playGlide([[0, 190], [0.2, 240], [0.45, 150]], { filter: 900, volume: 0.22 }),
+  panda:    () => playGlide([[0, 260], [0.15, 340], [0.35, 220]], { filter: 1100, volume: 0.2 }),
+  renard:   () => { playGlide([[0, 800], [0.08, 1300], [0.18, 700]]); playGlide([[0, 850], [0.08, 1350], [0.18, 750]], { delay: 0.2 }); },
+  licorne:  () => [1318.5, 1568, 2093, 2637].forEach((f, i) => playTone(f, i * 0.07, 0.3, 0.1)),
+  pingouin: () => [0, 0.1, 0.2].forEach(d => playGlide([[0, 900], [0.07, 1400]], { type: 'square', volume: 0.05, delay: d, filter: 2500 })),
+  cochon:   () => { playGlide([[0, 170], [0.1, 240], [0.22, 150]], { type: 'sawtooth', filter: 700, volume: 0.2 }); playGlide([[0, 180], [0.1, 250], [0.2, 160]], { type: 'sawtooth', filter: 700, volume: 0.2, delay: 0.26 }); }
+};
+// Objets et gourmandises : un « bloup » tout doux
+const KAWAII_BLOUP = () => { playGlide([[0, 420], [0.14, 820]], { type: 'sine', volume: 0.14 }); playTone(1046.5, 0.12, 0.25, 0.08); };
+const PENTA = [523.25, 587.33, 659.25, 783.99, 880, 1046.5];
+
+// Appelé par Kawaii : sorte = tape, saut, caresse, ronron, reveil, baille
+function playKawaiiSound(char, kind) {
+  initAudio();
+  const animal = (Kawaii.CHARS.find(c => c.id === char) || {}).type === 'animal';
+  const cri = KAWAII_CRIS[char] || KAWAII_BLOUP;
+  if (kind === 'tape') cri();
+  else if (kind === 'saut') { cri(); playStarSound(); }
+  else if (kind === 'reveil') playGlide([[0, 500], [0.12, 950]], { type: 'sine', volume: 0.14 });
+  else if (kind === 'baille') playGlide([[0, 520], [0.4, 600], [1.1, 260]], { type: 'sine', volume: 0.07 });
+  else if (kind === 'caresse' && !animal) playTone(PENTA[Math.floor(Math.random() * PENTA.length)], 0, 0.3, 0.08);
+  else if (kind === 'ronron' && animal) return startPurr();
+  return null;
+}
+
+// Ronronnement : son grave qui pulse, jusqu'à la fin de la caresse
+function startPurr() {
+  if (!AppState.soundEnabled || !AppState.audioContext) return null;
+  try {
+    const ctx = AppState.audioContext;
+    const osc = ctx.createOscillator();
+    const lp = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 70;
+    lp.type = 'lowpass';
+    lp.frequency.value = 380;
+    lfo.frequency.value = 24;
+    const level = 0.16 * AppState.volume;
+    lfoGain.gain.value = level * 0.5;
+    gain.gain.value = 0;
+    osc.connect(lp);
+    lp.connect(gain);
+    gain.connect(ctx.destination);
+    lfo.connect(lfoGain);
+    lfoGain.connect(gain.gain);
+    const t = ctx.currentTime;
+    gain.gain.linearRampToValueAtTime(level * 0.6, t + 0.2);
+    osc.start(t);
+    lfo.start(t);
+    return () => {
+      const now = ctx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(gain.gain.value, now);
+      gain.gain.linearRampToValueAtTime(0, now + 0.25);
+      lfoGain.gain.linearRampToValueAtTime(0, now + 0.25);
+      osc.stop(now + 0.3);
+      lfo.stop(now + 0.3);
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+Kawaii.onSound = playKawaiiSound;
+
+// Le soir arrive, la nuit tombe… : les kawaii affichés changent d'humeur
+document.addEventListener('kawaii-period', () => {
+  if (AppState.currentScreen === 'home') renderTeamCard();
+  else if (AppState.currentScreen === 'kawaii') showKawaiiScreen();
+});
+
+// ───────────────────────────────────────────────────────────────
 // COFFRES : ouverture interactive
 // ───────────────────────────────────────────────────────────────
 
@@ -3113,6 +3249,7 @@ function showChestOverlay(tier, reward, onClose) {
       <div class="chest-rays"></div>
       <h2>${tier === 'rare' ? '✨ Coffre rare !' : '🎁 Un coffre !'}</h2>
       <p class="chest-sub">Appuie dessus pour l'ouvrir</p>
+      ${Storage.getTeam().main ? `<div class="chest-buddy">${Kawaii.draw(Storage.getTeam().main, 96, { alive: true, mood: 'jour' })}</div>` : ''}
       <div class="chest-box ${tier === 'rare' ? 'rare' : ''}" role="button" aria-label="Ouvrir le coffre">🎁</div>
       <div class="chest-reward">
         <div class="reward-emoji">${reward.art}</div>
@@ -3130,13 +3267,28 @@ function showChestOverlay(tier, reward, onClose) {
   const rewardEl = overlay.querySelector('.chest-reward');
   const card = overlay.querySelector('.chest-card');
   const sub = overlay.querySelector('.chest-sub');
+  const buddy = overlay.querySelector('.chest-buddy .k-alive');
   let opened = false;
+  // Le kawaii regarde le coffre et trépigne
+  if (buddy) {
+    buddy.classList.add('k-impatient');
+    requestAnimationFrame(() => {
+      const b = box.getBoundingClientRect();
+      Kawaii.lookAt(buddy, b.left + b.width / 2, b.top + b.height / 2, 60000);
+    });
+  }
 
   const open = () => {
     if (opened) return;
     opened = true;
     box.classList.add('opening');
     playChestSound();
+    // Il se cache les yeux en tremblant… puis découvre la surprise
+    if (buddy) {
+      buddy.classList.remove('k-impatient');
+      Kawaii.react(buddy, 'cache');
+      setTimeout(() => Kawaii.react(buddy, 'bravo'), 480);
+    }
     setTimeout(() => {
       box.classList.add('hidden');
       sub.textContent = reward.sub;
@@ -3776,7 +3928,7 @@ function showAtelierScreen(slot) {
   const team = Storage.getTeam();
   const existing = slot === 'main' ? team.main : team.companions[slot];
   Atelier.slot = slot;
-  Atelier.config = existing ? { ...existing } : { ...Kawaii.DEFAULT_CONFIG };
+  Atelier.config = existing ? { ...Kawaii.DEFAULT_CONFIG, ...existing } : { ...Kawaii.DEFAULT_CONFIG };
 
   showScreen('atelier');
   const title = document.getElementById('atelier-title');
@@ -3794,11 +3946,13 @@ function renderAtelier() {
 
   gallery.innerHTML = Kawaii.CHARS.map(c => `
     <button class="kchar ${A.char === c.id ? 'on' : ''}" onclick="atelierSet('char', '${c.id}')">
-      ${Kawaii.draw({ ...A, char: c.id }, 80)}${c.nom}
+      ${Kawaii.draw({ ...A, char: c.id, bg: 'aucun' }, 80)}${c.nom}
     </button>`).join('');
 
-  stage.innerHTML = Kawaii.draw(A, 260, { alive: true });
+  stage.innerHTML = Kawaii.draw(A, 260, { alive: true, mood: 'jour' });
   if (name) name.textContent = Kawaii.name(A);
+  const nomInput = document.getElementById('atelier-nom');
+  if (nomInput && document.activeElement !== nomInput) nomInput.value = A.nom || '';
 
   const K = Kawaii;
   const defs = [
@@ -3807,10 +3961,11 @@ function renderAtelier() {
     { key: 'hat', titre: 'Sur la tête', items: K.HATS },
     { key: 'glasses', titre: 'Lunettes', items: K.GLASSES },
     { key: 'outfit', titre: 'Tenue', items: K.OUTFITS },
-    { key: 'outfitColor', titre: 'Couleur de la tenue et des accessoires', items: K.OUTFIT_COLORS, swatch: true }
+    { key: 'outfitColor', titre: 'Couleur de la tenue et des accessoires', items: K.OUTFIT_COLORS, swatch: true },
+    { key: 'bg', titre: 'Fond', items: K.BACKGROUNDS, scene: true }
   ];
   const natural = (K.CHARS.find(c => c.id === A.char) || K.CHARS[0]).fur;
-  const paid = ['fur', 'glasses', 'hat', 'outfit'];
+  const paid = ['fur', 'glasses', 'hat', 'outfit', 'bg'];
   groups.innerHTML = defs.map(g => `
     <div class="kgroup">
       <p class="kgroup-title">${g.titre}${paid.includes(g.key) ? ' <span class="kgroup-note">🔒 à débloquer en boutique ou dans les coffres</span>' : ''}</p>
@@ -3818,6 +3973,10 @@ function renderAtelier() {
         const on = A[g.key] === it.id;
         const locked = paid.includes(g.key) && !isAccessoryFree(g.key, it.id) && !Storage.hasAccessory(`${g.key}:${it.id}`);
         const cls = `${on ? 'on' : ''} ${locked ? 'locked' : ''}`;
+        if (g.scene) {
+          const mini = it.id === 'aucun' ? '∅' : Kawaii.draw({ char: 'nuage', fur: 'blanc', bg: it.id }, 52).replace(/<g filter=[\s\S]*<\/g><\/svg>$/, '</svg>');
+          return `<button class="kchip bgchip ${cls}" title="${it.nom}" aria-label="${it.nom}" onclick="atelierSet('${g.key}', '${it.id}')">${mini}${locked ? '<span class="bg-lock">🔒</span>' : ''}</button>`;
+        }
         if (g.swatch) {
           return `<button class="kchip swatch ${cls}" style="background:${it.c || natural}" title="${it.id}" aria-label="${it.id}" onclick="atelierSet('${g.key}', '${it.id}')">${locked ? '🔒' : ''}</button>`;
         }
@@ -3826,8 +3985,15 @@ function renderAtelier() {
     </div>`).join('');
 }
 
+// Nom donné au kawaii (vide = nom du personnage)
+function atelierSetName(value) {
+  Atelier.config.nom = value.slice(0, 16);
+  const name = document.getElementById('atelier-name');
+  if (name) name.textContent = Kawaii.name(Atelier.config);
+}
+
 function atelierSet(key, value) {
-  const paid = ['fur', 'glasses', 'hat', 'outfit'];
+  const paid = ['fur', 'glasses', 'hat', 'outfit', 'bg'];
   if (paid.includes(key) && !isAccessoryFree(key, value) && !Storage.hasAccessory(`${key}:${value}`)) {
     askBuyAccessory(`${key}:${value}`, true);
     return;
@@ -3885,15 +4051,18 @@ function atelierRandom() {
   Atelier.config = {
     char: pick(K.CHARS), face: pick(K.FACES), outfitColor: pick(K.OUTFIT_COLORS),
     fur: pick(allowed('fur', K.FURS)), hat: pick(allowed('hat', K.HATS)),
-    glasses: pick(allowed('glasses', K.GLASSES)), outfit: pick(allowed('outfit', K.OUTFITS))
+    glasses: pick(allowed('glasses', K.GLASSES)), outfit: pick(allowed('outfit', K.OUTFITS)),
+    bg: pick(allowed('bg', K.BACKGROUNDS)), nom: Atelier.config.nom || ''
   };
   renderAtelier();
 }
 
 function atelierSave() {
   const team = Storage.getTeam();
-  if (Atelier.slot === 'main') team.main = { ...Atelier.config };
-  else team.companions[Atelier.slot] = { ...Atelier.config };
+  const config = { ...Atelier.config, nom: (Atelier.config.nom || '').trim() };
+  if (!config.nom) delete config.nom;
+  if (Atelier.slot === 'main') team.main = config;
+  else team.companions[Atelier.slot] = config;
   Storage.saveTeam(team);
   playChestSound();
   launchConfetti();

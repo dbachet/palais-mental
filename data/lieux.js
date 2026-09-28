@@ -118,7 +118,8 @@ const ECONOMIE = {
   maxStickersParLieu: 4,
   prix: { commun: 5, rare: 12, legendaire: 25, kawaii: 40 },
   // Habits et accessoires de l'atelier : prix par type
-  prixAccessoires: { fur: 8, glasses: 10, hat: 12, outfit: 15 },
+  // fond : couleur unie derrière le kawaii ; scene : fond dessiné (plage, espace…)
+  prixAccessoires: { fur: 8, glasses: 10, hat: 12, outfit: 15, fond: 6, scene: 18 },
   chanceAccessoireCoffre: 0.3,  // un coffre sur trois donne un accessoire plutôt qu'un sticker
   // Probabilités d'un coffre normal (un coffre "rare" garantit au moins rare)
   chancesCoffre: { commun: 0.62, rare: 0.30, legendaire: 0.05, kawaii: 0.03 }

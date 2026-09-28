@@ -1384,6 +1384,7 @@ function startInterrogationOnItems(sessionWords) {
   AppState.sessionCorrect = 0;
   AppState.sessionTotal = 0;
   updateSessionStarCounter(0);
+  renderQuizBuddy();
 
   // Mots randomisés, puis découpés en niveaux
   AppState.allInterrogationLevels = splitIntoLevels(shuffleArray([...sessionWords]));
@@ -1395,6 +1396,26 @@ function startInterrogationOnItems(sessionWords) {
 }
 
 // Fonction pour mélanger un tableau (algorithme Fisher-Yates)
+// Le kawaii principal accompagne l'interrogation : il réagit à chaque réponse
+function renderQuizBuddy() {
+  const buddy = document.getElementById('quiz-buddy');
+  if (!buddy) return;
+  const main = Storage.getTeam().main;
+  buddy.innerHTML = main ? Kawaii.draw(main, 58, { alive: true }) : '';
+  buddy.classList.toggle('hidden', !main);
+}
+
+// Célébration (liste Ninja, compagnon débloqué) : le kawaii principal fait
+// une pirouette ; sans kawaii, l'emoji habituel
+function celebrationArt(emoji) {
+  const main = Storage.getTeam().main;
+  if (!main) return `<div class="level-up-icon">${emoji}</div>`;
+  setTimeout(() => {
+    document.querySelectorAll('.level-up .k-alive').forEach(svg => Kawaii.react(svg, 'pirouette'));
+  }, 450);
+  return `<div class="level-up-kawaii">${Kawaii.draw(main, 110, { alive: true })}</div>`;
+}
+
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -1795,6 +1816,7 @@ function validateAnswer() {
     animateWordSuccess();
 
     showFeedback('Bravo ! ✨', 'success');
+    Kawaii.react(document.getElementById('quiz-buddy'), 'bravo');
     console.log('Réponse correcte !');
   } else {
     Storage.updateProgress(AppState.currentList.id, AppState.currentWord, false);
@@ -1811,6 +1833,7 @@ function validateAnswer() {
     // Le mot affiche déjà les bonnes lettres, en rouge là où c'était faux :
     // pas de notification pour ne pas détourner le regard du mot
     animateWordError(expectedLetters);
+    Kawaii.react(document.getElementById('quiz-buddy'), 'oups');
     console.log('Réponse incorrecte');
   }
 
@@ -1950,7 +1973,7 @@ function showResultsScreen() {
         : `${2 + next} lettres à trouver`;
       levelHTML += `
         <div class="level-up">
-          <div class="level-up-icon">${ninja ? '🥷' : '🚀'}</div>
+          ${celebrationArt(ninja ? '🥷' : '🚀')}
           <div class="level-up-title">${name}Niveau ${next + 1} atteint : ${levelName(next, maxLevel)} !</div>
           <div class="level-up-sub">${sub} · ${starsPerWord('progressive', next)} ⭐ par mot</div>
         </div>
@@ -1998,7 +2021,7 @@ function showResultsScreen() {
     AppState.newCompanionUnlocked = false;
     html += `
       <div class="level-up">
-        <div class="level-up-icon">🐾</div>
+        ${celebrationArt('🐾')}
         <div class="level-up-title">Nouveau compagnon débloqué !</div>
         <div class="level-up-sub">Va choisir ton kawaii de compagnie</div>
         <div class="team-actions"><button class="btn btn-secondary" onclick="showKawaiiScreen()">🎨 Choisir mon compagnon</button></div>
@@ -3190,7 +3213,7 @@ function renderTeamCard() {
   for (let i = 0; i < 5; i++) {
     const c = team.companions[i];
     if (c) {
-      companions += `<div class="team-slot" onclick="showKawaiiScreen()" title="${Kawaii.name(c)}">${Kawaii.draw(c, 62)}</div>`;
+      companions += `<div class="team-slot" title="${Kawaii.name(c)}">${Kawaii.draw(c, 62, { alive: true })}</div>`;
     } else if (i < slots) {
       toChoose++;
       companions += `<div class="team-slot empty" onclick="showAtelierScreen(${i})" title="Choisir un compagnon">+</div>`;
@@ -3200,10 +3223,11 @@ function renderTeamCard() {
   }
 
   card.innerHTML = `
-    <div class="team-main" onclick="showKawaiiScreen()">${Kawaii.draw(team.main, 170)}</div>
+    <div class="team-main">${Kawaii.draw(team.main, 170, { alive: true })}</div>
     <div class="team-name">${Kawaii.name(team.main)}</div>
     <div class="team-companions">${companions}</div>
     ${toChoose > 0 ? `<div class="team-hint">🎉 ${toChoose} compagnon${toChoose > 1 ? 's' : ''} à choisir !</div>` : ''}
+    <div class="team-actions"><button class="btn btn-ghost" onclick="showKawaiiScreen()">🎨 Mes kawaii</button></div>
   `;
 }
 
@@ -3676,7 +3700,7 @@ function showKawaiiScreen() {
     html += `
       <div class="kawaii-main-card">
         <div class="kawaii-role">Mon kawaii principal</div>
-        ${Kawaii.draw(team.main, 200)}
+        ${Kawaii.draw(team.main, 200, { alive: true })}
         <div class="team-name">${Kawaii.name(team.main)}</div>
         <div class="team-actions">
           <button class="btn btn-primary" onclick="showAtelierScreen('main')">🎨 Modifier</button>
@@ -3702,7 +3726,7 @@ function showKawaiiScreen() {
     if (c) {
       html += `
         <div class="companion-card">
-          ${Kawaii.draw(c, 110)}
+          ${Kawaii.draw(c, 110, { alive: true })}
           <div class="team-name">${Kawaii.name(c)}</div>
           <button class="btn btn-ghost" onclick="showAtelierScreen(${i})">🎨 Modifier</button>
           <button class="btn btn-secondary" onclick="makeMain(${i})">⭐ Devenir principal</button>
@@ -3773,7 +3797,7 @@ function renderAtelier() {
       ${Kawaii.draw({ ...A, char: c.id }, 80)}${c.nom}
     </button>`).join('');
 
-  stage.innerHTML = Kawaii.draw(A, 260);
+  stage.innerHTML = Kawaii.draw(A, 260, { alive: true });
   if (name) name.textContent = Kawaii.name(A);
 
   const K = Kawaii;
@@ -4254,7 +4278,7 @@ function showCartesResults() {
   if (CartesGame.becameNinja) {
     html += `
       <div class="level-up">
-        <div class="level-up-icon">🥷</div>
+        ${celebrationArt('🥷')}
         <div class="level-up-title">Liste Ninja !</div>
         <div class="level-up-sub">Tu connais toutes les cartes de cette liste</div>
       </div>
@@ -4280,7 +4304,7 @@ function showCartesResults() {
     AppState.newCompanionUnlocked = false;
     html += `
       <div class="level-up">
-        <div class="level-up-icon">🐾</div>
+        ${celebrationArt('🐾')}
         <div class="level-up-title">Nouveau compagnon débloqué !</div>
         <div class="level-up-sub">Va choisir ton kawaii de compagnie</div>
         <div class="team-actions"><button class="btn btn-secondary" onclick="showKawaiiScreen()">🎨 Choisir mon compagnon</button></div>

@@ -73,7 +73,8 @@ function face(a, dx, ey, s = 1, opts = {}) {
   const left = a.face === 'clin'
     ? `<path d="M${cx - dx - eyeR} ${ey} Q${cx - dx} ${ey + eyeR * .9} ${cx - dx + eyeR} ${ey}" fill="none" stroke="${dark}" stroke-width="${4 * s}" stroke-linecap="round"/>`
     : eye(cx - dx);
-  const eyes = left + eye(cx + dx);
+  const blinks = ['content', 'surpris', 'langue'].includes(a.face) || opts.eyes;
+  const eyes = `<g class="k-look"><g class="k-eyes${blinks ? '' : ' k-noblink'}">${opts.eyes || left + eye(cx + dx)}</g></g>`;
 
   const my = ey + 15 * s;
   let mouth;
@@ -91,6 +92,9 @@ function face(a, dx, ey, s = 1, opts = {}) {
   return eyes + mouth + blush;
 }
 
+// Oreilles gauche / droite, chacune dans son groupe (elles frémissent)
+const ears = (l, r) => `<g class="k-ear k-ear-l">${l}</g><g class="k-ear k-ear-r">${r}</g>`;
+
 // ── Formes de chaque personnage ──
 // Retourne { back, body, head, front, ey, dx, hatY, mouth }
 function shapes(id, fur, oc) {
@@ -100,28 +104,28 @@ function shapes(id, fur, oc) {
     <ellipse cx="120" cy="210" rx="26" ry="16" fill="#fff" opacity=".5"/>
     <ellipse cx="82" cy="220" rx="14" ry="9" fill="${glossy(c)}" ${line}/><ellipse cx="158" cy="220" rx="14" ry="9" fill="${glossy(c)}" ${line}/>`;
   const S = {
-    chat: { back: `<path d="M48 78 L44 22 L98 52 Z" fill="${g}" ${line}/><path d="M192 78 L196 22 L142 52 Z" fill="${g}" ${line}/><path d="M56 68 L54 36 L86 54 Z" fill="${pink}"/><path d="M184 68 L186 36 L154 54 Z" fill="${pink}"/>`,
+    chat: { back: ears(`<path d="M48 78 L44 22 L98 52 Z" fill="${g}" ${line}/><path d="M56 68 L54 36 L86 54 Z" fill="${pink}"/>`, `<path d="M192 78 L196 22 L142 52 Z" fill="${g}" ${line}/><path d="M184 68 L186 36 L154 54 Z" fill="${pink}"/>`),
             body: body(), head: flatHead,
             front: `<path d="M114 138 L126 138 L120 144 Z" fill="#FF8FA3"/><path d="M30 130 L60 134 M30 142 L60 140 M210 130 L180 134 M210 142 L180 140" stroke="${dark}" stroke-width="2.5" stroke-linecap="round"/>`,
             ey: 124, dx: 46, hatY: 40, mouth: 'chat' },
-    lapin: { back: `<ellipse cx="82" cy="34" rx="20" ry="52" fill="${g}" ${line} transform="rotate(-10 82 34)"/><ellipse cx="158" cy="34" rx="20" ry="52" fill="${g}" ${line} transform="rotate(10 158 34)"/><ellipse cx="82" cy="36" rx="10" ry="36" fill="${pink}" transform="rotate(-10 82 36)"/><ellipse cx="158" cy="36" rx="10" ry="36" fill="${pink}" transform="rotate(10 158 36)"/>`,
+    lapin: { back: ears(`<ellipse cx="82" cy="34" rx="20" ry="52" fill="${g}" ${line} transform="rotate(-10 82 34)"/><ellipse cx="82" cy="36" rx="10" ry="36" fill="${pink}" transform="rotate(-10 82 36)"/>`, `<ellipse cx="158" cy="34" rx="20" ry="52" fill="${g}" ${line} transform="rotate(10 158 34)"/><ellipse cx="158" cy="36" rx="10" ry="36" fill="${pink}" transform="rotate(10 158 36)"/>`),
              body: body(), head: flatHead,
              front: `<ellipse cx="120" cy="136" rx="5" ry="3.5" fill="#FF8FA3"/><rect x="113" y="148" width="14" height="9" rx="3" fill="#fff" stroke="${dark}" stroke-width="2"/><path d="M120 148 L120 157" stroke="${dark}" stroke-width="1.5"/>`,
              ey: 122, dx: 48, hatY: 44, mouth: 'plain' },
-    ours: { back: `<circle cx="42" cy="66" r="24" fill="${g}" ${line}/><circle cx="198" cy="66" r="24" fill="${g}" ${line}/><circle cx="42" cy="66" r="12" fill="${pink}"/><circle cx="198" cy="66" r="12" fill="${pink}"/>`,
+    ours: { back: ears(`<circle cx="42" cy="66" r="24" fill="${g}" ${line}/><circle cx="42" cy="66" r="12" fill="${pink}"/>`, `<circle cx="198" cy="66" r="24" fill="${g}" ${line}/><circle cx="198" cy="66" r="12" fill="${pink}"/>`),
             body: body(), head: flatHead,
             front: `<ellipse cx="120" cy="146" rx="26" ry="17" fill="#fff" opacity=".85"/>`,
             ey: 122, dx: 48, hatY: 46, mouth: 'nez' },
-    panda: { back: `<circle cx="44" cy="66" r="24" fill="${dark}"/><circle cx="196" cy="66" r="24" fill="${dark}"/>`,
+    panda: { back: ears(`<circle cx="44" cy="66" r="24" fill="${dark}"/>`, `<circle cx="196" cy="66" r="24" fill="${dark}"/>`),
              body: body('#3A2B3F').replace(/opacity="\.5"/, 'opacity=".25"'), head: flatHead,
              front: `<ellipse cx="72" cy="122" rx="24" ry="20" fill="${dark}" transform="rotate(-18 72 122)"/><ellipse cx="168" cy="122" rx="24" ry="20" fill="${dark}" transform="rotate(18 168 122)"/>`,
              ey: 124, dx: 46, hatY: 46, mouth: 'nez', pandaEyes: true },
-    renard: { back: `<path d="M44 84 L38 18 L102 52 Z" fill="${g}" ${line}/><path d="M196 84 L202 18 L138 52 Z" fill="${g}" ${line}/><path d="M52 72 L48 36 L86 56 Z" fill="${dark}" opacity=".7"/><path d="M188 72 L192 36 L154 56 Z" fill="${dark}" opacity=".7"/>`,
+    renard: { back: ears(`<path d="M44 84 L38 18 L102 52 Z" fill="${g}" ${line}/><path d="M52 72 L48 36 L86 56 Z" fill="${dark}" opacity=".7"/>`, `<path d="M196 84 L202 18 L138 52 Z" fill="${g}" ${line}/><path d="M188 72 L192 36 L154 56 Z" fill="${dark}" opacity=".7"/>`),
               body: body(), head: flatHead,
               front: `<path d="M56 128 C70 176 170 176 184 128 C160 150 80 150 56 128 Z" fill="#fff"/>`,
               ey: 122, dx: 50, hatY: 40, mouth: 'nez' },
     licorne: { back: `<path d="M120 52 L106 -2 L134 -2 Z" fill="#FFD466" ${line}/><path d="M111 36 L129 30 M109 24 L127 18 M113 12 L125 8" stroke="#E8A317" stroke-width="2.5" stroke-linecap="round"/>
-                      <path d="M52 78 L46 26 L100 52 Z" fill="${g}" ${line}/><path d="M188 78 L194 26 L140 52 Z" fill="${g}" ${line}/>
+                      ${ears(`<path d="M52 78 L46 26 L100 52 Z" fill="${g}" ${line}/>`, `<path d="M188 78 L194 26 L140 52 Z" fill="${g}" ${line}/>`)}
                       <path d="M46 60 C22 74 20 120 36 154 C44 128 56 106 76 88 Z" fill="#FFB3D6" ${line}/><path d="M40 100 C30 116 30 140 38 154 C44 136 50 122 60 108 Z" fill="#C9A6F0"/><path d="M62 74 C50 84 44 96 44 108 C52 96 62 88 74 84 Z" fill="#A8ECE6"/>`,
                body: body(), head: flatHead,
                front: `<ellipse cx="120" cy="146" rx="24" ry="15" fill="#FFE4F1"/><circle cx="111" cy="146" r="3" fill="${dark}" opacity=".55"/><circle cx="129" cy="146" r="3" fill="${dark}" opacity=".55"/>`,
@@ -129,7 +133,7 @@ function shapes(id, fur, oc) {
     pingouin: { back: '', body: body(), head: flatHead,
                 front: `<path d="M44 128 C44 76 196 76 196 128 C196 170 168 190 120 190 C72 190 44 170 44 128 Z" fill="#fff"/>`,
                 ey: 122, dx: 44, hatY: 46, mouth: 'bec' },
-    cochon: { back: `<path d="M50 80 L42 34 C60 34 78 44 90 56 Z" fill="${g}" ${line}/><path d="M190 80 L198 34 C180 34 162 44 150 56 Z" fill="${g}" ${line}/><path d="M56 70 L52 44 C64 46 74 52 82 60 Z" fill="${pink}"/><path d="M184 70 L188 44 C176 46 166 52 158 60 Z" fill="${pink}"/>`,
+    cochon: { back: ears(`<path d="M50 80 L42 34 C60 34 78 44 90 56 Z" fill="${g}" ${line}/><path d="M56 70 L52 44 C64 46 74 52 82 60 Z" fill="${pink}"/>`, `<path d="M190 80 L198 34 C180 34 162 44 150 56 Z" fill="${g}" ${line}/><path d="M184 70 L188 44 C176 46 166 52 158 60 Z" fill="${pink}"/>`),
               body: body(), head: flatHead,
               front: '', ey: 120, dx: 48, hatY: 46, mouth: 'groin', groin: darken(fur, .12) },
     etoile: { back: '', body: '',
@@ -208,7 +212,20 @@ function accessories(a, sh, oc) {
 }
 
 let drawCount = 0;
-function drawChar(a, size) {
+// Yeux de réaction, cachés tant que le kawaii ne réagit pas :
+// yeux rieurs (caresse, encouragement) et yeux étoiles (bravo)
+function reactionEyes(sh) {
+  const cx = sh.cx || 120, dx = sh.dx, ey = sh.ey, s = sh.s || 1;
+  const eyeR = 13 * s;
+  const ink = sh.pandaEyes ? '#fff' : dark;
+  const arc = x => `<path d="M${x - eyeR} ${ey + 3} Q${x} ${ey - eyeR * 1.2} ${x + eyeR} ${ey + 3}" fill="none" stroke="${ink}" stroke-width="${4 * s}" stroke-linecap="round"/>`;
+  const star = x => `<path d="M${x} ${ey - eyeR * 1.2} l${3.6 * s} ${8.5 * s} ${9 * s} .7 -${6.8 * s} ${6 * s} ${2.1 * s} ${9 * s} -${7.9 * s} -${4.8 * s} -${7.9 * s} ${4.8 * s} ${2.1 * s} -${9 * s} -${6.8 * s} -${6 * s} ${9 * s} -.7z" fill="#FFD466" stroke="${dark}" stroke-width="${2.5 * s}" stroke-linejoin="round"/>`;
+  // Les yeux habituels sont masqués pendant la réaction (le panda garde ses taches)
+  const both = f => f(cx - dx) + f(cx + dx);
+  return `<g class="k-joy">${both(arc)}</g><g class="k-star">${both(x => `<g class="k-star1">${star(x)}</g>`)}</g>`;
+}
+
+function drawChar(a, size, opts = {}) {
   defs = [];
   uid = 'k' + (++drawCount) + '-';
   const ch = find(CHARS, a.char);
@@ -218,13 +235,21 @@ function drawChar(a, size) {
   const sh = shapes(ch.id, fur, oc);
   const acc = accessories(a, sh, oc);
   const s = sh.s || 1;
-  const fa = sh.pandaEyes && a.face === 'content'
-    ? `<circle cx="74" cy="124" r="9" fill="#fff"/><circle cx="166" cy="124" r="9" fill="#fff"/><circle cx="74" cy="124" r="5.5" fill="${dark}"/><circle cx="166" cy="124" r="5.5" fill="${dark}"/><circle cx="76" cy="121" r="2" fill="#fff"/><circle cx="168" cy="121" r="2" fill="#fff"/>` + face({ ...a, face: 'rieur' }, sh.dx, sh.ey, s, { mouth: sh.mouth }).replace(/<path[^>]*stroke-width="4"[^>]*\/>/g, '')
-    : face(a, sh.dx, sh.ey, s, { mouth: sh.mouth, groin: sh.groin });
+  const pandaEyes = sh.pandaEyes && a.face === 'content'
+    ? `<circle cx="74" cy="124" r="9" fill="#fff"/><circle cx="166" cy="124" r="9" fill="#fff"/><circle cx="74" cy="124" r="5.5" fill="${dark}"/><circle cx="166" cy="124" r="5.5" fill="${dark}"/><circle cx="76" cy="121" r="2" fill="#fff"/><circle cx="168" cy="121" r="2" fill="#fff"/>`
+    : null;
+  const fa = face(a, sh.dx, sh.ey, s, { mouth: sh.mouth, groin: sh.groin, eyes: pandaEyes });
   const capeBehind = a.outfit === 'cape';
   const filterDef = `<filter id="${uid}sticker" x="-15%" y="-15%" width="130%" height="130%"><feMorphology in="SourceAlpha" operator="dilate" radius="6" result="d"/><feFlood flood-color="#fff"/><feComposite in2="d" operator="in" result="o"/><feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#1F4B48" flood-opacity=".25" in="o" result="os"/><feMerge><feMergeNode in="os"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
-  const inner = `${capeBehind ? acc.outfit : ''}${sh.back}${sh.body}${sh.head}${sh.topping || ''}${sh.front}${fa}${acc.glasses}${capeBehind ? '' : acc.outfit}${acc.hat}`;
-  return `<svg viewBox="-10 -10 260 260" width="${size}" height="${size}" role="img" aria-label="${ch.nom}"><defs>${filterDef}${defs.join('')}</defs><g filter="url(#${uid}sticker)" transform="translate(0 ${sh.body ? 0 : 6})">${inner}</g></svg>`;
+  // La tête (oreilles, visage, chapeau…) forme un groupe : elle suit un peu le regard
+  const head = `${sh.back}${sh.head}${sh.topping || ''}${sh.front}${fa}${opts.alive ? reactionEyes(sh) : ''}${acc.glasses}${acc.hat}`;
+  const inner = `${capeBehind ? acc.outfit : ''}${sh.body}<g class="k-head">${head}</g>${capeBehind ? '' : acc.outfit}`;
+  // Kawaii vivant : rythmes un peu différents pour chacun (respiration, clignement, oreilles)
+  const r = (min, max) => (min + Math.random() * (max - min)).toFixed(2) + 's';
+  const alive = opts.alive
+    ? ` class="kawaii k-alive" style="--kb:${r(3.4, 4.6)};--kbd:-${r(0, 4)};--ke:${r(6, 9.5)};--ked:-${r(0, 8)};--kt:${r(6, 11)};--ktd:-${r(0, 9)}"`
+    : ' class="kawaii"';
+  return `<svg viewBox="-10 -10 260 260" width="${size}" height="${size}" role="img" aria-label="${ch.nom}"${alive}><defs>${filterDef}${defs.join('')}</defs><g filter="url(#${uid}sticker)" transform="translate(0 ${sh.body ? 0 : 6})">${inner}</g></svg>`;
 }
 
 
@@ -235,9 +260,115 @@ function randomConfig() {
   return { char: pick(CHARS), fur: pick(FURS), face: pick(FACES), hat: pick(HATS), glasses: pick(GLASSES), outfit: pick(OUTFITS), outfitColor: pick(OUTFIT_COLORS) };
 }
 
+// ── Kawaii vivants : regard, caresses et réactions ──
+// Les dessins avec { alive: true } respirent, clignent, bougent les oreilles
+// (en CSS) ; ici : le regard qui suit le doigt, les caresses et les réactions.
+
+const REACTIONS = {
+  caresse: { cls: ['k-happy', 'k-squish'], ms: 650 },
+  saut:    { cls: ['k-happy', 'k-hop'], ms: 800 },
+  bravo:   { cls: ['k-starry', 'k-hop'], ms: 1100 },
+  oups:    { cls: ['k-surprise'], ms: 700, then: 'courage' },
+  courage: { cls: ['k-happy', 'k-nod'], ms: 1100 },
+  pirouette: { cls: ['k-starry', 'k-spin'], ms: 1300 }
+};
+const REACTION_CLASSES = [...new Set(Object.values(REACTIONS).flatMap(r => r.cls))];
+
+// el : le svg vivant, ou un élément qui en contient un
+function react(el, type) {
+  const svg = el && (el.matches('.k-alive') ? el : el.querySelector('.k-alive'));
+  const r = REACTIONS[type];
+  if (!svg || !r) return;
+  clearTimeout(svg._kTimer);
+  svg.classList.remove(...REACTION_CLASSES);
+  void svg.getBoundingClientRect(); // relance l'animation si la même revient
+  svg.classList.add(...r.cls);
+  svg._kTimer = setTimeout(() => {
+    svg.classList.remove(...r.cls);
+    if (r.then) react(svg, r.then);
+  }, r.ms);
+}
+
+// Petit cœur qui s'envole de l'endroit touché
+function heart(x, y, delay = 0) {
+  const h = document.createElement('span');
+  h.className = 'k-heart';
+  h.textContent = ['💖', '💗', '💕'][Math.floor(Math.random() * 3)];
+  h.style.left = x + 'px';
+  h.style.top = y + 'px';
+  h.style.setProperty('--dx', (Math.random() * 40 - 20).toFixed(0) + 'px');
+  h.style.animationDelay = delay + 'ms';
+  document.body.appendChild(h);
+  setTimeout(() => h.remove(), 1300 + delay);
+}
+
+// Caresse : un tapotement = câlin, trois tapotements rapides = petit saut
+document.addEventListener('pointerdown', (e) => {
+  const svg = e.target.closest && e.target.closest('.k-alive');
+  if (!svg) return;
+  const now = Date.now();
+  svg._kTaps = (now - (svg._kLastTap || 0) < 700) ? (svg._kTaps || 0) + 1 : 1;
+  svg._kLastTap = now;
+  if (svg._kTaps >= 3) {
+    svg._kTaps = 0;
+    react(svg, 'saut');
+    [0, 120, 240].forEach(d => heart(e.clientX, e.clientY, d));
+  } else {
+    react(svg, 'caresse');
+    heart(e.clientX, e.clientY);
+  }
+});
+
+// Regard : les yeux (et un peu la tête) se tournent vers le doigt ou la souris.
+// Sans mouvement pendant un moment, ils regardent ailleurs de temps en temps.
+const LOOK_MAX = 8; // en unités du dessin (260 de large)
+let lookTarget = null;
+let lookFrame = 0;
+let lastPointer = 0;
+
+function setLook(svg, lx, ly) {
+  svg.style.setProperty('--lx', lx.toFixed(1) + 'px');
+  svg.style.setProperty('--ly', ly.toFixed(1) + 'px');
+}
+
+function updateLooks() {
+  lookFrame = 0;
+  document.querySelectorAll('.k-alive').forEach(svg => {
+    const b = svg.getBoundingClientRect();
+    if (!b.width) return;
+    const dx = lookTarget.x - (b.left + b.width / 2);
+    const dy = lookTarget.y - (b.top + b.height * 0.45);
+    const dist = Math.hypot(dx, dy) || 1;
+    // Plus le doigt est loin, plus le regard va au bout
+    const k = Math.min(1, dist / (b.width * 1.2)) * LOOK_MAX / dist;
+    setLook(svg, dx * k, dy * k * 0.7);
+  });
+}
+
+document.addEventListener('pointermove', (e) => {
+  lastPointer = Date.now();
+  lookTarget = { x: e.clientX, y: e.clientY };
+  if (!lookFrame) lookFrame = requestAnimationFrame(updateLooks);
+}, { passive: true });
+document.addEventListener('pointerdown', (e) => {
+  lastPointer = Date.now();
+  lookTarget = { x: e.clientX, y: e.clientY };
+  if (!lookFrame) lookFrame = requestAnimationFrame(updateLooks);
+}, { passive: true });
+
+setInterval(() => {
+  if (document.hidden || Date.now() - lastPointer < 2500) return;
+  document.querySelectorAll('.k-alive').forEach(svg => {
+    // Un coup d'œil au hasard, ou retour au centre
+    if (Math.random() < 0.45) setLook(svg, 0, 0);
+    else setLook(svg, (Math.random() * 2 - 1) * LOOK_MAX, (Math.random() * 1.2 - 0.6) * LOOK_MAX);
+  });
+}, 2200);
+
 return {
   CHARS, FURS, FACES, HATS, GLASSES, OUTFITS, OUTFIT_COLORS, DEFAULT_CONFIG,
   draw: drawChar,
+  react,
   randomConfig,
   name: (config) => (CHARS.find(c => c.id === config.char) || CHARS[0]).nom
 };

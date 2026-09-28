@@ -1,3 +1,21 @@
+## [2026-09-28] - Kawaii vivants
+
+### Ajouté
+- **Les kawaii vivent** (accueil, Mes kawaii, atelier) : ils respirent, clignent des yeux (parfois deux fois), leurs oreilles frémissent, chacun à son rythme
+- **Ils regardent l'enfant** : les yeux, et un peu la tête, suivent le doigt ou la souris ; sans mouvement, ils jettent des coups d'œil autour
+- **Caresse** : un tapotement les écrase comme de la gelée, yeux rieurs et petit cœur 💖 ; trois tapotements rapides = petit saut
+- **Compagnon d'interrogation** : le kawaii principal est à côté des étoiles. Bonne réponse = yeux étoiles et bond ; erreur = surprise puis sourire qui encourage
+- **Célébrations** : à chaque niveau atteint, liste Ninja ou compagnon débloqué, le kawaii principal fait une pirouette (l'emoji reste s'il n'y a pas de kawaii)
+
+### Modifié
+- Accueil : toucher le kawaii le caresse ; bouton **🎨 Mes kawaii** pour ouvrir l'équipe
+
+### Technique
+- `Kawaii.draw(config, taille, { alive: true })` : oreilles, yeux et tête dans des groupes SVG animés en CSS (`.k-alive`), yeux de réaction cachés (`.k-joy`, `.k-star`)
+- `Kawaii.react(el, 'caresse' | 'saut' | 'bravo' | 'oups' | 'pirouette')`. Aucune donnée enregistrée ne change
+- Mouvement réduit : animations coupées
+- Service worker et `?v=` : `v17`
+
 # Changelog - Mental Palace
 
 ## [2026-09-28] - Listes archivées

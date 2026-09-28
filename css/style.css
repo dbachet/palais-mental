@@ -601,12 +601,6 @@ header h1 {
 .team-main svg {
   width: 170px;
   height: 170px;
-  animation: kawaiiBob 3s ease-in-out infinite;
-}
-
-@keyframes kawaiiBob {
-  0%, 100% { transform: translateY(0) rotate(-1deg); }
-  50% { transform: translateY(-5px) rotate(1deg); }
 }
 
 .team-name {
@@ -2969,3 +2963,183 @@ header h1 {
 /* Liste archivée : même carte, plus discrète */
 .archived-card { opacity: 0.85; }
 .archived-card .list-card-head h3 { font-size: 1.05rem; }
+
+/* ─────────────────────────────────────────────────────────────── */
+/* KAWAII VIVANTS : respiration, clignement, oreilles, regard,     */
+/* caresses et réactions (dessins créés avec { alive: true })      */
+/* ─────────────────────────────────────────────────────────────── */
+
+.k-alive {
+  overflow: visible;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transform-origin: 50% 92%;
+  animation: kBreath var(--kb, 4s) ease-in-out var(--kbd, 0s) infinite;
+}
+
+/* Respiration : un peu plus grand à l'inspiration, posé sur ses pieds */
+@keyframes kBreath {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(0.992, 1.024); }
+}
+
+/* Regard : les yeux vont vers le doigt, la tête suit un peu */
+.k-alive .k-look {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: translate(var(--lx, 0px), var(--ly, 0px)) scale(var(--ks, 1));
+  transition: transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1), opacity 0.12s;
+}
+
+.k-alive .k-head {
+  transform: translate(calc(var(--lx, 0px) * 0.35), calc(var(--ly, 0px) * 0.35));
+  transition: transform 0.5s ease;
+}
+
+/* Clignement : un simple au milieu, un double à la fin (durée propre à chacun) */
+.k-alive .k-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: kBlink var(--ke, 7s) linear var(--ked, 0s) infinite;
+}
+
+.k-alive .k-eyes.k-noblink { animation: none; }
+
+@keyframes kBlink {
+  0%, 44%, 48%, 88%, 91%, 92.5%, 95.5%, 100% { transform: scaleY(1); }
+  46%, 89.5%, 94% { transform: scaleY(0.1); }
+}
+
+/* Oreilles qui frémissent, chacune à son moment */
+.k-alive .k-ear {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: kEarL var(--kt, 8s) ease-in-out var(--ktd, 0s) infinite;
+}
+
+.k-alive .k-ear-r {
+  animation-name: kEarR;
+  animation-delay: calc(var(--ktd, 0s) - 3.1s);
+}
+
+@keyframes kEarL {
+  0%, 90%, 100% { transform: rotate(0); }
+  92% { transform: rotate(-10deg); }
+  94.5% { transform: rotate(5deg); }
+  97% { transform: rotate(-2deg); }
+}
+
+@keyframes kEarR {
+  0%, 90%, 100% { transform: rotate(0); }
+  92% { transform: rotate(10deg); }
+  94.5% { transform: rotate(-5deg); }
+  97% { transform: rotate(2deg); }
+}
+
+/* Yeux de réaction (rieurs, étoiles) : cachés hors réaction */
+.k-alive .k-joy,
+.k-alive .k-star {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.k-alive .k-star1 {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.k-alive.k-happy .k-look,
+.k-alive.k-starry .k-look { opacity: 0; }
+.k-alive.k-happy .k-joy { opacity: 1; }
+.k-alive.k-starry .k-star { opacity: 1; }
+.k-alive.k-starry .k-star1 { animation: kStarEyes 1s ease-out; }
+
+@keyframes kStarEyes {
+  0% { transform: scale(0.3) rotate(-40deg); }
+  45% { transform: scale(1.25) rotate(8deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+.k-alive.k-surprise { --ks: 1.25; }
+
+/* Caresse : écrasé comme de la gelée puis rebond */
+.k-alive.k-squish { animation: kSquish 0.6s cubic-bezier(0.3, 0.7, 0.4, 1.5); }
+
+@keyframes kSquish {
+  0% { transform: scale(1, 1); }
+  25% { transform: scale(1.14, 0.84); }
+  50% { transform: scale(0.93, 1.08); }
+  75% { transform: scale(1.03, 0.97); }
+  100% { transform: scale(1, 1); }
+}
+
+/* Petit saut (bravo, trois caresses) */
+.k-alive.k-hop { animation: kHop 0.75s cubic-bezier(0.3, 0.7, 0.4, 1); }
+
+@keyframes kHop {
+  0% { transform: translateY(0) scale(1, 1); }
+  15% { transform: translateY(0) scale(1.12, 0.86); }
+  45% { transform: translateY(-22%) scale(0.94, 1.08); }
+  75% { transform: translateY(0) scale(1.1, 0.9); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+/* Encouragement après une erreur : petit hochement */
+.k-alive.k-nod { animation: kNod 0.9s ease-in-out; }
+
+@keyframes kNod {
+  0%, 100% { transform: rotate(0); }
+  30% { transform: rotate(-6deg); }
+  65% { transform: rotate(5deg); }
+}
+
+/* Pirouette de célébration */
+.k-alive.k-spin { animation: kSpin 1.2s cubic-bezier(0.4, 0, 0.3, 1); }
+
+@keyframes kSpin {
+  0% { transform: translateY(0) rotate(0) scale(1, 1); }
+  15% { transform: translateY(0) rotate(0) scale(1.12, 0.86); }
+  55% { transform: translateY(-30%) rotate(360deg) scale(1, 1); }
+  80% { transform: translateY(0) rotate(360deg) scale(1.08, 0.92); }
+  100% { transform: translateY(0) rotate(360deg) scale(1, 1); }
+}
+
+/* Cœur qui s'envole après une caresse */
+.k-heart {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  font-size: 1.6rem;
+  transform: translate(-50%, -50%);
+  animation: kHeart 1.2s ease-out both;
+}
+
+@keyframes kHeart {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  15% { opacity: 1; transform: translate(-50%, -80%) scale(1.15); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), -380%) scale(0.9); }
+}
+
+/* Kawaii dans l'interrogation et dans les célébrations */
+.quiz-buddy {
+  flex: none;
+  width: 58px;
+  height: 58px;
+  margin-left: auto;
+}
+
+.quiz-buddy svg { width: 58px; height: 58px; }
+
+.level-up-kawaii {
+  display: flex;
+  justify-content: center;
+  margin: -4px 0 6px;
+}
+
+.level-up-kawaii svg { width: 110px; height: 110px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .k-alive, .k-alive * { animation: none !important; }
+  .k-heart { display: none; }
+}

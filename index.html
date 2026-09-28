@@ -21,7 +21,7 @@
 
   <!-- Styles. Le ?v= force les navigateurs sans service worker (http://IP:port)
        à recharger les fichiers : l'augmenter à chaque version, ici et dans sw.js. -->
-  <link rel="stylesheet" href="css/style.css?v=16">
+  <link rel="stylesheet" href="css/style.css?v=17">
 </head>
 <body>
   <div id="app">
@@ -320,6 +320,7 @@
         <!-- Barre de session : avancement (une case par mot) + étoiles gagnées -->
         <div class="session-bar">
           <div class="session-progress" id="session-progress" aria-label="Avancement de la session"></div>
+          <div class="quiz-buddy hidden" id="quiz-buddy"></div>
           <div class="star-counter" id="session-star-counter">
             <span class="star-counter-icon">⭐</span>
             <span id="session-stars">0</span>
@@ -640,10 +641,10 @@
   </div>
 
   <!-- Scripts -->
-  <script src="data/lieux.js?v=16"></script>
-  <script src="js/kawaii.js?v=16"></script>
-  <script src="js/config.js?v=16"></script>
-  <script src="js/sync.js?v=16"></script>
-  <script src="js/app.js?v=16"></script>
+  <script src="data/lieux.js?v=17"></script>
+  <script src="js/kawaii.js?v=17"></script>
+  <script src="js/config.js?v=17"></script>
+  <script src="js/sync.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
 </body>
 </html>

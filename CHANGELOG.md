@@ -1,5 +1,17 @@
 # Changelog - Mental Palace
 
+## [2026-09-28] - Listes archivées
+
+### Ajouté
+- **Archiver une liste** (bouton 📦 sur chaque liste : mots à réécrire, mots de langue, cartes questions). Elle quitte Mes listes, le mélange, les mots à travailler et les mots affichés dans les pièces du palais
+- **📦 Listes archivées (N)** en bas de Mes listes : les archives, les plus récentes en premier, avec 📤 Ressortir et 🗑️ Supprimer
+- Une liste archivée garde tout : lieux, niveau, progrès, cartes et Ninja. Elle compte toujours pour les compagnons et les listes dorées (rien ne redescend)
+
+### Technique
+- Champ `archived: true` + `archivedAt` sur la liste dans `wordLists` (absent = liste en cours). `Storage.getActiveLists()`, `Storage.setArchived()`. Archiver retire la liste de `mixSelection`
+- Aucune migration : les listes existantes restent en cours. Synchronisé avec le reste de `wordLists`
+- Service worker et `?v=` : `v16`
+
 ## [2026-09-27] - Mots de langue, interrogation complète en Ninja
 
 ### Ajouté

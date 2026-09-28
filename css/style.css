@@ -2965,3 +2965,7 @@ header h1 {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* Liste archivée : même carte, plus discrète */
+.archived-card { opacity: 0.85; }
+.archived-card .list-card-head h3 { font-size: 1.05rem; }

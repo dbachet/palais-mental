@@ -44,6 +44,7 @@ const AppState = {
   interrogationMode: 'progressive', // 'progressive' ou 'complete'
   errors: [], // Liste des erreurs commises pendant la session
   editingListId: null, // ID de la liste en cours d'édition
+  showArchives: false, // Mes listes : affiche les listes archivées
   soundEnabled: true, // Son activé par défaut
   volume: 1, // Volume des sons (0 à 1)
   sessionReplay: null, // Fonction pour rejouer la session d'interrogation en cours
@@ -241,6 +242,37 @@ const Storage = {
   isListNinja(list) {
     if (this.isCardList(list)) return !!list.ninja;
     return this.getListLevel(list) >= this.getListMaxLevel(list);
+  },
+
+  // ── Listes archivées ──
+  // archived: true = rangée dans les archives. Elle garde tout (lieux,
+  // niveau, cartes, Ninja) et compte toujours pour les compagnons et les
+  // listes dorées ; elle disparaît seulement de Mes listes, du mélange,
+  // des mots à travailler et des mots affichés dans les pièces.
+
+  isArchived(list) {
+    return !!list.archived;
+  },
+
+  // Listes en cours (non archivées)
+  getActiveLists() {
+    return this.getLists().filter(l => !this.isArchived(l));
+  },
+
+  setArchived(listId, archived) {
+    const lists = this.getLists();
+    const list = lists.find(l => l.id === listId);
+    if (!list) return false;
+    if (archived) {
+      list.archived = true;
+      list.archivedAt = new Date().toISOString();
+    } else {
+      delete list.archived;
+      delete list.archivedAt;
+    }
+    this.saveLists(lists);
+    if (archived) this.saveMixSelection(this.getMixSelection().filter(id => id !== listId));
+    return true;
   },
 
   // Supprime une liste
@@ -841,7 +873,7 @@ function sessionItems(lists) {
 
 // Listes de mots (pas les cartes questions) correspondant aux ids, dans l'ordre de « Mes listes »
 function wordListsByIds(listIds) {
-  return Storage.getLists().filter(l => listIds.includes(l.id) && !Storage.isCardList(l));
+  return Storage.getActiveLists().filter(l => listIds.includes(l.id) && !Storage.isCardList(l));
 }
 
 // Installe le mot en cours : sa liste, son lieu et le niveau de sa liste
@@ -2178,13 +2210,27 @@ function showFeedback(message, type) {
 // ───────────────────────────────────────────────────────────────
 
 function showListsScreen() {
+  AppState.showArchives = false;
   showScreen('lists');
   refreshListsDisplay();
 }
 
 function refreshListsDisplay() {
   const container = document.getElementById('lists-container');
-  const lists = Storage.getLists();
+  const all = Storage.getLists();
+  const archived = all.filter(l => Storage.isArchived(l));
+  const lists = all.filter(l => !Storage.isArchived(l));
+
+  if (AppState.showArchives) {
+    container.innerHTML = archivesHTML(archived);
+    return;
+  }
+
+  const archivesButton = archived.length === 0 ? '' : `
+    <div class="text-center mt-20">
+      <button class="btn btn-ghost" onclick="toggleArchives(true)">📦 Listes archivées (${archived.length})</button>
+    </div>
+  `;
 
   if (lists.length === 0) {
     container.innerHTML = `
@@ -2195,7 +2241,7 @@ function refreshListsDisplay() {
       <div class="result-actions">
         <button class="btn btn-primary btn-big" onclick="showNewListScreen()">➕ Créer ma première liste</button>
       </div>
-    `;
+    ` + archivesButton;
     return;
   }
 
@@ -2220,7 +2266,54 @@ function refreshListsDisplay() {
   if (titled && cardLists.length) html += '<h2 class="lists-section">🃏 Cartes questions</h2>';
   cardLists.forEach(list => { html += cardListHTML(list); });
 
-  container.innerHTML = html;
+  container.innerHTML = html + archivesButton;
+}
+
+// ── Archives : listes rangées, avec tous leurs progrès ──
+
+function toggleArchives(show) {
+  AppState.showArchives = show;
+  refreshListsDisplay();
+  window.scrollTo(0, 0);
+}
+
+function archivesHTML(archived) {
+  let html = `
+    <div class="mix-entry">
+      <button class="btn btn-secondary" onclick="toggleArchives(false)">← Retour à mes listes</button>
+    </div>
+    <p class="intro">Les listes archivées gardent leurs lieux, leur niveau et leurs cartes. Ressors-en une quand tu veux la retravailler.</p>
+  `;
+  if (archived.length === 0) {
+    return html + '<div class="empty-state"><div class="empty-icon">📦</div>Aucune liste archivée.</div>';
+  }
+  const kind = (l) => Storage.isCardList(l) ? '🃏' : (Storage.isLangList(l) ? '🌍' : '✏️');
+  archived
+    .sort((a, b) => (b.archivedAt || '').localeCompare(a.archivedAt || ''))
+    .forEach(list => {
+      const n = Storage.isCardList(list) ? (list.cards || []).length : list.words.length;
+      const unit = Storage.isCardList(list) ? 'carte' : 'mot';
+      html += `
+        <div class="card archived-card">
+          <div class="list-card-head">
+            <h3>${kind(list)} ${isListGold(list) ? '🏅 ' : ''}${escapeText(list.name)}</h3>
+            <button class="btn-icon" onclick="confirmDeleteList(${list.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
+          </div>
+          <p class="list-meta">${langDirection(list)}${n} ${unit}${n > 1 ? 's' : ''}${Storage.isListNinja(list) ? ' · Ninja 🥷' : ''}</p>
+          <div class="list-actions">
+            <button class="btn btn-primary" onclick="setListArchived(${list.id}, false)">📤 Ressortir</button>
+          </div>
+        </div>
+      `;
+    });
+  return html;
+}
+
+function setListArchived(listId, archived) {
+  if (!Storage.setArchived(listId, archived)) return;
+  showFeedback(archived ? 'Liste rangée dans les archives 📦' : 'Liste ressortie ! 📤', 'success');
+  if (!Storage.getLists().some(l => Storage.isArchived(l))) AppState.showArchives = false;
+  refreshListsDisplay();
 }
 
 // « 🇫🇷 → 🇬🇧 » pour une liste de langue, rien sinon
@@ -2247,6 +2340,7 @@ function wordListHTML(list) {
         <h3>${gold ? '🏅 ' : ''}${escapeText(list.name)}</h3>
         <div style="display:flex; gap:6px;">
           <button class="btn-icon" onclick="showEditListScreen(${list.id})" title="Éditer" aria-label="Éditer">✏️</button>
+          <button class="btn-icon" onclick="setListArchived(${list.id}, true)" title="Archiver" aria-label="Archiver">📦</button>
           <button class="btn-icon" onclick="confirmDeleteList(${list.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
         </div>
       </div>
@@ -2276,7 +2370,7 @@ function renderMix() {
   const container = document.getElementById('mix-content');
   if (!container) return;
 
-  const lists = Storage.getLists().filter(l => !Storage.isCardList(l));
+  const lists = Storage.getActiveLists().filter(l => !Storage.isCardList(l));
   const selected = Storage.getMixSelection().filter(id => lists.some(l => l.id === id));
   const chosen = lists.filter(l => selected.includes(l.id));
   const wordCount = chosen.reduce((sum, l) => sum + l.words.length, 0);
@@ -2334,7 +2428,7 @@ function toggleMixList(listId) {
 }
 
 function toggleMixAll() {
-  const ids = Storage.getLists().filter(l => !Storage.isCardList(l)).map(l => l.id);
+  const ids = Storage.getActiveLists().filter(l => !Storage.isCardList(l)).map(l => l.id);
   const allChecked = ids.every(id => Storage.getMixSelection().includes(id));
   Storage.saveMixSelection(allChecked ? [] : ids);
   renderMix();
@@ -2360,6 +2454,7 @@ function cardListHTML(list) {
         <h3>${isListGold(list) ? '🏅 ' : ''}${escapeText(list.name)}</h3>
         <div style="display:flex; gap:6px;">
           <button class="btn-icon" onclick="showEditListScreen(${list.id})" title="Éditer" aria-label="Éditer">✏️</button>
+          <button class="btn-icon" onclick="setListArchived(${list.id}, true)" title="Archiver" aria-label="Archiver">📦</button>
           <button class="btn-icon" onclick="confirmDeleteList(${list.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
         </div>
       </div>
@@ -2689,7 +2784,8 @@ function confirmDeleteList(listId) {
     if (success) {
       AppState.editingListId = null;
       showFeedback('Liste supprimée', 'success');
-      setTimeout(() => showListsScreen(), 1000);
+      // Depuis les archives, on y reste
+      setTimeout(() => AppState.currentScreen === 'lists' ? refreshListsDisplay() : showListsScreen(), 1000);
     } else {
       alert('Erreur lors de la suppression');
     }
@@ -3196,7 +3292,7 @@ function showPalaisScreen() {
 // Mots actuellement rangés à un emplacement (toutes listes confondues)
 function wordsAtPlace(piece, emplacement) {
   const words = [];
-  Storage.getLists().forEach(list => {
+  Storage.getActiveLists().forEach(list => {
     Object.entries(list.wordLocations || {}).forEach(([word, loc]) => {
       if (loc.piece !== piece || loc.emplacement !== emplacement) return;
       const prompt = promptOf(list, word);
@@ -3912,7 +4008,7 @@ function showStrugglingWordsScreen() {
   const container = document.getElementById('struggling-words-list');
   if (!container) return;
 
-  const lists = Storage.getLists();
+  const lists = Storage.getActiveLists();
   let html = '';
   let total = 0;
 

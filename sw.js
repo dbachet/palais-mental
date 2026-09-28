@@ -6,9 +6,9 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v15'; // v15 : listes de langue (délai réseau 3 s)
+const CACHE_NAME = 'mental-palace-v16'; // v16 : listes archivées
 // Même ?v= que dans index.html
-const V = '15';
+const V = '16';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

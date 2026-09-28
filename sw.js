@@ -6,7 +6,7 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v15'; // v15 : listes de langue
+const CACHE_NAME = 'mental-palace-v15'; // v15 : listes de langue (délai réseau 3 s)
 // Même ?v= que dans index.html
 const V = '15';
 const ASSETS_TO_CACHE = [
@@ -47,20 +47,24 @@ self.addEventListener('fetch', (event) => {
   const sameOrigin = new URL(request.url).origin === self.location.origin;
 
   if (sameOrigin) {
-    // Réseau d'abord, cache en secours
+    // Réseau d'abord, cache en secours. Délai de 3 s : sur un wifi sans
+    // internet, le réseau peut mettre très longtemps à échouer.
+    const network = fetch(request, { cache: 'no-store' }).then((response) => {
+      if (response && response.status === 200) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+      }
+      return response;
+    });
+    const timeout = new Promise((_, reject) => setTimeout(reject, 3000));
     event.respondWith(
-      fetch(request, { cache: 'no-store' })
-        .then((response) => {
-          if (response && response.status === 200) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request).then((cached) => {
-          if (cached) return cached;
-          if (request.mode === 'navigate') return caches.match('./index.html');
-        }))
+      Promise.race([network, timeout]).catch(() => caches.match(request).then((cached) => {
+        if (cached) return cached;
+        if (request.mode === 'navigate') {
+          return caches.match('./index.html').then((page) => page || network);
+        }
+        return network; // rien en cache : on attend quand même le réseau
+      }))
     );
     return;
   }

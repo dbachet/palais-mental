@@ -11,7 +11,8 @@
 
   <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="assets/icon-192.png">
 
   <!-- Police Nunito (chargée ici, pas via @import : sinon ignorée).
        Hors ligne, la pile de secours du CSS prend le relais. -->
@@ -21,7 +22,7 @@
 
   <!-- Styles. Le ?v= force les navigateurs sans service worker (http://IP:port)
        à recharger les fichiers : l'augmenter à chaque version, ici et dans sw.js. -->
-  <link rel="stylesheet" href="css/style.css?v=18">
+  <link rel="stylesheet" href="css/style.css?v=19">
 </head>
 <body>
   <div id="app">
@@ -51,6 +52,11 @@
           📚 Mes listes
         </button>
 
+        <!-- Défis du jour -->
+        <div class="defis-card hidden" id="defis-card">
+          <!-- Rempli dynamiquement par Defis.renderHomeCard() -->
+        </div>
+
         <!-- Actions secondaires -->
         <div class="menu-grid">
           <button class="btn btn-tile" onclick="showPalaisScreen()">
@@ -59,10 +65,13 @@
           <button class="btn btn-tile" onclick="showShopScreen()">
             <span class="tile-icon">🛍️</span>Boutique
           </button>
+          <button class="btn btn-tile" onclick="showAlbumScreen()">
+            <span class="tile-icon">📒</span>Mon album
+          </button>
           <button class="btn btn-tile" onclick="showStrugglingWordsScreen()">
             <span class="tile-icon">💪</span>Mots à travailler
           </button>
-          <button class="btn btn-tile" onclick="showNewListScreen()">
+          <button class="btn btn-tile btn-tile-wide" onclick="showNewListScreen()">
             <span class="tile-icon">➕</span>Nouvelle liste
           </button>
         </div>
@@ -474,6 +483,32 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN JEUX DES CARTES QUESTIONS (QCM, paires, réponse à écrire)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="jeu-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="JeuxCartes.quit()" aria-label="Retour">←</button>
+        <h1 id="jeu-title">🎯 QCM</h1>
+        <span class="progress-chip" id="jeu-chip">Carte 1/10</span>
+      </header>
+
+      <div class="screen-body">
+        <p class="intro" id="jeu-list-name"></p>
+        <div class="session-bar">
+          <div class="session-progress" id="jeu-progress" aria-label="Avancement de la partie"></div>
+          <div class="quiz-buddy hidden" id="jeu-buddy"></div>
+          <div class="star-counter" id="jeu-star-counter">
+            <span class="star-counter-icon">⭐</span>
+            <span id="jeu-stars">0</span>
+          </div>
+        </div>
+        <div id="jeu-content">
+          <!-- Rempli dynamiquement par JeuxCartes -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
          ÉCRAN ESPACE PARENTS (sauvegarde des données)
          ══════════════════════════════════════════════════════════ -->
     <div id="parents-screen" class="screen">
@@ -606,6 +641,21 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN MON ALBUM (collection de stickers)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="album-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1>📒 Mon album</h1>
+        <span class="progress-chip" id="album-count">0/0</span>
+      </header>
+
+      <div class="screen-body" id="album-content">
+        <!-- Rempli dynamiquement par showAlbumScreen() -->
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
          ÉCRAN MOTS À TRAVAILLER
          ══════════════════════════════════════════════════════════ -->
     <div id="struggling-words-screen" class="screen">
@@ -642,10 +692,12 @@
   </div>
 
   <!-- Scripts -->
-  <script src="data/lieux.js?v=18"></script>
-  <script src="js/kawaii.js?v=18"></script>
-  <script src="js/config.js?v=18"></script>
-  <script src="js/sync.js?v=18"></script>
-  <script src="js/app.js?v=18"></script>
+  <script src="data/lieux.js?v=19"></script>
+  <script src="js/kawaii.js?v=19"></script>
+  <script src="js/config.js?v=19"></script>
+  <script src="js/sync.js?v=19"></script>
+  <script src="js/app.js?v=19"></script>
+  <script src="js/recompenses.js?v=19"></script>
+  <script src="js/jeux-cartes.js?v=19"></script>
 </body>
 </html>

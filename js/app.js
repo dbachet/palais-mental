@@ -540,13 +540,17 @@ const Storage = {
     const raw = localStorage.getItem('economy');
     const eco = raw ? JSON.parse(raw) : {};
     return {
+      ...eco,                                  // champs d'une version plus récente : on n'y touche pas
       stars: eco.stars || 0,                   // solde dépensable
       totalEarned: eco.totalEarned || 0,       // cumul gagné (jauge des coffres)
       chestsOpened: eco.chestsOpened || 0,     // coffres de palier déjà attribués
       pendingChests: eco.pendingChests || [],  // coffres à ouvrir : 'normal' | 'rare'
       inventory: eco.inventory || {},          // { stickerId: nombre possédé }
       placed: eco.placed || {},                // { "piece|emplacement": [stickerId, ...] }
-      wardrobe: eco.wardrobe || []             // accessoires d'atelier débloqués ("hat:couronne")
+      wardrobe: eco.wardrobe || [],            // accessoires d'atelier débloqués ("hat:couronne")
+      albumClaimed: eco.albumClaimed || [],    // paliers de l'album déjà récupérés (js/recompenses.js)
+      daily: eco.daily || null,                // défis du jour : { date, ids, progress, done, bonus }
+      daysPlayed: eco.daysPlayed || 0          // jours où l'enfant a joué (ne fait que monter)
     };
   },
 
@@ -676,7 +680,12 @@ const Storage = {
         : (roll < c.kawaii + c.legendaire + c.rare ? 'rare' : 'commun'));
     }
     const pool = STICKERS.filter(s => s.rarete === rarity);
-    return pool[Math.floor(Math.random() * pool.length)];
+    // Souvent un sticker qui manque à l'album, s'il en reste dans cette rareté
+    const inventory = this.getEconomy().inventory;
+    const missing = pool.filter(s => !inventory[s.id]);
+    const chance = ECONOMIE.chanceNouveauSticker || 0;
+    const from = (missing.length > 0 && Math.random() < chance) ? missing : pool;
+    return from[Math.floor(Math.random() * from.length)];
   }
 };
 
@@ -1279,6 +1288,7 @@ function showApprentissageComplete() {
   const earned = ECONOMIE.etoilesApprentissage;
   Storage.addStars(earned);
   playStarSound();
+  Defis.track('visite');
 
   showScreen('apprentissage-complete');
 
@@ -1292,6 +1302,7 @@ function showApprentissageComplete() {
         <p class="result-sub">Tu as visité ${n} lieu${n > 1 ? 'x' : ''} du palais.</p>
         <div class="stars-earned">+${earned} ⭐</div>
       </div>
+      ${Defis.celebrationHTML()}
 
       <p class="intro">Veux-tu t'entraîner sur ces mots maintenant ?</p>
       <div class="result-actions">
@@ -1827,6 +1838,17 @@ function validateAnswer() {
   stat.total++;
   if (correct) stat.correct++;
 
+  // Mot « à travailler » : déjà interrogé, et pas encore à 80 % de réussite
+  const before = (AppState.currentList.progress || {})[AppState.currentWord];
+  const wasStruggling = !!before && before.attempts > 0 && before.lastScore < 0.8;
+  Defis.answer(correct, { travail: wasStruggling });
+  // La session garde sa copie de la liste : on y reporte le résultat
+  const seen = before || { attempts: 0, successes: 0, lastScore: 0 };
+  seen.attempts++;
+  if (correct) seen.successes++;
+  seen.lastScore = seen.successes / seen.attempts;
+  if (AppState.currentList.progress) AppState.currentList.progress[AppState.currentWord] = seen;
+
   if (correct) {
     AppState.score++;
     AppState.sessionCorrect++;
@@ -1936,6 +1958,7 @@ function finishInterrogationLevel() {
   }
 
   const hasNextLevel = AppState.currentLevel < AppState.allInterrogationLevels.length - 1;
+  if (!hasNextLevel) Defis.track('session');
 
   const continueSession = () => {
     if (hasNextLevel) {
@@ -2019,6 +2042,7 @@ function showResultsScreen() {
       ${AppState.sessionStars > 0 ? `<div class="stars-earned">+${AppState.sessionStars} ⭐ gagnées</div>` : ''}
     </div>
     ${levelHTML}
+    ${Defis.celebrationHTML()}
   `;
 
   if (AppState.errors.length > 0) {
@@ -2400,6 +2424,7 @@ function wordListHTML(list) {
         <button class="btn btn-primary" onclick="startApprentissage(${list.id})">📖 Apprendre</button>
         <button class="btn btn-secondary" onclick="startInterrogationProgressive(${list.id})">🎯 S'entraîner</button>
         <button class="btn btn-ghost" onclick="startInterrogationComplete(${list.id})">🏆 Interrogation complète 🥷</button>
+        ${JeuxCartes.langActionsHTML(list)}
       </div>
     </div>
   `;
@@ -2507,7 +2532,7 @@ function cardListHTML(list) {
       <p class="list-meta">${cards.length} carte${cards.length > 1 ? 's' : ''} · ${known} connue${known > 1 ? 's' : ''}</p>
       <div class="list-level">
         <span class="level-badge">${list.ninja ? 'Ninja 🥷' : 'Toutes les cartes connues = Ninja 🥷'}</span>
-        <span class="level-stars">${CARTES.etoilesSession} ⭐ par session</span>
+        <span class="level-stars">jusqu'à ${CARTES.etoilesEcrire} ⭐ par réponse</span>
       </div>
       <div class="card-boxes">
         <span class="card-box">🆕 ${count(0)} nouvelle${count(0) > 1 ? 's' : ''}</span>
@@ -2516,9 +2541,7 @@ function cardListHTML(list) {
         <span class="card-box box-3">✅ ${known} connue${known > 1 ? 's' : ''}</span>
       </div>
       <div class="list-mastery"><div class="list-mastery-fill" style="width:${pct}%"></div></div>
-      <div class="list-actions">
-        <button class="btn btn-primary" onclick="startCartes(${list.id})">🃏 Jouer aux cartes</button>
-      </div>
+      ${JeuxCartes.actionsHTML(list)}
     </div>
   `;
 }
@@ -3144,6 +3167,7 @@ const PENTA = [523.25, 587.33, 659.25, 783.99, 880, 1046.5];
 
 // Appelé par Kawaii : sorte = tape, saut, caresse, ronron, reveil, baille
 function playKawaiiSound(char, kind) {
+  if (kind === 'tape' || kind === 'saut' || kind === 'ronron') Defis.track('calin');
   initAudio();
   const animal = (Kawaii.CHARS.find(c => c.id === char) || {}).type === 'animal';
   const cri = KAWAII_CRIS[char] || KAWAII_BLOUP;
@@ -3385,6 +3409,11 @@ function renderTeamCard() {
 
 function renderHome() {
   renderTeamCard();
+  Defis.renderHomeCard();
+  renderPalaceCard();
+}
+
+function renderPalaceCard() {
   const card = document.getElementById('palace-card');
   if (!card) return;
 
@@ -3424,6 +3453,9 @@ function renderHome() {
   if (placedCount > 0) badges.push(`<span class="badge">🏠 ${placedCount} sticker${placedCount > 1 ? 's' : ''} collé${placedCount > 1 ? 's' : ''}</span>`);
   if (freeCount > 0) badges.push(`<span class="badge">🎒 ${freeCount} à coller</span>`);
   if (goldCount > 0) badges.push(`<span class="badge gold">🏅 ${goldCount} liste${goldCount > 1 ? 's' : ''} dorée${goldCount > 1 ? 's' : ''}</span>`);
+  if (eco.daysPlayed > 1) badges.push(`<span class="badge">🗓️ ${eco.daysPlayed} jours de jeu</span>`);
+  const gifts = Album.claimable().length;
+  if (gifts > 0) badges.push(`<button class="badge badge-gift" onclick="showAlbumScreen()">🎁 ${gifts} cadeau${gifts > 1 ? 'x' : ''} dans l'album</button>`);
   if (badges.length) html += `<div class="palace-badges">${badges.join('')}</div>`;
 
   card.innerHTML = html;
@@ -3553,6 +3585,7 @@ function pickSticker(placeIndex, stickerId) {
   if (Storage.placeSticker(currentPlaceKey(placeIndex), stickerId)) {
     playStarSound();
     showPieceScreen(AppState.currentPiece);
+    Defis.track('sticker');
   }
 }
 
@@ -4097,11 +4130,21 @@ function showShopScreen() {
     </div>
   `;
 
+  // Rayons : un appui y descend, la boutique est longue
+  const rayons = [['habits', '🎩 Habits'], ...['commun', 'rare', 'legendaire', 'kawaii']
+    .map(r => [r, `<span style="color:${RARETES[r].couleur}">●</span> ${RARETES[r].nom}`])];
+  html += `
+    <nav class="shop-nav" aria-label="Rayons de la boutique">
+      ${rayons.map(([id, label]) => `<button class="shop-nav-chip" onclick="scrollToRayon('${id}')">${label}</button>`).join('')}
+      <button class="shop-nav-chip" onclick="showAlbumScreen()">📒 Album</button>
+    </nav>
+  `;
+
   // Rayon habits et accessoires pour l'atelier
   const wardrobe = accessoryCatalog();
   const unlockedCount = wardrobe.filter(x => Storage.hasAccessory(x.id)).length;
   html += `
-    <div class="category-section">
+    <div class="category-section" id="rayon-habits">
       <div class="category-title">
         🎩 Habits et accessoires <span class="price-tag">${unlockedCount}/${wardrobe.length}</span>
       </div>
@@ -4126,7 +4169,7 @@ function showShopScreen() {
     const price = ECONOMIE.prix[rarete];
     const items = STICKERS.filter(s => s.rarete === rarete);
     html += `
-      <div class="category-section">
+      <div class="category-section" id="rayon-${rarete}">
         <div class="category-title">
           <span style="color:${RARETES[rarete].couleur}">●</span> ${RARETES[rarete].nom}
           <span class="price-tag">${price} ⭐</span>
@@ -4149,6 +4192,11 @@ function showShopScreen() {
   });
 
   content.innerHTML = html;
+}
+
+function scrollToRayon(id) {
+  const section = document.getElementById(`rayon-${id}`);
+  if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function askBuySticker(stickerId) {
@@ -4188,7 +4236,9 @@ function buySticker(stickerId) {
   if (!Storage.spendStars(ECONOMIE.prix[sticker.rarete])) return;
   Storage.addSticker(stickerId);
   playChestSound();
-  showShopScreen();
+  // Acheté depuis l'album : on y reste, le sticker vient d'y apparaître
+  if (AppState.currentScreen === 'album') showAlbumScreen(true);
+  else showShopScreen();
   showFeedback(`${sticker.nom} est à toi !`, 'success');
 }
 
@@ -4422,6 +4472,8 @@ function finishCartes() {
   Storage.addStars(CARTES.etoilesSession);
   playStarSound();
   if (CartesGame.becameNinja) Storage.grantChest('rare');
+  Defis.track('session');
+  Defis.track('jeu');
   openPendingChests(showCartesResults);
 }
 
@@ -4453,6 +4505,7 @@ function showCartesResults() {
       </div>
     `;
   }
+  html += Defis.celebrationHTML();
 
   if (review.length > 0) {
     html += `<div class="error-card"><h3>À revoir (${review.length})</h3>`;

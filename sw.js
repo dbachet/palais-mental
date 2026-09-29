@@ -6,19 +6,23 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v18'; // v18 : kawaii (nom, fonds, caresse, journée)
+const CACHE_NAME = 'mental-palace-v19'; // v19 : jeux des cartes questions, album, défis du jour
 // Même ?v= que dans index.html
-const V = '18';
+const V = '19';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './css/style.css?v=' + V,
   './js/app.js?v=' + V,
+  './js/recompenses.js?v=' + V,
+  './js/jeux-cartes.js?v=' + V,
   './js/kawaii.js?v=' + V,
   './js/config.js?v=' + V,
   './js/sync.js?v=' + V,
   './data/lieux.js?v=' + V,
-  './manifest.json'
+  './manifest.json',
+  './assets/apple-touch-icon.png',
+  './assets/icon-192.png'
 ];
 
 // Installation : mise en cache des fichiers, en forçant le réseau

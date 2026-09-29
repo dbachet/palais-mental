@@ -1,3 +1,33 @@
+## [2026-09-29] - Jeux des cartes questions, album de stickers, défis du jour
+
+### Ajouté
+- **Trois jeux corrigés par l'app** pour les cartes questions, à côté des cartes à retourner. Ils apparaissent sur la carte de la liste quand elle s'y prête :
+  - **🎯 QCM** : la question et quatre réponses. Les mauvaises viennent des autres cartes de la liste, en préférant celles qui ressemblent à la bonne (nombres avec nombres, longueur voisine) ; s'il manque des nombres, des nombres voisins. 1 ⭐ par bonne réponse. Il faut 4 réponses différentes dans la liste
+  - **🧩 Paires** : relier chaque question à sa réponse, par manches de 4 ou 5. 1 ⭐ par paire trouvée sans se tromper
+  - **⌨️ Écrire la réponse** : pour les réponses courtes (16 lettres ou chiffres au plus). Accents et majuscules ne comptent pas, espaces, apostrophes et tirets sont donnés. Rangée de chiffres quand la partie en a besoin ; accents toujours visibles. 2 ⭐ par réponse juste
+  - Une carte ratée revient une fois dans la partie ; après une erreur, l'enfant lit la bonne réponse et appuie sur « Suivant » quand il veut. Sans-faute (5 cartes ou plus) : bonus d'étoiles, et coffre rare au jeu d'écriture
+  - Les cartes changent de boîte comme aux cartes à retourner. Le QCM ne monte pas plus haut que « ça vient » (reconnaître n'est pas savoir) : on devient Ninja en retournant les cartes ou en écrivant. Les paires ne changent aucune boîte
+- **QCM et paires pour les mots de langue** (mot → traduction), sous les boutons habituels : un échauffement qui rapporte des étoiles, sans toucher au niveau ni à la progression
+- **📒 Mon album** (accueil) : tous les stickers du catalogue, par rareté. Ceux trouvés en couleur, les autres en silhouette. Un appui sur une silhouette propose de l'acheter ; sur un sticker, dit où il est collé
+- **Cadeaux de l'album** : à 3, 6, 10, 15, 20, 28, 36, 45, 54 stickers différents puis à l'album complet, un cadeau à ouvrir (étoiles ou coffres). Badge « 🎁 cadeau dans l'album » sur l'accueil
+- **Coffres** : dans la rareté tirée, 7 fois sur 10 un sticker qui manque à l'album (s'il en reste). Les doubles restent possibles, pour coller le même sticker à plusieurs endroits
+- **🎯 Défis du jour** (accueil) : trois petits défis chaque jour, un par famille (un effort, une activité à finir, un moment doux), choisis parmi ceux qui sont faisables ce jour-là. 3 ⭐ par défi, un coffre quand les trois sont réussis. Un appui sur un défi emmène au bon endroit
+- **Rien à perdre** : pas de série à tenir. Le badge « 🗓️ N jours de jeu » ne fait que monter
+- Pendant une session, un défi réussi ne dérange pas : il est fêté sur l'écran de fin
+- **Boutique** : barre des rayons toujours en haut (habits, commun, rare, légendaire, kawaii, album)
+- **Icône de l'app** sur l'écran d'accueil de l'iPad : le chat kawaii couronné, dessiné par `js/kawaii.js` (les fichiers `assets/icon-*.png` annoncés par le manifeste n'existaient pas)
+
+### Corrigé
+- Cartes à retourner : le dos de la carte reste caché tant qu'elle n'est pas retournée, même sur un navigateur qui affiche les faces arrière (réponse lisible à l'envers dans WebKit sous Playwright ; pas vérifié sur l'iPad)
+- Manifeste : `start_url` relatif (`./`), pour que l'app s'ouvre aussi depuis un sous-dossier (GitHub Pages)
+
+### Technique
+- Nouveaux fichiers `js/recompenses.js` (`Defis`, `Album`) et `js/jeux-cartes.js` (`JeuxCartes`), chargés après `js/app.js`. Réglages dans `data/lieux.js` : `CARTES` (jeux), `ALBUM`, `DEFIS`, `ECONOMIE.chanceNouveauSticker`
+- **Aucune nouvelle clé de stockage** : tout est dans `economy` (`albumClaimed`, `daily`, `daysPlayed`), donc déjà sauvegardé, exporté et synchronisé. Rien à migrer : les champs absents prennent leur valeur de départ
+- `Storage.getEconomy()` garde désormais les champs qu'il ne connaît pas, pour qu'une version plus ancienne de l'app ne les efface plus à l'avenir
+- `renderHome()` découpé : `renderPalaceCard()` redessine la carte des étoiles sans toucher aux kawaii (un défi réussi pendant une caresse ne l'interrompt pas)
+- Service worker et `?v=` : `v19`
+
 ## [2026-09-28] - Kawaii : nom, fonds, caresse et journée
 
 ### Ajouté

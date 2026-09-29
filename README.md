@@ -48,6 +48,8 @@ palais-mental/
 │   └── style.css       # Tous les styles (tokens de couleur dans :root)
 ├── js/
 │   ├── app.js          # Logique principale
+│   ├── recompenses.js  # Défis du jour et album de stickers
+│   ├── jeux-cartes.js  # QCM, paires et réponse à écrire (cartes questions, mots de langue)
 │   ├── config.js       # Adresse et clé publique Supabase (vide = app 100 % locale)
 │   ├── sync.js         # Compte et enregistrement en ligne (fusion, hors-ligne)
 │   └── kawaii.js       # Moteur de dessin des personnages kawaii (SVG, sans image)
@@ -74,6 +76,10 @@ Boucle de jeu :
 2. Tous les 12 étoiles gagnées, un **coffre** apparaît sur l'accueil : l'enfant tape dessus pour l'ouvrir et découvre un sticker (rareté aléatoire). Un niveau sans faute donne un coffre rare garanti.
 3. Les étoiles se dépensent aussi dans la **Boutique** pour choisir un sticker précis.
 4. Dans **Mon palais**, l'enfant colle ses stickers sur les lieux réels de la maison. Ils apparaissent ensuite pendant la visite et l'interrogation, sur la carte du lieu.
+5. **Mon album** montre tout le catalogue : les stickers trouvés en couleur, les autres en silhouette. Des cadeaux (étoiles, coffres) se récupèrent à chaque palier de stickers différents. Les coffres donnent le plus souvent un sticker qui manque encore.
+6. Les **défis du jour** : trois petits défis, quelques étoiles chacun, un coffre pour les trois. Pas de série à tenir : on ne perd jamais rien en ne jouant pas, et le compteur de jours de jeu ne fait que monter.
+
+Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre) et `ECONOMIE.chanceNouveauSticker` dans `data/lieux.js`.
 
 ## 🎯 Fonctionnalités
 
@@ -103,6 +109,9 @@ Boucle de jeu :
   - 10 cartes par session, « Je savais » / « À revoir », seule ou avec un parent
   - Boîtes 1-2-3 : les cartes à revoir reviennent en premier ; toutes en boîte 3 = liste **Ninja**
   - On gagne des étoiles pour la session terminée, pas pour les bonnes réponses (réglages : `CARTES` dans `data/lieux.js`)
+  - Trois jeux corrigés par l'app, où chaque bonne réponse du premier coup rapporte des étoiles : **QCM** (mauvaises réponses tirées des autres cartes), **Paires** (relier question et réponse), **Écrire la réponse** (réponses courtes ; accents et majuscules ne comptent pas). Un jeu n'est proposé que si la liste s'y prête
+  - Le QCM ne monte pas une carte plus haut que « ça vient » et les paires ne changent aucune boîte : on devient Ninja en retournant les cartes ou en écrivant
+  - QCM et paires existent aussi pour les mots de langue, comme échauffement (sans effet sur le niveau)
 - **Espace parents** : sauvegarde de toutes les données dans un fichier, et restauration (entrée protégée par un calcul)
 - **Mots à travailler** : liste des mots en difficulté par liste, avec bouton pour s'entraîner dessus uniquement
 - **Design** : tokens de couleur, une action héro par écran, contrastes renforcés pour la lecture, mouvement calme pendant la tâche
@@ -198,7 +207,7 @@ Les **pièces virtuelles** (chambre panda, bureau de président, etc.) sont des 
 Toutes les données sont stockées en **localStorage** :
 
 - `wordLists` : Listes de mots, niveaux, progression et rangement des mots
-- `economy` : Étoiles, inventaire, stickers collés, garde-robe
+- `economy` : Étoiles, inventaire, stickers collés, garde-robe, cadeaux de l'album récupérés, défis du jour, jours de jeu
 - `kawaiiTeam` : Kawaii principal et compagnons
 - `maison` : Pièces et endroits (modifiables dans l'app)
 

@@ -122,7 +122,65 @@ const ECONOMIE = {
   prixAccessoires: { fur: 8, glasses: 10, hat: 12, outfit: 15, fond: 6, scene: 18 },
   chanceAccessoireCoffre: 0.3,  // un coffre sur trois donne un accessoire plutôt qu'un sticker
   // Probabilités d'un coffre normal (un coffre "rare" garantit au moins rare)
-  chancesCoffre: { commun: 0.62, rare: 0.30, legendaire: 0.05, kawaii: 0.03 }
+  chancesCoffre: { commun: 0.62, rare: 0.30, legendaire: 0.05, kawaii: 0.03 },
+  // Dans la rareté tirée, chance de donner un sticker que l'enfant n'a pas
+  // encore (s'il en reste) : l'album se remplit, les doubles restent possibles
+  chanceNouveauSticker: 0.7
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ALBUM DE STICKERS
+// ═══════════════════════════════════════════════════════════════
+// L'album montre tous les stickers du catalogue : ceux trouvés, et la
+// silhouette des autres. Chaque palier de stickers différents donne un
+// cadeau à récupérer dans l'album. n: "tout" = l'album complet.
+// cadeau : { etoiles } et/ou { coffres: ['normal' | 'rare', ...] }
+
+const ALBUM = {
+  paliers: [
+    { n: 3,  cadeau: { etoiles: 5 } },
+    { n: 6,  cadeau: { coffres: ['normal'] } },
+    { n: 10, cadeau: { etoiles: 10 } },
+    { n: 15, cadeau: { coffres: ['rare'] } },
+    { n: 20, cadeau: { etoiles: 15 } },
+    { n: 28, cadeau: { coffres: ['rare'] } },
+    { n: 36, cadeau: { etoiles: 25 } },
+    { n: 45, cadeau: { coffres: ['rare', 'rare'] } },
+    { n: 54, cadeau: { etoiles: 40 } },
+    { n: 'tout', cadeau: { etoiles: 60, coffres: ['rare', 'rare', 'rare'] } }
+  ]
+};
+
+// ═══════════════════════════════════════════════════════════════
+// DÉFIS DU JOUR
+// ═══════════════════════════════════════════════════════════════
+// Trois petits défis par jour, un par famille. Rien ne se perd quand on ne
+// joue pas : pas de série à tenir, seulement un compteur de jours de jeu
+// qui ne fait que monter.
+// cible = nombre à atteindre. Un défi n'est proposé que s'il est faisable
+// ce jour-là (voir Defis.faisable dans js/recompenses.js).
+
+const DEFIS = {
+  etoilesParDefi: 3,
+  coffreLesTrois: 'normal', // cadeau quand tous les défis du jour sont réussis
+  familles: [
+    [ // l'effort du jour
+      { id: 'mots10',  emoji: '✏️', texte: 'Réussis 10 réponses', cible: 10 },
+      { id: 'suite5',  emoji: '🔥', texte: 'Réussis 5 réponses d\'affilée', cible: 5 },
+      { id: 'mots20',  emoji: '💪', texte: 'Réussis 20 réponses', cible: 20 }
+    ],
+    [ // une activité à terminer
+      { id: 'session', emoji: '🎯', texte: 'Termine un entraînement', cible: 1 },
+      { id: 'visite',  emoji: '🎓', texte: 'Fais une visite du palais', cible: 1 },
+      { id: 'travail', emoji: '🌱', texte: 'Réussis 3 mots à travailler', cible: 3 },
+      { id: 'jeu',     emoji: '🃏', texte: 'Termine un jeu de cartes questions', cible: 1 }
+    ],
+    [ // un moment doux
+      { id: 'calin',   emoji: '💖', texte: 'Fais un câlin à ton kawaii', cible: 1 },
+      { id: 'sticker', emoji: '🏠', texte: 'Colle un sticker dans ton palais', cible: 1 },
+      { id: 'album',   emoji: '📒', texte: 'Va voir ton album', cible: 1 }
+    ]
+  ]
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -150,7 +208,20 @@ const CARTES = {
   etoilesSession: 5,     // étoiles pour une session terminée
   retoursMaxParCarte: 2, // une carte « à revoir » revient au plus N fois dans la session
   // Tirage : plus le poids est petit, plus la carte sort souvent
-  poidsTirage: { 1: 1, 0: 1.5, 2: 3, 3: 6 } // 0 = jamais vue
+  poidsTirage: { 1: 1, 0: 1.5, 2: 3, 3: 6 }, // 0 = jamais vue
+
+  // Jeux corrigés par l'app (QCM, paires, réponse à écrire) : l'enfant ne se
+  // note pas lui-même, une bonne réponse du premier coup rapporte des étoiles.
+  etoilesQcm: 1,          // par bonne réponse
+  etoilesPaire: 1,        // par paire trouvée sans se tromper
+  etoilesEcrire: 2,       // par réponse écrite juste
+  retoursMaxJeu: 1,       // une carte ratée revient une fois dans la session
+  boiteMaxQcm: 2,         // reconnaître n'est pas savoir : le QCM s'arrête à « ça vient »
+  pairesParManche: 5,
+  reponsesMinQcm: 4,      // réponses différentes qu'il faut dans la liste pour un QCM
+  cartesMinPaires: 3,
+  cartesMinEcrire: 3,
+  lettresMaxEcrire: 16    // au-delà, la réponse est trop longue pour être écrite
 };
 
 // ═══════════════════════════════════════════════════════════════

@@ -601,12 +601,6 @@ header h1 {
 .team-main svg {
   width: 170px;
   height: 170px;
-  animation: kawaiiBob 3s ease-in-out infinite;
-}
-
-@keyframes kawaiiBob {
-  0%, 100% { transform: translateY(0) rotate(-1deg); }
-  50% { transform: translateY(-5px) rotate(1deg); }
 }
 
 .team-name {
@@ -1350,22 +1344,35 @@ header h1 {
   display: none; /* Masqué : score non affiché à l'enfant */
 }
 
-.progress-stars {
+/* Avancement de la session : une case par mot */
+.session-progress {
+  flex: 1;
   display: flex;
-  gap: 4px;
-  font-size: 1.7rem;
+  gap: 5px;
+  min-width: 0;
 }
 
-.star {
-  opacity: 0.25;
-  filter: grayscale(100%);
-  transition: opacity 0.3s ease, filter 0.3s ease;
+#cartes-session-progress {
+  max-width: 620px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.star.filled {
-  opacity: 1;
-  filter: grayscale(0%);
-  animation: starPop 0.45s var(--rebond);
+.session-progress .seg {
+  flex: 1;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--bord);
+  transition: background 0.3s ease;
+}
+
+.session-progress .seg.done {
+  background: linear-gradient(90deg, var(--rose), var(--violet));
+}
+
+.session-progress .seg.current {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 3px var(--violet);
 }
 
 @keyframes starPop {
@@ -2564,6 +2571,307 @@ header h1 {
 }
 
 /* ─────────────────────────────────────────────────────────────── */
+/* CARTES QUESTIONS */
+/* ─────────────────────────────────────────────────────────────── */
+
+/* Titres de section dans « Mes listes » */
+.lists-section {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--encre-2);
+  margin: 6px 4px 12px;
+}
+
+.card + .lists-section { margin-top: 26px; }
+
+/* Mélanger des listes */
+.mix-entry {
+  margin-bottom: 16px;
+}
+
+.mix-entry .btn {
+  width: 100%;
+}
+
+.mix-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  font-family: var(--police);
+  color: var(--encre);
+  background: var(--surface);
+  border: 3px solid var(--bord);
+  border-radius: var(--r-m);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.mix-row.selected {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.mix-check {
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mix-info strong {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.mix-info span {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--encre-2);
+}
+
+.mix-start {
+  margin-top: 16px;
+}
+
+.mix-summary {
+  text-align: center;
+  font-weight: 900;
+  color: var(--violet-fonce);
+  margin-bottom: 14px;
+}
+
+/* Choix du type de liste */
+.type-choice {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.type-btn {
+  font-family: var(--police);
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--encre-2);
+  background: var(--surface-2);
+  border: 3px solid var(--bord);
+  border-radius: var(--r-m);
+  padding: 14px 8px;
+  cursor: pointer;
+}
+
+.type-btn .type-icon {
+  display: block;
+  font-size: 1.8rem;
+  margin-bottom: 4px;
+}
+
+.type-btn.selected {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+  color: var(--encre);
+}
+
+.cards-errors {
+  background: var(--rouge-pale);
+  color: var(--encre);
+  border-radius: var(--r-s);
+  padding: 12px 14px;
+  margin-top: 10px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+/* Listes de langue : choix des langues */
+.lang-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.lang-pick {
+  flex: 1;
+  min-width: 0;
+}
+
+.lang-swap {
+  margin-bottom: 6px;
+  font-size: 1.3rem;
+}
+
+/* Mot à traduire (visite et interrogation) */
+.translation-prompt {
+  text-align: center;
+  margin: 4px 0 10px;
+}
+
+.translation-word {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--violet-fonce);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.translation-flag {
+  margin-right: 10px;
+}
+
+.translation-to {
+  margin-top: 4px;
+  color: var(--encre-2);
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+/* Boîtes d'une liste de cartes */
+.card-boxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.card-box {
+  background: var(--surface-2);
+  border: 2px solid var(--bord);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--encre-2);
+}
+
+.card-box.box-1 { background: var(--or-pale); border-color: #F6E2A6; }
+.card-box.box-2 { background: var(--violet-pale); border-color: #E1D2F0; }
+.card-box.box-3 { background: var(--vert-pale); border-color: #BDEBD0; }
+
+/* La carte à retourner */
+.flip-scene {
+  perspective: 1400px;
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.flip-card {
+  position: relative;
+  width: 100%;
+  height: min(46vh, 380px);
+  min-height: 240px;
+  transform-style: preserve-3d;
+  transition: transform 0.55s var(--doux);
+  cursor: pointer;
+}
+
+.flip-card.flipped { transform: rotateY(180deg); }
+.flip-card.no-anim { transition: none; }
+
+.flip-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 44px 22px 22px;
+  border-radius: var(--r-xl);
+  box-shadow: var(--ombre-2);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  text-align: center;
+}
+
+.flip-front {
+  background: var(--surface);
+  border: 4px solid var(--violet);
+}
+
+.flip-back {
+  background: var(--menthe-pale);
+  border: 4px solid var(--menthe-fonce);
+  transform: rotateY(180deg);
+}
+
+.flip-label {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: var(--encre-3);
+  letter-spacing: 0.02em;
+}
+
+.carte-text {
+  font-size: 2rem;
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--encre);
+  overflow-wrap: anywhere;
+  margin: auto 0; /* centré, et défilable depuis le haut si le texte déborde */
+}
+
+.carte-text.m  { font-size: 1.6rem; }
+.carte-text.s  { font-size: 1.45rem; font-weight: 800; }
+.carte-text.xs { font-size: 1.2rem; font-weight: 800; }
+
+/* Je savais / À revoir : deux gros boutons côte à côte */
+.cartes-verdict {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  max-width: 620px;
+  margin: 20px auto 0;
+}
+
+.btn-verdict {
+  min-height: 76px;
+  font-size: 1.2rem;
+}
+
+.verdict-known {
+  background: var(--vert);
+  color: #fff;
+}
+
+.verdict-review {
+  background: var(--or-pale);
+  color: var(--encre);
+  border: 3px solid var(--or);
+}
+
+/* Entrée discrète de l'espace parents, en bas de l'accueil */
+.btn-parents {
+  font-family: var(--police);
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--encre-3);
+  background: none;
+  border: none;
+  padding: 12px;
+  cursor: pointer;
+  align-self: center;
+}
+
+/* État de l'enregistrement en ligne, sous l'entrée de l'espace parents */
+.sync-status {
+  margin: -6px 0 0;
+  text-align: center;
+  color: var(--encre-3);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.sync-status:empty { display: none; }
+
+/* ─────────────────────────────────────────────────────────────── */
 /* UTILITAIRES */
 /* ─────────────────────────────────────────────────────────────── */
 
@@ -2597,6 +2905,8 @@ header h1 {
   header h1 { font-size: 1.2rem; }
   .header-home h1 { font-size: 1.45rem; }
   .progress-chip { font-size: 0.8rem; padding: 6px 10px; }
+  .type-btn { font-size: 0.9rem; padding: 12px 4px; }
+  .translation-word { font-size: 1.8rem; }
 
   .virtual-keyboard-container {
     flex-direction: column;
@@ -2648,4 +2958,1359 @@ header h1 {
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+/* Liste archivée : même carte, plus discrète */
+.archived-card { opacity: 0.85; }
+.archived-card .list-card-head h3 { font-size: 1.05rem; }
+
+/* ─────────────────────────────────────────────────────────────── */
+/* KAWAII VIVANTS : respiration, clignement, oreilles, regard,     */
+/* caresses et réactions (dessins créés avec { alive: true })      */
+/* ─────────────────────────────────────────────────────────────── */
+
+.k-alive {
+  overflow: visible;
+  cursor: pointer;
+  touch-action: none; /* on peut le caresser en glissant le doigt */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  transform-origin: 50% 92%;
+  animation: kBreath var(--kb, 4s) ease-in-out var(--kbd, 0s) infinite;
+}
+
+/* Respiration : un peu plus grand à l'inspiration, posé sur ses pieds */
+@keyframes kBreath {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(0.992, 1.024); }
+}
+
+/* Regard : les yeux vont vers le doigt, la tête suit un peu */
+.k-alive .k-look {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: translate(var(--lx, 0px), var(--ly, 0px)) scale(var(--ks, 1));
+  transition: transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1), opacity 0.12s;
+}
+
+.k-alive .k-head {
+  transform-box: fill-box;
+  transform-origin: 50% 85%;
+  transform: translate(calc(var(--lx, 0px) * 0.35), calc(var(--ly, 0px) * 0.35)) rotate(var(--tilt, 0deg));
+  transition: transform 0.5s ease;
+}
+
+/* Clignement : un simple au milieu, un double à la fin (durée propre à chacun) */
+.k-alive .k-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: kBlink var(--ke, 7s) linear var(--ked, 0s) infinite;
+}
+
+.k-alive .k-eyes.k-noblink { animation: none; }
+
+@keyframes kBlink {
+  0%, 44%, 48%, 88%, 91%, 92.5%, 95.5%, 100% { transform: scaleY(var(--lid, 1)); }
+  46%, 89.5%, 94% { transform: scaleY(0.1); }
+}
+
+/* Oreilles qui frémissent, chacune à son moment */
+.k-alive .k-ear {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: kEarL var(--kt, 8s) ease-in-out var(--ktd, 0s) infinite;
+}
+
+.k-alive .k-ear-r {
+  animation-name: kEarR;
+  animation-delay: calc(var(--ktd, 0s) - 3.1s);
+}
+
+@keyframes kEarL {
+  0%, 90%, 100% { transform: rotate(0); }
+  92% { transform: rotate(-10deg); }
+  94.5% { transform: rotate(5deg); }
+  97% { transform: rotate(-2deg); }
+}
+
+@keyframes kEarR {
+  0%, 90%, 100% { transform: rotate(0); }
+  92% { transform: rotate(10deg); }
+  94.5% { transform: rotate(-5deg); }
+  97% { transform: rotate(2deg); }
+}
+
+/* Yeux de réaction (rieurs, étoiles) : cachés hors réaction */
+.k-alive .k-joy,
+.k-alive .k-star,
+.k-alive .k-shut,
+.k-alive .k-yawn {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.k-alive .k-star1 {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.k-alive.k-happy .k-look,
+.k-alive.k-petting .k-look,
+.k-alive.k-starry .k-look,
+.k-alive.k-shut-eyes .k-look { opacity: 0; }
+.k-alive.k-happy .k-joy,
+.k-alive.k-petting .k-joy { opacity: 1; }
+.k-alive.k-shut-eyes .k-shut { opacity: 1; }
+.k-alive.k-shut-eyes .k-joy,
+.k-alive.k-shut-eyes .k-star { opacity: 0; }
+.k-alive.k-starry .k-star { opacity: 1; }
+.k-alive.k-starry .k-star1 { animation: kStarEyes 1s ease-out; }
+
+@keyframes kStarEyes {
+  0% { transform: scale(0.3) rotate(-40deg); }
+  45% { transform: scale(1.25) rotate(8deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+.k-alive.k-surprise { --ks: 1.25; }
+
+/* Caresse : écrasé comme de la gelée puis rebond */
+.k-alive.k-squish { animation: kSquish 0.6s cubic-bezier(0.3, 0.7, 0.4, 1.5); }
+
+@keyframes kSquish {
+  0% { transform: scale(1, 1); }
+  25% { transform: scale(1.14, 0.84); }
+  50% { transform: scale(0.93, 1.08); }
+  75% { transform: scale(1.03, 0.97); }
+  100% { transform: scale(1, 1); }
+}
+
+/* Petit saut (bravo, trois caresses) */
+.k-alive.k-hop { animation: kHop 0.75s cubic-bezier(0.3, 0.7, 0.4, 1); }
+
+@keyframes kHop {
+  0% { transform: translateY(0) scale(1, 1); }
+  15% { transform: translateY(0) scale(1.12, 0.86); }
+  45% { transform: translateY(-22%) scale(0.94, 1.08); }
+  75% { transform: translateY(0) scale(1.1, 0.9); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+/* Encouragement après une erreur : petit hochement */
+.k-alive.k-nod { animation: kNod 0.9s ease-in-out; }
+
+@keyframes kNod {
+  0%, 100% { transform: rotate(0); }
+  30% { transform: rotate(-6deg); }
+  65% { transform: rotate(5deg); }
+}
+
+/* Pirouette de célébration */
+.k-alive.k-spin { animation: kSpin 1.2s cubic-bezier(0.4, 0, 0.3, 1); }
+
+@keyframes kSpin {
+  0% { transform: translateY(0) rotate(0) scale(1, 1); }
+  15% { transform: translateY(0) rotate(0) scale(1.12, 0.86); }
+  55% { transform: translateY(-30%) rotate(360deg) scale(1, 1); }
+  80% { transform: translateY(0) rotate(360deg) scale(1.08, 0.92); }
+  100% { transform: translateY(0) rotate(360deg) scale(1, 1); }
+}
+
+/* Cœur qui s'envole après une caresse */
+.k-heart {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  font-size: 1.6rem;
+  transform: translate(-50%, -50%);
+  animation: kHeart 1.2s ease-out both;
+}
+
+@keyframes kHeart {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  15% { opacity: 1; transform: translate(-50%, -80%) scale(1.15); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), -380%) rotate(var(--rot, 0deg)) scale(0.9); }
+}
+
+/* Kawaii dans l'interrogation et dans les célébrations */
+.quiz-buddy {
+  flex: none;
+  width: 58px;
+  height: 58px;
+  margin-left: auto;
+}
+
+.quiz-buddy svg { width: 58px; height: 58px; }
+
+.level-up-kawaii {
+  display: flex;
+  justify-content: center;
+  margin: -4px 0 6px;
+}
+
+.level-up-kawaii svg { width: 110px; height: 110px; }
+
+/* Caresse : il se blottit contre le doigt */
+.k-alive.k-petting { animation: kPetting 0.9s ease-in-out infinite; }
+
+@keyframes kPetting {
+  0%, 100% { transform: scale(1.02, 0.97); }
+  50% { transform: scale(0.99, 1.02); }
+}
+
+/* Petit hochement à chaque lettre, penché en avant à la fin du mot */
+.k-alive.k-nod1 { animation: kNod1 0.3s ease-out; }
+
+@keyframes kNod1 {
+  0%, 100% { transform: translateY(0) scale(1); }
+  45% { transform: translateY(3%) scale(1.03, 0.96); }
+}
+
+.k-alive.k-lean:not(.k-hop):not(.k-nod1) { animation: kLean 0.7s ease-in-out infinite alternate; }
+
+@keyframes kLean {
+  from { transform: translateY(2%) scale(1.06); }
+  to { transform: translateY(0) scale(1.1); }
+}
+
+/* Il tremble en cachant ses yeux (coffre) */
+.k-alive.k-shake { animation: kShake 0.35s linear infinite; }
+
+@keyframes kShake {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-5deg) scale(0.97, 1.02); }
+  75% { transform: rotate(5deg) scale(0.97, 1.02); }
+}
+
+/* Impatient devant un coffre fermé */
+.k-alive.k-impatient:not(.k-shake):not(.k-hop) { animation: kImpatient 0.9s ease-in-out infinite; }
+
+@keyframes kImpatient {
+  0%, 60%, 100% { transform: translateY(0) scale(1, 1); }
+  70% { transform: translateY(0) scale(1.08, 0.92); }
+  82% { transform: translateY(-10%) scale(0.96, 1.05); }
+  92% { transform: translateY(0) scale(1.04, 0.96); }
+}
+
+/* ── La journée du kawaii ── */
+
+/* Matin : il s'étire */
+.k-alive.k-stretch { animation: kStretch 1.7s ease-in-out; }
+
+@keyframes kStretch {
+  0%, 100% { transform: scale(1, 1); }
+  15% { transform: scale(1.06, 0.92); }
+  45%, 65% { transform: scale(0.9, 1.14); }
+  80% { transform: scale(1.04, 0.96); }
+}
+
+/* Soir : paupières lourdes, et il bâille de temps en temps */
+.k-alive.k-soir,
+.k-alive.k-nuit.k-awake { --lid: 0.72; }
+
+.k-alive.k-yawning .k-mouth { opacity: 0; }
+.k-alive.k-yawning .k-yawn { opacity: 1; }
+.k-alive.k-yawning .k-yawn { transform-box: fill-box; transform-origin: center; animation: kYawnMouth 1.9s ease-in-out; }
+.k-alive.k-yawning { animation: kYawn 1.9s ease-in-out; }
+
+@keyframes kYawnMouth {
+  0%, 100% { transform: scale(0.3); }
+  30%, 70% { transform: scale(1.15, 1.25); }
+}
+
+@keyframes kYawn {
+  0%, 100% { transform: scale(1, 1); }
+  35%, 70% { transform: scale(0.97, 1.07) rotate(-2deg); }
+}
+
+/* Nuit : il dort (yeux fermés, respiration lente, « z ») jusqu'à ce qu'on le touche */
+.k-alive.k-nuit:not(.k-awake) .k-look { opacity: 0; }
+.k-alive.k-nuit:not(.k-awake) .k-shut { opacity: 1; }
+.k-alive.k-nuit:not(.k-awake) { animation-duration: calc(var(--kb, 4s) * 1.6); }
+.k-alive.k-nuit:not(.k-awake) .k-ear { animation: none; }
+
+.k-alive .k-zzz { opacity: 0; transition: opacity 0.3s; }
+.k-alive.k-nuit:not(.k-awake) .k-zzz { opacity: 1; }
+
+.k-alive .k-zzz text { animation: kZzz 2.4s ease-in-out infinite; }
+
+@keyframes kZzz {
+  0% { opacity: 0; transform: translate(-6px, 10px); }
+  30%, 70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(8px, -12px); }
+}
+
+/* ── Fonds animés (scènes) ── */
+.k-alive .k-tw { animation: kTwinkle 2s ease-in-out infinite; }
+
+@keyframes kTwinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.k-alive .k-bub { animation: kBubble 4s linear infinite; }
+
+@keyframes kBubble {
+  from { transform: translateY(40px); opacity: 0; }
+  20% { opacity: 0.8; }
+  to { transform: translateY(-120px); opacity: 0; }
+}
+
+.k-alive .k-snow { animation: kSnow 6s linear infinite; }
+
+@keyframes kSnow {
+  from { transform: translate(0, -60px); opacity: 0; }
+  15% { opacity: 1; }
+  to { transform: translate(14px, 200px); opacity: 0.4; }
+}
+
+.k-alive .k-wave { animation: kWave 3s linear infinite; }
+
+@keyframes kWave {
+  from { transform: translateX(0); }
+  to { transform: translateX(-40px); }
+}
+
+/* Kawaii devant le coffre */
+.chest-buddy {
+  display: flex;
+  justify-content: center;
+  margin-bottom: -8px;
+}
+
+.chest-buddy svg { width: 96px; height: 96px; }
+
+/* Fonds dans l'atelier : petites pastilles avec la scène */
+.kchip.bgchip {
+  padding: 2px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.kchip.bgchip svg { width: 52px; height: 52px; }
+
+.kchip.bgchip .bg-lock {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  font-size: 0.9rem;
+}
+
+.kstage-nom {
+  display: block;
+  margin: 6px auto 0;
+  max-width: 240px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: #1F6B66;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .k-alive, .k-alive * { animation: none !important; }
+  .k-heart { display: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* DÉFIS DU JOUR (accueil et écrans de fin)                        */
+/* ─────────────────────────────────────────────────────────────── */
+
+.defis-card {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  padding: 18px 18px 14px;
+  box-shadow: var(--ombre-2);
+}
+
+.defis-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.defis-head h2 {
+  font-size: 1.2rem;
+  font-weight: 900;
+  margin: 0;
+}
+
+.defis-count {
+  background: var(--violet-pale);
+  color: var(--violet-fonce);
+  font-weight: 900;
+  font-size: 0.9rem;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+.defis-count.all {
+  background: var(--vert-pale);
+  color: #1D7A45;
+}
+
+.defi-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  text-align: left;
+  font-family: var(--police);
+  color: var(--encre);
+  background: var(--surface-2);
+  border: 2px solid var(--bord);
+  border-radius: var(--r-m);
+  cursor: pointer;
+  transition: transform 0.15s var(--doux);
+}
+
+.defi-row:active { transform: scale(0.98); }
+
+.defi-row.done {
+  background: var(--vert-pale);
+  border-color: #BDEBD0;
+  cursor: default;
+}
+
+.defi-row.done .defi-text { color: #1D7A45; }
+
+.defi-emoji {
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.defi-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.defi-text {
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.defi-meter {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bord);
+  overflow: hidden;
+}
+
+.defi-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--rose), var(--violet));
+  transition: width 0.5s var(--doux);
+}
+
+.defi-row.done .defi-meter-fill {
+  background: linear-gradient(90deg, #6FD89B, var(--vert));
+}
+
+.defi-state {
+  flex-shrink: 0;
+  font-weight: 900;
+  font-size: 0.95rem;
+  color: var(--encre-2);
+}
+
+.defi-state.go {
+  color: var(--rose-fonce);
+  font-size: 1.3rem;
+}
+
+.defis-foot {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--encre-3);
+}
+
+/* Défis réussis pendant la session, sur l'écran de fin */
+.defis-won {
+  background: linear-gradient(135deg, var(--or-pale), var(--rose-pale));
+  border: 2px solid #FFE3A0;
+  border-radius: var(--r-l);
+  padding: 18px;
+  margin-bottom: 20px;
+  animation: popIn 0.4s var(--rebond);
+}
+
+.defis-won-title {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: #7A5300;
+  margin-bottom: 10px;
+}
+
+.defi-won {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: var(--r-m);
+  padding: 10px 14px;
+  margin-top: 8px;
+}
+
+.defi-won .defi-text { flex: 1; }
+
+.defi-gain {
+  font-weight: 900;
+  color: #7A5300;
+  white-space: nowrap;
+}
+
+/* Tuile large (dernière de l'accueil) et badge cadeau */
+.btn-tile-wide {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  min-height: 64px;
+  gap: 10px;
+}
+
+.btn-tile-wide .tile-icon { font-size: 1.5rem; }
+
+.badge-gift {
+  font-family: var(--police);
+  background: var(--or-pale);
+  border-color: #FFD466;
+  color: #7A5300;
+  cursor: pointer;
+  animation: chestBeckon 1.6s ease-in-out infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* ALBUM DE STICKERS                                               */
+/* ─────────────────────────────────────────────────────────────── */
+
+.album-hero {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: var(--ombre-2);
+}
+
+.album-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.album-hero-count {
+  font-weight: 800;
+  color: var(--encre-2);
+}
+
+.album-hero-count strong {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--encre);
+}
+
+.album-hero-next {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #7A5300;
+}
+
+.album-gauge { margin-bottom: 16px; }
+
+/* Chemin des cadeaux : une pastille par palier */
+.album-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.album-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px 8px;
+  border-radius: var(--r-m);
+  border: 2px dashed var(--bord);
+  background: var(--surface-2);
+  font-family: var(--police);
+  color: var(--encre-2);
+  text-align: center;
+  min-width: 0;
+}
+
+.album-step-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.album-step-n {
+  font-weight: 900;
+  font-size: 1.05rem;
+  color: var(--encre);
+}
+
+.album-step-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--encre-3);
+}
+
+.album-step.claimed {
+  border-style: solid;
+  border-color: #BDEBD0;
+  background: var(--vert-pale);
+}
+
+.album-step.claimed .album-step-icon,
+.album-step.ready .album-step-icon {
+  filter: none;
+  opacity: 1;
+}
+
+.album-step.ready {
+  border: 3px solid var(--or);
+  background: linear-gradient(135deg, #FFF3D1, #FFE08A);
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(245, 178, 27, 0.4);
+  animation: chestBeckon 1.4s ease-in-out infinite;
+}
+
+.album-step.ready .album-step-label {
+  color: #7A5300;
+  font-size: 0.8rem;
+}
+
+.album-page { margin-bottom: 28px; }
+
+.album-complete {
+  margin-left: auto;
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: #7A5300;
+  background: var(--or-pale);
+  border: 2px solid #FFD466;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.album-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+}
+
+.album-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px 10px;
+  font-family: var(--police);
+  color: var(--encre);
+  background: var(--surface-2);
+  border: 3px dashed var(--bord);
+  border-radius: var(--r-m);
+  cursor: pointer;
+  transition: transform 0.15s var(--doux);
+}
+
+.album-cell:active { transform: scale(0.95); }
+
+.album-art {
+  line-height: 0;
+  /* Pas encore trouvé : seulement la silhouette */
+  filter: brightness(0);
+  opacity: 0.16;
+}
+
+.album-art svg {
+  width: 72px;
+  height: 72px;
+}
+
+.album-name {
+  font-weight: 800;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  color: var(--encre-3);
+}
+
+.album-cell.found {
+  background: var(--surface);
+  border-style: solid;
+  border-color: #CDEFEC;
+  box-shadow: var(--ombre-1);
+}
+
+.album-cell.found.rare { border-color: #D9C6F0; }
+.album-cell.found.legendaire { border-color: #FFD466; background: linear-gradient(180deg, #FFFBEF, var(--surface)); }
+.album-cell.found.kawaii { border-color: #FFB3D6; background: linear-gradient(180deg, #FFF4FA, var(--surface)); }
+
+.album-cell.found .album-art {
+  filter: none;
+  opacity: 1;
+}
+
+.album-cell.found .album-name { color: var(--encre); }
+
+.album-page.complete .album-cell.found {
+  box-shadow: 0 0 0 2px rgba(245, 178, 27, 0.35), var(--ombre-1);
+}
+
+.album-mystery > * {
+  filter: brightness(0);
+  opacity: 0.2;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* JEUX DES CARTES QUESTIONS : QCM, paires, réponse à écrire       */
+/* ─────────────────────────────────────────────────────────────── */
+
+/* Choix du jeu sur la carte d'une liste */
+.game-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.game-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 112px;
+  padding: 14px 8px 12px;
+  font-family: var(--police);
+  color: var(--encre);
+  background: var(--surface-2);
+  border: 3px solid var(--bord);
+  border-radius: var(--r-l);
+  cursor: pointer;
+  transition: transform 0.15s var(--doux);
+}
+
+.game-tile:active {
+  transform: scale(0.96);
+  background: var(--rose-pale);
+  border-color: var(--rose);
+}
+
+.game-tile:first-child {
+  background: linear-gradient(135deg, var(--rose), var(--rose-fonce));
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 6px 18px rgba(232, 71, 154, 0.3);
+}
+
+.game-icon {
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.game-name {
+  font-weight: 900;
+  font-size: 1.02rem;
+  text-align: center;
+}
+
+.game-gain {
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: #7A5300;
+}
+
+.game-tile:first-child .game-gain { color: rgba(255, 255, 255, 0.92); }
+
+.jeu-card { padding-top: 22px; }
+
+.jeu-question {
+  margin: 10px 0 4px;
+  color: var(--violet-fonce);
+}
+
+.jeu-card .word-tiles { margin-top: 16px; }
+
+.jeu-given {
+  text-align: center;
+  font-weight: 700;
+  color: var(--encre-2);
+  margin-bottom: 4px;
+}
+
+.jeu-given strong { color: #B3272C; }
+
+/* Signe donné dans la réponse à écrire (apostrophe, tiret…) */
+.tile.given {
+  width: 30px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--encre-3);
+}
+
+.word-tiles.small .tile {
+  width: 40px;
+  height: 52px;
+  font-size: 1.6rem;
+}
+
+.word-tiles.small .tile.space,
+.word-tiles.small .tile.given { width: 20px; }
+
+.key-row-digits .key {
+  background: var(--menthe-pale);
+  border-color: #BFEDEA;
+  box-shadow: 0 2px 0 #BFEDEA;
+}
+
+/* QCM : quatre grandes réponses */
+.qcm-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.qcm-choices.long { grid-template-columns: 1fr; }
+
+.qcm-choice {
+  min-height: 92px;
+  padding: 14px 16px;
+  font-family: var(--police);
+  font-size: 1.5rem;
+  font-weight: 900;
+  line-height: 1.2;
+  color: var(--encre);
+  overflow-wrap: anywhere;
+  background: var(--surface);
+  border: 4px solid var(--bord);
+  border-radius: var(--r-l);
+  box-shadow: var(--ombre-1);
+  cursor: pointer;
+  transition: transform 0.15s var(--doux), background 0.2s, border-color 0.2s;
+}
+
+.qcm-choice.m  { font-size: 1.3rem; }
+.qcm-choice.s  { font-size: 1.15rem; font-weight: 800; }
+.qcm-choice.xs { font-size: 1rem; font-weight: 800; }
+
+.qcm-choices.long .qcm-choice { min-height: 72px; }
+
+.qcm-choice:active:not(:disabled) {
+  transform: scale(0.97);
+  border-color: var(--violet);
+  background: var(--violet-pale);
+}
+
+.qcm-choice:disabled {
+  cursor: default;
+  color: var(--encre-3);
+}
+
+.qcm-choice.right {
+  background: var(--vert-pale);
+  border-color: var(--vert);
+  color: #1D7A45;
+  animation: tileWave 0.6s var(--rebond);
+}
+
+.qcm-choice.wrong {
+  background: var(--rouge-pale);
+  border-color: var(--rouge);
+  color: #B3272C;
+  animation: tileShake 0.5s var(--doux);
+}
+
+/* Paires : questions à gauche, réponses à droite */
+.paires-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.paires-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.paires-label {
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: var(--encre-3);
+}
+
+.paire-tile {
+  min-height: 84px;
+  padding: 10px 12px;
+  font-family: var(--police);
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--encre);
+  overflow-wrap: anywhere;
+  background: var(--surface);
+  border: 4px solid var(--violet-pale);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre-1);
+  cursor: pointer;
+  transition: transform 0.15s var(--doux), opacity 0.4s, background 0.2s, border-color 0.2s;
+}
+
+.paire-tile.a {
+  background: var(--menthe-pale);
+  border-color: #BFEDEA;
+  font-weight: 900;
+}
+
+.paire-tile.m  { font-size: 1.05rem; }
+.paire-tile.s  { font-size: 0.95rem; }
+.paire-tile.xs { font-size: 0.85rem; }
+
+.paire-tile.selected {
+  border-color: var(--rose-fonce);
+  background: var(--rose-pale);
+  box-shadow: 0 0 0 4px rgba(255, 126, 185, 0.3);
+  transform: scale(1.03);
+}
+
+.paire-tile.wrong {
+  border-color: var(--rouge);
+  background: var(--rouge-pale);
+  animation: tileShake 0.5s var(--doux);
+}
+
+.paire-tile.found {
+  border-color: var(--vert);
+  background: var(--vert-pale);
+  color: #1D7A45;
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: default;
+}
+
+/* Carte à retourner : le dos reste caché tant qu'elle n'est pas retournée,
+   même si le navigateur montre les faces arrière (vu sur certains WebKit) */
+.flip-card .flip-back,
+.flip-card.flipped .flip-front {
+  visibility: hidden;
+  transition: visibility 0s linear 0.27s;
+}
+
+.flip-card.flipped .flip-back,
+.flip-card .flip-front {
+  visibility: visible;
+  transition: visibility 0s linear 0.27s;
+}
+
+.flip-card.no-anim .flip-face { transition: none; }
+
+@media (max-width: 640px) {
+  .qcm-choices { grid-template-columns: 1fr; }
+  .qcm-choice { min-height: 68px; font-size: 1.25rem; }
+  .paires-grid { gap: 8px; }
+  .paire-tile { min-height: 72px; padding: 8px; font-size: 1rem; }
+  .paire-tile.m, .paire-tile.s, .paire-tile.xs { font-size: 0.85rem; }
+  .album-steps { gap: 5px; }
+  .album-step-label { font-size: 0.62rem; }
+  .word-tiles.mid .tile { width: 32px; height: 44px; font-size: 1.35rem; }
+  .word-tiles.small .tile { width: 26px; height: 38px; font-size: 1.1rem; border-width: 2px; }
+  .word-tiles.mid, .word-tiles.small { gap: 4px; }
+  .game-actions { grid-template-columns: 1fr 1fr; }
+}
+
+/* Jeux d'échauffement d'une liste de langue : côte à côte */
+.game-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.paires-grid.even { grid-template-columns: 1fr 1fr; }
+
+/* Boutique : rayons toujours sous la main, en haut de l'écran */
+.shop-nav {
+  position: sticky;
+  top: 8px;
+  z-index: 50;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px;
+  margin: 0 -4px 18px;
+  background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-radius: 999px;
+  box-shadow: var(--ombre-2);
+  scrollbar-width: none;
+}
+
+.shop-nav::-webkit-scrollbar { display: none; }
+
+.shop-nav-chip {
+  flex: 1 0 auto;
+  min-height: 44px;
+  padding: 8px 14px;
+  font-family: var(--police);
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--encre);
+  white-space: nowrap;
+  background: var(--surface-2);
+  border: 2px solid var(--bord);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.shop-nav-chip:active {
+  background: var(--rose-pale);
+  border-color: var(--rose);
+}
+
+.category-section { scroll-margin-top: 84px; }
+
+/* ─────────────────────────────────────────────────────────────── */
+/* SALLE DE JEUX : serpent, blocs, bonbons                         */
+/* ─────────────────────────────────────────────────────────────── */
+
+.arcade-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.arcade-card {
+  background: var(--surface);
+  border-radius: var(--r-l);
+  padding: 20px 16px 18px;
+  box-shadow: var(--ombre-2);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.arcade-card.locked {
+  background: var(--surface-2);
+  box-shadow: none;
+  border: 2px dashed var(--bord);
+}
+
+.arcade-card.locked .arcade-emoji { filter: grayscale(0.6); opacity: 0.8; }
+
+.arcade-emoji {
+  font-size: 3.4rem;
+  line-height: 1.1;
+}
+
+.arcade-name {
+  font-size: 1.3rem;
+  font-weight: 900;
+}
+
+.arcade-desc {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--encre-2);
+  min-height: 2.6em;
+}
+
+.arcade-record-line {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #7A5300;
+  margin-bottom: 4px;
+}
+
+.arcade-card .btn { width: 100%; margin-top: 4px; }
+
+.arcade-sheet-emoji { font-size: 4rem; line-height: 1.2; }
+.arcade-item-emoji { font-size: 3.2rem; line-height: 84px; }
+
+/* Partie en cours */
+.arcade-stage {
+  position: relative;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.arcade-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.arcade-title {
+  font-weight: 900;
+  font-size: 1.1rem;
+}
+
+.arcade-score {
+  background: var(--or-pale);
+  border: 2px solid #FFD466;
+  color: #7A5300;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 800;
+}
+
+.arcade-score b { font-size: 1.15rem; font-weight: 900; }
+
+.arcade-record {
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--encre-3);
+}
+
+.arcade-board {
+  display: flex;
+  justify-content: center;
+}
+
+.arcade-canvas {
+  display: block;
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre-2);
+  border: 4px solid var(--surface);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.arcade-controls {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.arcade-controls .hint { margin-top: 0; }
+
+.pad-btn {
+  width: 66px;
+  height: 66px;
+  border-radius: var(--r-m);
+  border: 2px solid var(--bord);
+  background: var(--surface);
+  box-shadow: 0 3px 0 var(--bord);
+  font-family: var(--police);
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: var(--encre);
+  cursor: pointer;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.pad-btn:active {
+  transform: translateY(3px);
+  box-shadow: none;
+  background: var(--rose-pale);
+}
+
+.dpad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.dpad-row {
+  display: flex;
+  gap: 72px;
+}
+
+.pad-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Blocs : plateau + pièce suivante */
+.blocs-wrap {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.blocs-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 90px;
+}
+
+.blocs-side .arcade-canvas {
+  border-width: 3px;
+  box-shadow: var(--ombre-1);
+}
+
+.blocs-label {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--encre-3);
+}
+
+.blocs-lines {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--encre-2);
+  text-align: center;
+}
+
+/* Bonbons */
+.candy-board {
+  position: relative;
+  border-radius: var(--r-m);
+  background: #FBEFF6;
+  box-shadow: var(--ombre-2);
+  border: 4px solid var(--surface);
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* La case se déplace (transform) ; l'emoji à l'intérieur grossit, tourne
+   ou disparaît, sans jamais toucher à la position de la case */
+.candy {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.2s var(--doux);
+}
+
+.candy > span {
+  display: block;
+  transition: transform 0.2s var(--doux), opacity 0.2s;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.15));
+}
+
+.candy.selected { z-index: 2; }
+
+.candy.selected > span {
+  transform: scale(1.18);
+  filter: drop-shadow(0 0 8px rgba(255, 126, 185, 0.9));
+}
+
+.candy.gone > span {
+  transform: scale(0);
+  opacity: 0;
+}
+
+.candy.shuffled > span { animation: candySpin 0.5s var(--rebond); }
+
+@keyframes candySpin {
+  from { transform: rotate(0deg) scale(0.6); }
+  to { transform: rotate(360deg) scale(1); }
+}
+
+.candy.hint-wiggle > span { animation: candyWiggle 0.7s ease-in-out infinite; }
+
+@keyframes candyWiggle {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+
+.candy-status {
+  font-weight: 800;
+  color: var(--encre-2);
+  min-height: 1.5em;
+}
+
+.candy-moves {
+  display: inline-block;
+  min-width: 1.6em;
+  text-align: center;
+  background: var(--violet-pale);
+  color: var(--violet-fonce);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-weight: 900;
+}
+
+/* Fin de partie */
+.arcade-over {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 246, 250, 0.75);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  border-radius: var(--r-l);
+  z-index: 5;
+  animation: fadeIn 0.3s ease;
+}
+
+.arcade-over-card {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  padding: 26px 24px;
+  box-shadow: var(--ombre-3);
+  text-align: center;
+  width: min(92%, 360px);
+  animation: popIn 0.4s var(--rebond);
+}
+
+.arcade-over-emoji { font-size: 3.4rem; line-height: 1.1; }
+
+.arcade-over-card h2 { font-size: 1.6rem; margin: 6px 0 2px; }
+
+.arcade-over-score {
+  font-size: 2.6rem;
+  font-weight: 900;
+  color: var(--encre);
+}
+
+.arcade-over-card .result-actions { margin-top: 16px; }
+
+@media (max-width: 640px) {
+  .pad-btn { width: 56px; height: 56px; font-size: 1.4rem; }
+  .dpad-row { gap: 60px; }
+  .blocs-wrap { gap: 8px; }
+  .blocs-side { min-width: 70px; }
 }

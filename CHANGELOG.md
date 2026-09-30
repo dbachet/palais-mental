@@ -1,4 +1,165 @@
+## [2026-09-29] - Jeux des cartes questions, album de stickers, défis du jour
+
+### Ajouté
+- **🕹️ Salle de jeux** (accueil et boutique) : de vrais jeux, à débloquer une fois avec des étoiles, puis un jeton (3 ⭐, réglable, 0 = gratuit) par partie. Les jeux ne rapportent pas d'étoiles : elles se gagnent en apprenant. Chaque partie se termine d'elle-même, le record de l'enfant est gardé, et son kawaii principal joue avec elle
+  - 🐍 **Serpent** (30 ⭐) : la tête est le kawaii principal, il mange ses objets préférés (🐟, 🥕, 🍯…), va de plus en plus vite. Glisser le doigt, croix directionnelle ou flèches du clavier
+  - 🧱 **Blocs** (40 ⭐) : tetris pastel avec pièce suivante, ombre de la pièce et vitesse qui monte toutes les 8 lignes. Taper tourne, glisser déplace ou laisse tomber ; boutons ◀ ↻ ▶ ▼ ⤓ ; clavier
+  - 🍬 **Bonbons** (40 ⭐) : match-3 en 20 coups, cascades qui comptent double, triple… Deux appuis ou un glissement échangent deux bonbons voisins ; sans rien faire un moment, deux bonbons se dandinent pour montrer un coup
+  - Fin de partie : score, record (confettis et pirouette du kawaii pour un nouveau record), rejouer ou revenir à la salle. Le bouton retour pendant une partie demande confirmation
+- **Trois jeux corrigés par l'app** pour les cartes questions, à côté des cartes à retourner. Ils apparaissent sur la carte de la liste quand elle s'y prête :
+  - **🎯 QCM** : la question et quatre réponses. Les mauvaises viennent des autres cartes de la liste, en préférant celles qui ressemblent à la bonne (nombres avec nombres, longueur voisine) ; s'il manque des nombres, des nombres voisins. 1 ⭐ par bonne réponse. Il faut 4 réponses différentes dans la liste
+  - **🧩 Paires** : relier chaque question à sa réponse, par manches de 4 ou 5. 1 ⭐ par paire trouvée sans se tromper
+  - **⌨️ Écrire la réponse** : pour les réponses courtes (16 lettres ou chiffres au plus). Accents et majuscules ne comptent pas, espaces, apostrophes et tirets sont donnés. Rangée de chiffres quand la partie en a besoin ; accents toujours visibles. 2 ⭐ par réponse juste
+  - Une carte ratée revient une fois dans la partie ; après une erreur, l'enfant lit la bonne réponse et appuie sur « Suivant » quand il veut. Sans-faute (5 cartes ou plus) : bonus d'étoiles, et coffre rare au jeu d'écriture
+  - Les cartes changent de boîte comme aux cartes à retourner. Le QCM ne monte pas plus haut que « ça vient » (reconnaître n'est pas savoir) : on devient Ninja en retournant les cartes ou en écrivant. Les paires ne changent aucune boîte
+- **QCM et paires pour les mots de langue** (mot → traduction), sous les boutons habituels : un échauffement qui rapporte des étoiles, sans toucher au niveau ni à la progression
+- **📒 Mon album** (accueil) : tous les stickers du catalogue, par rareté. Ceux trouvés en couleur, les autres en silhouette. Un appui sur une silhouette propose de l'acheter ; sur un sticker, dit où il est collé
+- **Cadeaux de l'album** : à 3, 6, 10, 15, 20, 28, 36, 45, 54 stickers différents puis à l'album complet, un cadeau à ouvrir (étoiles ou coffres). Badge « 🎁 cadeau dans l'album » sur l'accueil
+- **Coffres** : dans la rareté tirée, 7 fois sur 10 un sticker qui manque à l'album (s'il en reste). Les doubles restent possibles, pour coller le même sticker à plusieurs endroits
+- **🎯 Défis du jour** (accueil) : trois petits défis chaque jour, un par famille (un effort, une activité à finir, un moment doux), choisis parmi ceux qui sont faisables ce jour-là. 3 ⭐ par défi, un coffre quand les trois sont réussis. Un appui sur un défi emmène au bon endroit
+- **Rien à perdre** : pas de série à tenir. Le badge « 🗓️ N jours de jeu » ne fait que monter
+- Pendant une session, un défi réussi ne dérange pas : il est fêté sur l'écran de fin
+- **Boutique** : barre des rayons toujours en haut (habits, commun, rare, légendaire, kawaii, album)
+- **Icône de l'app** sur l'écran d'accueil de l'iPad : le chat kawaii couronné, dessiné par `js/kawaii.js` (les fichiers `assets/icon-*.png` annoncés par le manifeste n'existaient pas)
+
+### Corrigé
+- Cartes à retourner : le dos de la carte reste caché tant qu'elle n'est pas retournée, même sur un navigateur qui affiche les faces arrière (réponse lisible à l'envers dans WebKit sous Playwright ; pas vérifié sur l'iPad)
+- Manifeste : `start_url` relatif (`./`), pour que l'app s'ouvre aussi depuis un sous-dossier (GitHub Pages)
+
+### Technique
+- Nouveaux fichiers `js/recompenses.js` (`Defis`, `Album`), `js/jeux-cartes.js` (`JeuxCartes`) et `js/arcade.js` (`Arcade`, moteurs `createSerpent`, `createBlocs`, `createBonbons`), chargés après `js/app.js`. Réglages dans `data/lieux.js` : `CARTES` (jeux), `ALBUM`, `DEFIS`, `ARCADE`, `ECONOMIE.chanceNouveauSticker`
+- **Aucune nouvelle clé de stockage** : tout est dans `economy` (`albumClaimed`, `daily`, `daysPlayed`, `arcade`), donc déjà sauvegardé, exporté et synchronisé. Rien à migrer : les champs absents prennent leur valeur de départ
+- Jeux : canvas net sur Retina (`makeCanvas`), tête du serpent = `Kawaii.draw` converti en image, bonbons en DOM avec l'emoji dans un enfant pour que grossir ou tourner ne déplace pas la case (`scale`/`rotate` se composent avec la translation)
+- `Storage.getEconomy()` garde désormais les champs qu'il ne connaît pas, pour qu'une version plus ancienne de l'app ne les efface plus à l'avenir
+- `renderHome()` découpé : `renderPalaceCard()` redessine la carte des étoiles sans toucher aux kawaii (un défi réussi pendant une caresse ne l'interrompt pas)
+- Service worker et `?v=` : `v19`
+
+## [2026-09-28] - Kawaii : nom, fonds, caresse et journée
+
+### Ajouté
+- **Un nom pour chaque kawaii** : champ « Donne-lui un nom » dans l'atelier (16 lettres max). Vide = nom du personnage
+- **Fonds** derrière le kawaii, à débloquer en boutique ou dans les coffres, et à choisir dans l'atelier : couleurs (rose, lilas, menthe, ciel, 6 ⭐) et scènes dessinées (arc-en-ciel, plage, sous la mer, espace, prairie, pays des bonbons, neige, château, 18 ⭐). Étoiles qui scintillent, bulles, neige qui tombe, vagues
+- **Chaque kawaii a ses objets** qui s'envolent quand on le touche : 🥕 lapin, 🌈 licorne, 🍯 ourson, 🐟 chat, 🎋 panda…
+- **Vraie caresse** : glisser le doigt dessus → il ferme les yeux de bonheur, penche la tête du côté du doigt et ronronne (objets et petites notes pour les kawaii qui ne sont pas des animaux)
+- **Un cri par personnage** quand on le tapote (miaou, couinement du lapin, groin du cochon, notes magiques de la licorne…), synthétisés comme les autres sons
+- **La journée du kawaii** : le matin il s'étire, le soir il a les paupières lourdes et bâille, après 20 h il dort avec un bonnet de nuit et des « z ». On le réveille en le touchant, il se rendort ensuite. Dans l'interrogation, il reste éveillé
+- **Interrogation** : le kawaii regarde la case à remplir, hoche la tête à chaque lettre et se penche quand il ne reste qu'une lettre
+- **Coffres** : le kawaii trépigne devant le coffre, se cache les yeux en tremblant à l'ouverture, puis découvre la surprise avec les yeux étoiles
+
+### Technique
+- Config kawaii : champs `bg` (`Kawaii.BACKGROUNDS`) et `nom`. Accessoires `bg:<id>` dans la garde-robe, prix `ECONOMIE.prixAccessoires.fond` / `.scene`
+- `Kawaii.onSound(personnage, sorte)` fixé par l'app (`playKawaiiSound`, `startPurr`) ; `Kawaii.period()`, `Kawaii.lookAt()`, `Kawaii.setLean()` ; évènement `kawaii-period` pour redessiner quand le moment de la journée change
+- Service worker et `?v=` : `v18`
+
+## [2026-09-28] - Kawaii vivants
+
+### Ajouté
+- **Les kawaii vivent** (accueil, Mes kawaii, atelier) : ils respirent, clignent des yeux (parfois deux fois), leurs oreilles frémissent, chacun à son rythme
+- **Ils regardent l'enfant** : les yeux, et un peu la tête, suivent le doigt ou la souris ; sans mouvement, ils jettent des coups d'œil autour
+- **Caresse** : un tapotement les écrase comme de la gelée, yeux rieurs et petit cœur 💖 ; trois tapotements rapides = petit saut
+- **Compagnon d'interrogation** : le kawaii principal est à côté des étoiles. Bonne réponse = yeux étoiles et bond ; erreur = surprise puis sourire qui encourage
+- **Célébrations** : à chaque niveau atteint, liste Ninja ou compagnon débloqué, le kawaii principal fait une pirouette (l'emoji reste s'il n'y a pas de kawaii)
+
+### Modifié
+- Accueil : toucher le kawaii le caresse ; bouton **🎨 Mes kawaii** pour ouvrir l'équipe
+
+### Technique
+- `Kawaii.draw(config, taille, { alive: true })` : oreilles, yeux et tête dans des groupes SVG animés en CSS (`.k-alive`), yeux de réaction cachés (`.k-joy`, `.k-star`)
+- `Kawaii.react(el, 'caresse' | 'saut' | 'bravo' | 'oups' | 'pirouette')`. Aucune donnée enregistrée ne change
+- Mouvement réduit : animations coupées
+- Service worker et `?v=` : `v17`
+
 # Changelog - Mental Palace
+
+## [2026-09-28] - Listes archivées
+
+### Ajouté
+- **Archiver une liste** (bouton 📦 sur chaque liste : mots à réécrire, mots de langue, cartes questions). Elle quitte Mes listes, le mélange, les mots à travailler et les mots affichés dans les pièces du palais
+- **📦 Listes archivées (N)** en bas de Mes listes : les archives, les plus récentes en premier, avec 📤 Ressortir et 🗑️ Supprimer
+- Une liste archivée garde tout : lieux, niveau, progrès, cartes et Ninja. Elle compte toujours pour les compagnons et les listes dorées (rien ne redescend)
+
+### Technique
+- Champ `archived: true` + `archivedAt` sur la liste dans `wordLists` (absent = liste en cours). `Storage.getActiveLists()`, `Storage.setArchived()`. Archiver retire la liste de `mixSelection`
+- Aucune migration : les listes existantes restent en cours. Synchronisé avec le reste de `wordLists`
+- Service worker et `?v=` : `v16`
+
+## [2026-09-27] - Mots de langue, interrogation complète en Ninja
+
+### Ajouté
+- **Mots de langue** (Nouvelle liste → 🌍) : une ligne par mot, « mot = traduction », avec la langue montrée et la langue à écrire (français, anglais, espagnol, allemand). ⇄ inverse les langues et les mots déjà saisis
+- On voit le mot de départ avec son drapeau, on écrit la traduction en cases de lettres (partielle selon le niveau, ou entière). Lieux, niveaux, étoiles, Ninja, compagnons et mélange de listes marchent comme pour les mots à réécrire
+- Voix : à la visite, le mot de départ puis la traduction, chacun dans sa langue ; en interrogation, seulement le mot de départ (pour ne pas donner la réponse)
+- Section « 🌍 Mots de langue » dans Mes listes ; mot de départ affiché dans Mots à travailler, Mon palais et les erreurs de fin de session
+
+### Changé
+- **Interrogation complète = niveau Ninja** (mot entier + cases pièges) pour les mots à réécrire et de langue. Réussie à 80 %, la liste passe directement Ninja et débloque un compagnon, sans passer tous les niveaux. Le niveau ne redescend jamais
+
+### Technique
+- Liste de langue : `type: 'langue'`, `langFrom`, `langTo`, `translations` { traduction: mot de départ }. `words` contient les traductions : lieux et progression y sont attachés. Une traduction en double est refusée à la saisie
+- `LANGUES` dans `data/lieux.js` ; cache v15
+
+## [2026-09-20] - Comptes et enregistrement en ligne
+
+### Ajouté
+- **Compte en ligne** (Espace parents → ☁️ Compte) : un email de parent, un code reçu par email, et le palais est enregistré en ligne. Un compte = un enfant. La session reste ouverte : l'enfant ne tape jamais de code
+- **Le palais suit l'enfant** sur l'iPad, le téléphone et l'ordinateur, sans fichier JSON à transférer. Les progrès partent quelques secondes après chaque changement et quand l'app est mise de côté ; hors-ligne, ils attendent
+- **Ligne d'état sur l'accueil**, sous « Espace parents » : enregistré en ligne (date), en attente de connexion, compte à reconnecter
+- **Fusion donnée par donnée** entre appareils (listes, étoiles et stickers, kawaii, maison) : la plus récente de chaque gagne
+- **Jamais d'écrasement à l'aveugle** : si l'appareil et le compte ont chacun un palais à la connexion, l'app demande lequel garder et ne touche à rien d'ici là. Un appareil neuf ne peut pas écraser le compte avec sa maison par défaut
+- **Se déconnecter** retire le palais de l'appareil (il reste dans le compte) ; refusé s'il reste des progrès non envoyés
+- Guide de mise en ligne (GitHub Pages, Supabase, emails via Maileroo) et de déménagement des données : `EN-LIGNE.md`
+
+### Technique
+- `js/sync.js` : aucun SDK, appels `fetch` à Supabase (auth par code, table `palaces`). Détection des changements par empreinte des clés `SYNC_KEYS` toutes les 5 s : rien à appeler depuis `app.js` quand on écrit une donnée. Écriture conditionnée au numéro de `version` de la ligne, relecture et refusion en cas d'écriture concurrente
+- `js/config.js` : adresse et clé publique. Vide = app 100 % locale, carte « Compte » masquée
+- `supabase/schema.sql` : tables `palaces` et `palace_history` (une copie par jour, 30 jours), règles d'accès par compte
+- `.github/workflows/keepalive.yml` : évite la mise en pause du projet Supabase gratuit
+- Copies locales avant remplacement en bloc : clé `syncBackup`. Les clés `syncSession`, `syncMeta`, `syncBackup` sont exclues de la sauvegarde JSON et ignorées à la restauration
+- Données venues d'un autre appareil : rechargement immédiat sur l'accueil, sinon au retour à l'accueil (`AppState.reloadOnHome`)
+- Aucune migration : les données existantes ne changent pas de forme
+- Service worker et `?v=` : `v14`
+
+## [2026-09-19] - Mélanger plusieurs listes
+
+### Ajouté
+- **Écran « Mélanger des listes »** (Mes listes → 🔀, dès qu'il y a 2 listes de mots) : on coche les listes, toutes visibles, avec « Tout cocher ». Puis 📖 Apprendre, 🎯 S'entraîner ou 🏆 Interrogation complète sur tous les mots des listes cochées. Chaque liste reste jouable seule, comme avant
+- **Tirage aléatoire sur toutes les listes cochées**, dans les trois modes : Apprendre, S'entraîner et Interrogation complète mélangent les mots de toutes les listes entre eux, par paquets de 10 (nouvel ordre à chaque session). Une liste jouée seule s'apprend toujours dans l'ordre de ses mots
+- Chaque mot garde **son lieu**, le **niveau de sa liste** (lettres à trouver, étoiles par mot) et sa progression. L'indice de difficulté donne le nom de la liste du mot en cours
+- **Passage de niveau par liste** : à la fin d'un mix, chaque liste est jugée sur ses propres mots (80 %). Une liste peut monter pendant que l'autre reste ; rien ne redescend. L'écran de résultats affiche une ligne par liste
+- Un mot présent dans deux listes est demandé deux fois, une fois à chacun de ses lieux
+- Les listes cochées sont retenues (`mixSelection`) pour refaire le même mix le lendemain
+- Bonus sans-faute d'un paquet mixte : calculé sur la liste la moins avancée du paquet
+
+### Modifié
+- **Score de l'écran de résultats** : toute la session (tous les paquets de 10), plus seulement le dernier paquet
+
+### Technique
+- Une session est une suite de `{ word, list }` : `sessionItems()`, `setCurrentItem()` (installe `currentList`, lieu, `listLevel` pour le mot en cours), `AppState.sessionLists`, `AppState.sessionByList` (réussite par liste)
+- `startInterrogationOnItems()` remplace les deux démarrages d'interrogation quasi identiques (liste, après apprentissage) ; « Rejouer » rejoue les mêmes mots dans le même mode
+- `startApprentissageOnLists()`, `startInterrogationOnLists()`, `AppState.allApprentissageLevels`
+- Aucune migration : les listes ne changent pas de forme ; `mixSelection` est une nouvelle clé, incluse dans la sauvegarde parents
+- Service worker et `?v=` : `v13`
+
+## [2026-09-17] - Cartes questions et espace parents
+
+### Ajouté
+- **Listes « Cartes questions »** : nouveau type de liste, à côté des mots à réécrire. À la création, on choisit le type (les deux choix toujours visibles). Dans « Mes listes », une section par type
+- **Saisie** : une carte par ligne, `question = réponse`. Si un `=` doit figurer dans le texte, séparer avec `|` (`2 + 2 = ? | 4`). Les lignes ambiguës sont signalées, rien n'est enregistré tant qu'il en reste. Bouton « Copier la consigne pour une IA »
+- **Jeu de cartes** : 10 cartes tirées au hasard, on retourne la carte (appui sur la carte ou bouton), puis « ✅ Je savais » ou « 🔁 À revoir ». Bouton 🔊 pour écouter le côté visible. Seule ou avec un parent : même écran
+- **Boîtes** : 🆕 jamais vue → 🔁 à revoir (1) → 🙂 ça vient (2) → ✅ connue (3). Une carte « à revoir » revient 3 cartes plus loin dans la session (2 retours max) et sort en premier aux sessions suivantes
+- **Récompense = session terminée** (5 ⭐), jamais les bonnes réponses : l'auto-validation ne rapporte rien à tricher
+- **Ninja** : toutes les cartes en boîte 3. Coffre rare, compte pour les compagnons, ne redescend jamais (même si on ajoute des cartes)
+- **Espace parents** (bas de l'accueil, protégé par une multiplication) : sauvegarder toutes les données dans un fichier JSON (feuille de partage sur iPad, téléchargement ailleurs) et restaurer, avec confirmation qui compare sauvegarde et appareil
+
+### Modifié
+- **Barre d'avancement de la session** à la place des 5 étoiles de score (dictée) : une case par mot, remplie quand le mot est fait, entourée pour le mot en cours. Elle ne dit pas si c'était juste. La ⭐ n'a plus qu'un sens : les étoiles gagnées. Même barre sur l'écran des cartes. Feux d'artifice du sans-faute conservés, tirés à la fin du niveau
+
+### Technique
+- Même tiroir `wordLists` ; carte-liste = `{ type: 'cartes-questions', cards: [{ id, q, a, box }], nextCardId, ninja, words: [] … }`. Une liste sans `type` est une liste de mots : aucune migration
+- La progression tient à l'`id` de la carte : `Storage.updateCardList()` reconnaît une carte corrigée (même question, sinon même réponse, sinon même ligne) et garde sa boîte
+- `Storage.isListNinja()` remplace le test de niveau dans `getCompanionSlots()`
+- Réglages dans `CARTES` (`data/lieux.js`) : cartes par session, étoiles, retours, poids du tirage
+- Service worker et `?v=` : `v12`
 
 ## [2026-09-11] - Ma maison : pièces et endroits modifiables dans l'app
 

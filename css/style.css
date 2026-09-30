@@ -3995,3 +3995,322 @@ header h1 {
 }
 
 .category-section { scroll-margin-top: 84px; }
+
+/* ─────────────────────────────────────────────────────────────── */
+/* SALLE DE JEUX : serpent, blocs, bonbons                         */
+/* ─────────────────────────────────────────────────────────────── */
+
+.arcade-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.arcade-card {
+  background: var(--surface);
+  border-radius: var(--r-l);
+  padding: 20px 16px 18px;
+  box-shadow: var(--ombre-2);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.arcade-card.locked {
+  background: var(--surface-2);
+  box-shadow: none;
+  border: 2px dashed var(--bord);
+}
+
+.arcade-card.locked .arcade-emoji { filter: grayscale(0.6); opacity: 0.8; }
+
+.arcade-emoji {
+  font-size: 3.4rem;
+  line-height: 1.1;
+}
+
+.arcade-name {
+  font-size: 1.3rem;
+  font-weight: 900;
+}
+
+.arcade-desc {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--encre-2);
+  min-height: 2.6em;
+}
+
+.arcade-record-line {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #7A5300;
+  margin-bottom: 4px;
+}
+
+.arcade-card .btn { width: 100%; margin-top: 4px; }
+
+.arcade-sheet-emoji { font-size: 4rem; line-height: 1.2; }
+.arcade-item-emoji { font-size: 3.2rem; line-height: 84px; }
+
+/* Partie en cours */
+.arcade-stage {
+  position: relative;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.arcade-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.arcade-title {
+  font-weight: 900;
+  font-size: 1.1rem;
+}
+
+.arcade-score {
+  background: var(--or-pale);
+  border: 2px solid #FFD466;
+  color: #7A5300;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 800;
+}
+
+.arcade-score b { font-size: 1.15rem; font-weight: 900; }
+
+.arcade-record {
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--encre-3);
+}
+
+.arcade-board {
+  display: flex;
+  justify-content: center;
+}
+
+.arcade-canvas {
+  display: block;
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre-2);
+  border: 4px solid var(--surface);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.arcade-controls {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.arcade-controls .hint { margin-top: 0; }
+
+.pad-btn {
+  width: 66px;
+  height: 66px;
+  border-radius: var(--r-m);
+  border: 2px solid var(--bord);
+  background: var(--surface);
+  box-shadow: 0 3px 0 var(--bord);
+  font-family: var(--police);
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: var(--encre);
+  cursor: pointer;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.pad-btn:active {
+  transform: translateY(3px);
+  box-shadow: none;
+  background: var(--rose-pale);
+}
+
+.dpad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.dpad-row {
+  display: flex;
+  gap: 72px;
+}
+
+.pad-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Blocs : plateau + pièce suivante */
+.blocs-wrap {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.blocs-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 90px;
+}
+
+.blocs-side .arcade-canvas {
+  border-width: 3px;
+  box-shadow: var(--ombre-1);
+}
+
+.blocs-label {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--encre-3);
+}
+
+.blocs-lines {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--encre-2);
+  text-align: center;
+}
+
+/* Bonbons */
+.candy-board {
+  position: relative;
+  border-radius: var(--r-m);
+  background: #FBEFF6;
+  box-shadow: var(--ombre-2);
+  border: 4px solid var(--surface);
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* La case se déplace (transform) ; l'emoji à l'intérieur grossit, tourne
+   ou disparaît, sans jamais toucher à la position de la case */
+.candy {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.2s var(--doux);
+}
+
+.candy > span {
+  display: block;
+  transition: transform 0.2s var(--doux), opacity 0.2s;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.15));
+}
+
+.candy.selected { z-index: 2; }
+
+.candy.selected > span {
+  transform: scale(1.18);
+  filter: drop-shadow(0 0 8px rgba(255, 126, 185, 0.9));
+}
+
+.candy.gone > span {
+  transform: scale(0);
+  opacity: 0;
+}
+
+.candy.shuffled > span { animation: candySpin 0.5s var(--rebond); }
+
+@keyframes candySpin {
+  from { transform: rotate(0deg) scale(0.6); }
+  to { transform: rotate(360deg) scale(1); }
+}
+
+.candy.hint-wiggle > span { animation: candyWiggle 0.7s ease-in-out infinite; }
+
+@keyframes candyWiggle {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+
+.candy-status {
+  font-weight: 800;
+  color: var(--encre-2);
+  min-height: 1.5em;
+}
+
+.candy-moves {
+  display: inline-block;
+  min-width: 1.6em;
+  text-align: center;
+  background: var(--violet-pale);
+  color: var(--violet-fonce);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-weight: 900;
+}
+
+/* Fin de partie */
+.arcade-over {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 246, 250, 0.75);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  border-radius: var(--r-l);
+  z-index: 5;
+  animation: fadeIn 0.3s ease;
+}
+
+.arcade-over-card {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  padding: 26px 24px;
+  box-shadow: var(--ombre-3);
+  text-align: center;
+  width: min(92%, 360px);
+  animation: popIn 0.4s var(--rebond);
+}
+
+.arcade-over-emoji { font-size: 3.4rem; line-height: 1.1; }
+
+.arcade-over-card h2 { font-size: 1.6rem; margin: 6px 0 2px; }
+
+.arcade-over-score {
+  font-size: 2.6rem;
+  font-weight: 900;
+  color: var(--encre);
+}
+
+.arcade-over-card .result-actions { margin-top: 16px; }
+
+@media (max-width: 640px) {
+  .pad-btn { width: 56px; height: 56px; font-size: 1.4rem; }
+  .dpad-row { gap: 60px; }
+  .blocs-wrap { gap: 8px; }
+  .blocs-side { min-width: 70px; }
+}

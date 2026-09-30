@@ -1,6 +1,11 @@
 ## [2026-09-29] - Jeux des cartes questions, album de stickers, défis du jour
 
 ### Ajouté
+- **🕹️ Salle de jeux** (accueil et boutique) : de vrais jeux, à débloquer une fois avec des étoiles, puis un jeton (3 ⭐, réglable, 0 = gratuit) par partie. Les jeux ne rapportent pas d'étoiles : elles se gagnent en apprenant. Chaque partie se termine d'elle-même, le record de l'enfant est gardé, et son kawaii principal joue avec elle
+  - 🐍 **Serpent** (30 ⭐) : la tête est le kawaii principal, il mange ses objets préférés (🐟, 🥕, 🍯…), va de plus en plus vite. Glisser le doigt, croix directionnelle ou flèches du clavier
+  - 🧱 **Blocs** (40 ⭐) : tetris pastel avec pièce suivante, ombre de la pièce et vitesse qui monte toutes les 8 lignes. Taper tourne, glisser déplace ou laisse tomber ; boutons ◀ ↻ ▶ ▼ ⤓ ; clavier
+  - 🍬 **Bonbons** (40 ⭐) : match-3 en 20 coups, cascades qui comptent double, triple… Deux appuis ou un glissement échangent deux bonbons voisins ; sans rien faire un moment, deux bonbons se dandinent pour montrer un coup
+  - Fin de partie : score, record (confettis et pirouette du kawaii pour un nouveau record), rejouer ou revenir à la salle. Le bouton retour pendant une partie demande confirmation
 - **Trois jeux corrigés par l'app** pour les cartes questions, à côté des cartes à retourner. Ils apparaissent sur la carte de la liste quand elle s'y prête :
   - **🎯 QCM** : la question et quatre réponses. Les mauvaises viennent des autres cartes de la liste, en préférant celles qui ressemblent à la bonne (nombres avec nombres, longueur voisine) ; s'il manque des nombres, des nombres voisins. 1 ⭐ par bonne réponse. Il faut 4 réponses différentes dans la liste
   - **🧩 Paires** : relier chaque question à sa réponse, par manches de 4 ou 5. 1 ⭐ par paire trouvée sans se tromper
@@ -22,8 +27,9 @@
 - Manifeste : `start_url` relatif (`./`), pour que l'app s'ouvre aussi depuis un sous-dossier (GitHub Pages)
 
 ### Technique
-- Nouveaux fichiers `js/recompenses.js` (`Defis`, `Album`) et `js/jeux-cartes.js` (`JeuxCartes`), chargés après `js/app.js`. Réglages dans `data/lieux.js` : `CARTES` (jeux), `ALBUM`, `DEFIS`, `ECONOMIE.chanceNouveauSticker`
-- **Aucune nouvelle clé de stockage** : tout est dans `economy` (`albumClaimed`, `daily`, `daysPlayed`), donc déjà sauvegardé, exporté et synchronisé. Rien à migrer : les champs absents prennent leur valeur de départ
+- Nouveaux fichiers `js/recompenses.js` (`Defis`, `Album`), `js/jeux-cartes.js` (`JeuxCartes`) et `js/arcade.js` (`Arcade`, moteurs `createSerpent`, `createBlocs`, `createBonbons`), chargés après `js/app.js`. Réglages dans `data/lieux.js` : `CARTES` (jeux), `ALBUM`, `DEFIS`, `ARCADE`, `ECONOMIE.chanceNouveauSticker`
+- **Aucune nouvelle clé de stockage** : tout est dans `economy` (`albumClaimed`, `daily`, `daysPlayed`, `arcade`), donc déjà sauvegardé, exporté et synchronisé. Rien à migrer : les champs absents prennent leur valeur de départ
+- Jeux : canvas net sur Retina (`makeCanvas`), tête du serpent = `Kawaii.draw` converti en image, bonbons en DOM avec l'emoji dans un enfant pour que grossir ou tourner ne déplace pas la case (`scale`/`rotate` se composent avec la translation)
 - `Storage.getEconomy()` garde désormais les champs qu'il ne connaît pas, pour qu'une version plus ancienne de l'app ne les efface plus à l'avenir
 - `renderHome()` découpé : `renderPalaceCard()` redessine la carte des étoiles sans toucher aux kawaii (un défi réussi pendant une caresse ne l'interrompt pas)
 - Service worker et `?v=` : `v19`

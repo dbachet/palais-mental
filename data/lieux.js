@@ -129,6 +129,27 @@ const ECONOMIE = {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// SALLE DE JEUX (récompenses : de vrais jeux)
+// ═══════════════════════════════════════════════════════════════
+// Chaque jeu se débloque une fois avec des étoiles, puis chaque partie
+// coûte un jeton (prixJeton étoiles ; 0 = parties gratuites). Les jeux ne
+// rapportent pas d'étoiles : ils se gagnent en apprenant. Une partie se
+// termine d'elle-même (murs, blocs empilés, coups épuisés).
+// Moteurs dans js/arcade.js.
+
+const ARCADE = {
+  prixJeton: 3,
+  jeux: [
+    { id: 'serpent', nom: 'Serpent', emoji: '🐍', prix: 30,
+      desc: 'Ton kawaii mange ses objets préférés et grandit. Attention aux murs !' },
+    { id: 'blocs',   nom: 'Blocs',   emoji: '🧱', prix: 40,
+      desc: 'Fais tomber les blocs et complète des lignes, de plus en plus vite.' },
+    { id: 'bonbons', nom: 'Bonbons', emoji: '🍬', prix: 40,
+      desc: 'Aligne 3 bonbons pareils. Tu as 20 coups pour faire le meilleur score.' }
+  ]
+};
+
+// ═══════════════════════════════════════════════════════════════
 // ALBUM DE STICKERS
 // ═══════════════════════════════════════════════════════════════
 // L'album montre tous les stickers du catalogue : ceux trouvés, et la

@@ -68,10 +68,13 @@
           <button class="btn btn-tile" onclick="showAlbumScreen()">
             <span class="tile-icon">📒</span>Mon album
           </button>
+          <button class="btn btn-tile" onclick="showArcadeScreen()">
+            <span class="tile-icon">🕹️</span>Salle de jeux
+          </button>
           <button class="btn btn-tile" onclick="showStrugglingWordsScreen()">
             <span class="tile-icon">💪</span>Mots à travailler
           </button>
-          <button class="btn btn-tile btn-tile-wide" onclick="showNewListScreen()">
+          <button class="btn btn-tile" onclick="showNewListScreen()">
             <span class="tile-icon">➕</span>Nouvelle liste
           </button>
         </div>
@@ -656,6 +659,21 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN SALLE DE JEUX (jeux débloqués avec les étoiles)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="arcade-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="Arcade.quit()" aria-label="Retour">←</button>
+        <h1>🕹️ Salle de jeux</h1>
+        <span class="progress-chip star-chip" id="arcade-stars">⭐ 0</span>
+      </header>
+
+      <div class="screen-body" id="arcade-content">
+        <!-- Rempli dynamiquement par showArcadeScreen() / Arcade.play() -->
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
          ÉCRAN MOTS À TRAVAILLER
          ══════════════════════════════════════════════════════════ -->
     <div id="struggling-words-screen" class="screen">
@@ -699,5 +717,6 @@
   <script src="js/app.js?v=19"></script>
   <script src="js/recompenses.js?v=19"></script>
   <script src="js/jeux-cartes.js?v=19"></script>
+  <script src="js/arcade.js?v=19"></script>
 </body>
 </html>

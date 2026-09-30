@@ -4136,6 +4136,7 @@ function showShopScreen() {
   html += `
     <nav class="shop-nav" aria-label="Rayons de la boutique">
       ${rayons.map(([id, label]) => `<button class="shop-nav-chip" onclick="scrollToRayon('${id}')">${label}</button>`).join('')}
+      <button class="shop-nav-chip" onclick="scrollToRayon('jeux')">🕹️ Jeux</button>
       <button class="shop-nav-chip" onclick="showAlbumScreen()">📒 Album</button>
     </nav>
   `;
@@ -4159,6 +4160,30 @@ function showShopScreen() {
               <div class="item-preview">${accessoryArt(acc, 84)}</div>
               <div class="item-name">${acc.nom}</div>
               <div class="item-price">${owned ? 'à toi' : `${acc.prix} ⭐`}</div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+
+  // Rayon salle de jeux : de vrais jeux, à débloquer une fois
+  const arcade = Arcade.state();
+  html += `
+    <div class="category-section" id="rayon-jeux">
+      <div class="category-title">
+        🕹️ Salle de jeux <span class="price-tag">${arcade.unlocked.length}/${ARCADE.jeux.length}</span>
+      </div>
+      <p class="hint" style="margin:0 0 10px">De vrais jeux, pour se détendre après l'entraînement.${ARCADE.prixJeton > 0 ? ` Une partie coûte ${ARCADE.prixJeton} ⭐.` : ''}</p>
+      <div class="items-grid">
+        ${ARCADE.jeux.map(jeu => {
+          const owned = arcade.unlocked.includes(jeu.id);
+          const affordable = eco.stars >= jeu.prix;
+          return `
+            <div class="item-card accessory ${owned ? 'owned' : (affordable ? '' : 'too-expensive')}" onclick="${owned ? 'showArcadeScreen()' : `Arcade.askUnlock('${jeu.id}')`}">
+              ${owned ? '<span class="item-owned">✓</span>' : ''}
+              <div class="item-preview arcade-item-emoji">${jeu.emoji}</div>
+              <div class="item-name">${jeu.nom}</div>
+              <div class="item-price">${owned ? 'débloqué' : `${jeu.prix} ⭐`}</div>
             </div>`;
         }).join('')}
       </div>

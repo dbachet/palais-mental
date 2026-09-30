@@ -50,6 +50,7 @@ palais-mental/
 │   ├── app.js          # Logique principale
 │   ├── recompenses.js  # Défis du jour et album de stickers
 │   ├── jeux-cartes.js  # QCM, paires et réponse à écrire (cartes questions, mots de langue)
+│   ├── arcade.js       # Salle de jeux : serpent, blocs (tetris), bonbons (match-3)
 │   ├── config.js       # Adresse et clé publique Supabase (vide = app 100 % locale)
 │   ├── sync.js         # Compte et enregistrement en ligne (fusion, hors-ligne)
 │   └── kawaii.js       # Moteur de dessin des personnages kawaii (SVG, sans image)
@@ -79,7 +80,9 @@ Boucle de jeu :
 5. **Mon album** montre tout le catalogue : les stickers trouvés en couleur, les autres en silhouette. Des cadeaux (étoiles, coffres) se récupèrent à chaque palier de stickers différents. Les coffres donnent le plus souvent un sticker qui manque encore.
 6. Les **défis du jour** : trois petits défis, quelques étoiles chacun, un coffre pour les trois. Pas de série à tenir : on ne perd jamais rien en ne jouant pas, et le compteur de jours de jeu ne fait que monter.
 
-Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre) et `ECONOMIE.chanceNouveauSticker` dans `data/lieux.js`.
+7. La **salle de jeux** : de vrais jeux (serpent, blocs, bonbons) à débloquer une fois avec des étoiles, puis un jeton par partie. Ils ne rapportent rien : les étoiles se gagnent en apprenant, et se dépensent aussi à jouer. Chaque partie se termine d'elle-même ; le record est gardé.
+
+Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre), `ARCADE` (jeux, prix, jeton ; `prixJeton: 0` = parties gratuites) et `ECONOMIE.chanceNouveauSticker` dans `data/lieux.js`.
 
 ## 🎯 Fonctionnalités
 
@@ -207,7 +210,7 @@ Les **pièces virtuelles** (chambre panda, bureau de président, etc.) sont des 
 Toutes les données sont stockées en **localStorage** :
 
 - `wordLists` : Listes de mots, niveaux, progression et rangement des mots
-- `economy` : Étoiles, inventaire, stickers collés, garde-robe, cadeaux de l'album récupérés, défis du jour, jours de jeu
+- `economy` : Étoiles, inventaire, stickers collés, garde-robe, cadeaux de l'album récupérés, défis du jour, jours de jeu, jeux débloqués et records
 - `kawaiiTeam` : Kawaii principal et compagnons
 - `maison` : Pièces et endroits (modifiables dans l'app)
 

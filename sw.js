@@ -16,6 +16,7 @@ const ASSETS_TO_CACHE = [
   './js/app.js?v=' + V,
   './js/recompenses.js?v=' + V,
   './js/jeux-cartes.js?v=' + V,
+  './js/arcade.js?v=' + V,
   './js/kawaii.js?v=' + V,
   './js/config.js?v=' + V,
   './js/sync.js?v=' + V,

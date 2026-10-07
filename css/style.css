@@ -576,6 +576,615 @@ header h1 {
 }
 
 /* ─────────────────────────────────────────────────────────────── */
+/* LA VILLE (accueil) : une liste = un lieu */
+/* ─────────────────────────────────────────────────────────────── */
+
+.home-content {
+  max-width: 1000px;
+}
+
+.home-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.home-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+@media (min-width: 860px) {
+  .home-cols { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+}
+
+.ville-card {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  padding: 14px;
+  box-shadow: var(--ombre-2);
+}
+
+.ville-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 6px 12px;
+}
+
+.ville-head h2 {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: var(--encre);
+}
+
+.btn-small {
+  min-height: 44px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+}
+
+.ville {
+  position: relative;
+  border-radius: var(--r-l);
+  overflow: hidden;
+  line-height: 0;
+}
+
+.ville-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ville-batiment {
+  cursor: pointer;
+  transition: transform 0.25s var(--rebond);
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.ville-batiment:active {
+  transform: scale(0.96);
+}
+
+.ville-batiment:focus {
+  outline: none;
+}
+
+.ville-batiment:focus-visible {
+  outline: 4px solid var(--rose);
+}
+
+.ville-nom {
+  font-family: var(--police);
+  font-size: 24px;
+  font-weight: 900;
+  fill: var(--encre);
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 6px;
+  stroke-linejoin: round;
+}
+
+.ville-temps {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--violet-fonce);
+  background: var(--violet-pale);
+  border-radius: 999px;
+  padding: 8px 14px;
+}
+
+.ville-neon { animation: neon 1.8s ease-in-out infinite; }
+.ville-neon:nth-of-type(2n) { animation-delay: -0.9s; }
+
+@keyframes neon {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* Liste Ninja : le lieu doré scintille doucement */
+.ville-etincelle {
+  animation: etincelle 2.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes etincelle {
+  0%, 100% { opacity: 0.25; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+/* Quartiers ouverts : un morceau de carte en bas de la ville */
+.ville-quartier { cursor: pointer; }
+.lieu-gris { filter: grayscale(1); opacity: 0.6; }
+
+/* Feuille d'un lieu */
+.lieu-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.lieu-sheet-emoji {
+  line-height: 0;
+}
+
+.lieu-sheet-type {
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: var(--encre);
+}
+
+.lieu-sheet-etages {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--encre-2);
+}
+
+/* Choix du lieu d'une liste */
+.lieu-choix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.lieu-choix {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 10px 6px;
+  border-radius: var(--r-m);
+  border: 3px solid var(--bord);
+  background: var(--surface-2);
+  font-family: var(--police);
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--encre-2);
+  cursor: pointer;
+}
+
+.lieu-choix.selected {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+  color: var(--encre);
+}
+
+/* Construire une maison, depuis le choix du lieu */
+.lieu-choix-nouveau {
+  border-style: dashed;
+  justify-content: center;
+}
+
+.lieu-choix-plus { font-size: 2.6rem; line-height: 1.2; }
+
+/* ─── Mes maisons (js/maisons.js) ─── */
+.maison-card {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.maison-dessin { flex: none; line-height: 0; }
+.maison-infos { flex: 1; min-width: 0; }
+.maison-infos h3 { margin: 0 0 4px; }
+
+.maison-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Une maison qui manque de meubles pour sa liste */
+.maison-manque {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 12px 14px;
+  margin: 10px 0;
+  border-radius: var(--r-m);
+  background: var(--or-pale);
+  border: 2px solid #F6E2A6;
+  font-weight: 700;
+  color: var(--encre);
+}
+
+@media (max-width: 520px) {
+  .maison-card { flex-direction: column; text-align: center; }
+  .maison-actions { justify-content: center; }
+}
+
+/* Bâtiment d'un quartier pas encore ouvert */
+.lieu-choix.verrouille svg { filter: grayscale(1); opacity: 0.5; }
+.lieu-choix.verrouille { color: var(--encre-3); }
+.lieu-choix span small { display: block; font-size: 0.78rem; font-weight: 800; }
+
+/* Meuble gagné avec un niveau */
+.meuble-gagne {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 0.95rem;
+  color: var(--encre-2);
+  text-align: left;
+}
+
+.album-cell.meuble { cursor: default; }
+
+/* Objets dessinés : silhouette grise tant que l'élément n'est pas maîtrisé */
+.objet {
+  overflow: visible;
+}
+
+.obj-gris {
+  filter: grayscale(1) brightness(1.18) opacity(0.6);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* ÉTAGES : scène, objets, déco, kawaii (js/scene.js) */
+/* ─────────────────────────────────────────────────────────────── */
+
+.scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1000 / 640;
+  border-radius: var(--r-l);
+  overflow: hidden;
+  box-shadow: var(--ombre-2);
+  container-type: inline-size;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.scene-calme { touch-action: auto; }
+
+.scene-fond {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.scene-items {
+  position: absolute;
+  inset: 0;
+}
+
+.scene-obj,
+.scene-deco,
+.scene-kawaii {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  line-height: 0;
+  touch-action: none;
+}
+
+.scene-obj {
+  border: 0;
+  padding: 0;
+  background: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  font: inherit;
+}
+
+.scene-obj > svg.objet,
+.scene-deco > svg,
+.scene-kawaii > svg {
+  width: 100%;
+  height: auto;
+}
+
+.scene-support {
+  position: absolute;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.scene-deco .sticker-emoji {
+  width: 100% !important;
+  height: auto !important;
+  font-size: 6cqw !important;
+  line-height: 1;
+}
+
+.scene-obj.dragging,
+.scene-deco.dragging,
+.scene-kawaii.dragging {
+  filter: drop-shadow(0 10px 10px rgba(70, 40, 80, 0.3));
+  cursor: grabbing;
+}
+
+.obj-pastille {
+  position: absolute;
+  top: -2%;
+  right: 4%;
+  font-size: 2.2cqw;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+/* Objet maîtrisé : il respire doucement */
+.obj-maitrise > svg.objet {
+  animation: objRespire 4s ease-in-out infinite;
+  transform-origin: 50% 100%;
+}
+
+@keyframes objRespire {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03, 0.98); }
+}
+
+/* Mode calme : elle choisit un objet du paquet (en couleur) ; le reste est gris pâle */
+.scene-calme .scene-obj { cursor: default; pointer-events: none; }
+.scene-calme .obj-session { cursor: pointer; pointer-events: auto; }
+.scene-calme .obj-session:not(.obj-fini) > svg.objet {
+  filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 9px rgba(255, 212, 102, 0.75));
+}
+.scene-calme .obj-fini { pointer-events: none; opacity: 0.55; }
+.scene-calme .scene-support { filter: grayscale(1) brightness(1.12) opacity(0.45); }
+.scene-calme .obj-hors { opacity: 0.3; }
+.scene-calme .scene-deco { opacity: 0.25; pointer-events: none; }
+
+.obj-session:not(.obj-fini):active > svg.objet { transform: scale(0.95); }
+
+/* Déjà vu, réussi, à revoir */
+.obj-badge {
+  position: absolute;
+  top: 0;
+  right: 6%;
+  width: 3.2cqw;
+  height: 3.2cqw;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: max(13px, 1.8cqw);
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(70, 40, 80, 0.25);
+}
+
+.badge-vu,
+.badge-reussi { background: var(--vert); }
+.badge-rate { background: var(--or); }
+
+.scene-calme .obj-cible > svg.objet {
+  filter: drop-shadow(0 0 6px #FFF3A8) drop-shadow(0 0 14px #FFD466);
+  animation: objCible 1.6s ease-in-out infinite;
+}
+
+
+@keyframes objCible {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3%); }
+}
+
+/* Le kawaii marche par petits bonds */
+.scene-kawaii {
+  transition: left 0.85s var(--doux), top 0.85s var(--doux);
+  pointer-events: auto;
+}
+
+.scene-kawaii.marche > svg {
+  animation: kawaiiBond 0.3s ease-in-out 4;
+}
+
+@keyframes kawaiiBond {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8%); }
+}
+
+.scene-libre .scene-kawaii { transition: none; cursor: grab; }
+
+/* Poser une déco : la scène attend un appui */
+.scene.armed {
+  cursor: crosshair;
+  outline: 4px dashed var(--rose);
+  outline-offset: -4px;
+}
+
+.scene-armed-hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  color: var(--encre);
+  font-weight: 800;
+  padding: 10px 16px;
+  border-radius: 999px;
+  box-shadow: var(--ombre-2);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 3000;
+}
+
+/* Écran d'un lieu en mode libre */
+.lieu-body {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.etages {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.etage-chip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: var(--r-m);
+  border: 3px solid var(--bord);
+  background: var(--surface);
+  font-family: var(--police);
+  color: var(--encre-2);
+  cursor: pointer;
+  text-align: left;
+}
+
+.etage-chip strong { font-weight: 900; color: var(--encre); }
+.etage-chip span { font-weight: 700; font-size: 0.85rem; }
+
+.etage-chip.selected {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.lieu-outils {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.tiroir {
+  background: var(--surface);
+  border-radius: var(--r-l);
+  box-shadow: var(--ombre-2);
+  padding: 12px;
+}
+
+.tiroir-onglets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.tiroir-onglet {
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 3px solid var(--bord);
+  background: var(--surface-2);
+  font-family: var(--police);
+  font-weight: 800;
+  color: var(--encre-2);
+  cursor: pointer;
+}
+
+.tiroir-onglet.selected {
+  border-color: var(--violet);
+  background: var(--violet-pale);
+  color: var(--encre);
+}
+
+.tiroir-compte {
+  margin-left: auto;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--encre-3);
+}
+
+.tiroir-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.tiroir-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 8px 4px;
+  border-radius: var(--r-m);
+  border: 3px solid transparent;
+  background: var(--surface-2);
+  font-family: var(--police);
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--encre-2);
+  cursor: pointer;
+}
+
+.tiroir-item.selected {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+/* Temps de jeu du jour */
+.temps-jeu.bas {
+  background: var(--or-pale);
+  color: #7A5300;
+}
+
+.temps-sheet-art { font-size: 4rem; line-height: 1.2; }
+
+/* Choisir un lieu (coller un sticker) */
+.lieu-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.lieu-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 14px;
+  border-radius: var(--r-m);
+  border: 3px solid var(--bord);
+  background: var(--surface-2);
+  font-family: var(--police);
+  text-align: left;
+  cursor: pointer;
+}
+
+.lieu-pick strong { display: block; font-weight: 900; color: var(--encre); }
+.lieu-pick small { font-weight: 700; color: var(--encre-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-kawaii { transition-duration: 0.3s; }
+  .scene-kawaii.marche > svg,
+  .obj-maitrise > svg.objet,
+  .scene-calme .obj-cible > svg.objet,
+  .ville-neon,
+  .ville-etincelle { animation: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────── */
 /* ÉQUIPE DE KAWAII (accueil) */
 /* ─────────────────────────────────────────────────────────────── */
 
@@ -1103,70 +1712,33 @@ header h1 {
 /* ─────────────────────────────────────────────────────────────── */
 
 .lieu-display {
-  position: relative;
   width: 100%;
-  min-height: 190px;
-  border-radius: var(--r-l);
-  overflow: hidden;
-  margin: 4px 0 16px;
-  box-shadow: var(--ombre-2);
-  background: linear-gradient(135deg, var(--rose-pale), var(--menthe-pale));
+  max-width: 760px;
+  margin: 4px auto 14px;
+}
+
+.lieu-legende {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: baseline;
   justify-content: center;
-  padding: 22px 20px;
+  gap: 4px 12px;
+  margin-top: 10px;
   text-align: center;
 }
 
-.lieu-room-emoji {
-  font-size: 3.4rem;
-  line-height: 1;
-  margin-bottom: 8px;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.12));
-}
-
 .lieu-room {
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--encre-2);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--encre);
 }
 
 .lieu-place {
-  font-size: 1.6rem;
-  font-weight: 900;
-  color: var(--encre);
-  margin-top: 4px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--encre-2);
 }
 
-/* Stickers collés sur le lieu */
-.lieu-stickers {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.lieu-stickers .sticker-on-place {
-  position: absolute;
-  line-height: 0;
-  animation: stickerFloat 3.5s ease-in-out infinite;
-}
-
-.lieu-stickers .sticker-on-place svg {
-  width: 56px;
-  height: 56px;
-}
-
-.lieu-stickers .sticker-on-place:nth-child(1) { top: 12px; left: 14px; }
-.lieu-stickers .sticker-on-place:nth-child(2) { top: 12px; right: 14px; animation-delay: -1s; }
-.lieu-stickers .sticker-on-place:nth-child(3) { bottom: 12px; left: 14px; animation-delay: -2s; }
-.lieu-stickers .sticker-on-place:nth-child(4) { bottom: 12px; right: 14px; animation-delay: -3s; }
-
-@keyframes stickerFloat {
-  0%, 100% { transform: translateY(0) rotate(-4deg); }
-  50% { transform: translateY(-5px) rotate(4deg); }
 }
 
 /* ─────────────────────────────────────────────────────────────── */
@@ -1727,257 +2299,6 @@ header h1 {
   box-shadow: none;
   opacity: 1;
   color: white;
-}
-
-/* ─────────────────────────────────────────────────────────────── */
-/* MON PALAIS : pièces et lieux */
-/* ─────────────────────────────────────────────────────────────── */
-
-.rooms-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 14px;
-}
-
-.room-card {
-  background: var(--surface);
-  border-radius: var(--r-l);
-  padding: 18px 12px 14px;
-  box-shadow: var(--ombre-1);
-  border: 2px solid transparent;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.15s var(--doux);
-  position: relative;
-}
-
-.room-card:active {
-  transform: scale(0.96);
-}
-
-.room-emoji {
-  font-size: 2.8rem;
-  line-height: 1;
-  margin-bottom: 8px;
-}
-
-.room-name {
-  font-weight: 900;
-  color: var(--encre);
-  font-size: 1rem;
-}
-
-.room-meta {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--encre-3);
-  margin-top: 4px;
-}
-
-.room-stickers {
-  display: flex;
-  justify-content: center;
-  gap: 2px;
-  margin-top: 8px;
-  min-height: 30px;
-  line-height: 0;
-}
-
-.room-stickers svg {
-  width: 30px;
-  height: 30px;
-}
-
-.place-card {
-  background: var(--surface);
-  border-radius: var(--r-l);
-  padding: 16px 18px;
-  margin-bottom: 14px;
-  box-shadow: var(--ombre-1);
-}
-
-.place-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.place-name {
-  font-weight: 900;
-  font-size: 1.15rem;
-  color: var(--encre);
-}
-
-.place-word {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--encre-3);
-}
-
-.place-slots {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.slot {
-  width: 58px;
-  height: 58px;
-  border-radius: var(--r-m);
-  border: 3px dashed var(--bord);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  background: var(--surface-2);
-  cursor: pointer;
-  transition: transform 0.15s var(--doux);
-}
-
-.slot:active {
-  transform: scale(0.92);
-}
-
-.slot.filled {
-  border-style: solid;
-  border-color: var(--rose);
-  background: var(--rose-pale);
-  line-height: 0;
-}
-
-.slot.filled svg {
-  width: 52px;
-  height: 52px;
-}
-
-.slot.add {
-  color: var(--rose-fonce);
-  font-size: 1.6rem;
-  font-weight: 900;
-}
-
-/* Ma maison : édition des pièces et endroits */
-.maison-room {
-  background: var(--surface);
-  border-radius: var(--r-l);
-  padding: 14px 16px 16px;
-  margin-bottom: 16px;
-  box-shadow: var(--ombre-1);
-}
-
-.maison-room-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.maison-name {
-  flex: 1;
-  min-height: 44px;
-  text-align: left;
-  background: none;
-  border: none;
-  padding: 8px 10px;
-  border-radius: var(--r-s);
-  font-family: inherit;
-  font-weight: 800;
-  font-size: 1.05rem;
-  color: var(--encre);
-  cursor: pointer;
-  border-bottom: 2px dashed var(--bord);
-}
-
-.maison-name:active {
-  background: var(--surface-2);
-}
-
-.maison-room-name {
-  font-size: 1.3rem;
-  font-weight: 900;
-}
-
-.maison-emoji {
-  width: 52px;
-  height: 52px;
-  flex-shrink: 0;
-  border: 2px dashed var(--bord);
-  border-radius: var(--r-m);
-  background: var(--surface-2);
-  font-size: 1.7rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.15s var(--doux);
-}
-
-.maison-emoji:active {
-  transform: scale(0.92);
-}
-
-.sheet-grid-emoji {
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-}
-
-.sheet-grid-emoji .sheet-item .emoji {
-  line-height: 1;
-  font-size: 2.2rem;
-  padding: 6px 0;
-}
-
-.sheet-grid-emoji .sheet-item {
-  padding: 8px 4px;
-  border: 3px solid transparent;
-  background: var(--surface-2);
-  font-family: inherit;
-}
-
-.sheet-grid-emoji .sheet-item.selected,
-.sheet-actions .btn.selected {
-  border-color: var(--rose);
-  background: var(--rose-pale);
-}
-
-.maison-words {
-  display: block;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--encre-3);
-  margin-top: 2px;
-}
-
-.maison-places {
-  margin: 0 0 12px;
-}
-
-.maison-place {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0 4px 12px;
-  border-left: 3px solid var(--rose-pale);
-  margin: 6px 0;
-}
-
-.maison-actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.maison-actions .btn-icon:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.maison-actions .btn-icon {
-  width: 44px;
-  height: 44px;
 }
 
 /* Sélecteur de stickers (feuille en bas) */
@@ -2751,64 +3072,6 @@ header h1 {
 .card-box.box-2 { background: var(--violet-pale); border-color: #E1D2F0; }
 .card-box.box-3 { background: var(--vert-pale); border-color: #BDEBD0; }
 
-/* La carte à retourner */
-.flip-scene {
-  perspective: 1400px;
-  max-width: 620px;
-  margin: 0 auto;
-}
-
-.flip-card {
-  position: relative;
-  width: 100%;
-  height: min(46vh, 380px);
-  min-height: 240px;
-  transform-style: preserve-3d;
-  transition: transform 0.55s var(--doux);
-  cursor: pointer;
-}
-
-.flip-card.flipped { transform: rotateY(180deg); }
-.flip-card.no-anim { transition: none; }
-
-.flip-face {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 44px 22px 22px;
-  border-radius: var(--r-xl);
-  box-shadow: var(--ombre-2);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  overflow-x: hidden;
-  overflow-y: auto;
-  text-align: center;
-}
-
-.flip-front {
-  background: var(--surface);
-  border: 4px solid var(--violet);
-}
-
-.flip-back {
-  background: var(--menthe-pale);
-  border: 4px solid var(--menthe-fonce);
-  transform: rotateY(180deg);
-}
-
-.flip-label {
-  position: absolute;
-  top: 14px;
-  left: 0;
-  right: 0;
-  font-size: 0.9rem;
-  font-weight: 900;
-  color: var(--encre-3);
-  letter-spacing: 0.02em;
-}
-
 .carte-text {
   font-size: 2rem;
   font-weight: 900;
@@ -2822,7 +3085,7 @@ header h1 {
 .carte-text.s  { font-size: 1.45rem; font-weight: 800; }
 .carte-text.xs { font-size: 1.2rem; font-weight: 800; }
 
-/* Je savais / À revoir : deux gros boutons côte à côte */
+/* Je savais / À revoir (et « Une partie ») : gros boutons côte à côte */
 .cartes-verdict {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2845,6 +3108,174 @@ header h1 {
   background: var(--or-pale);
   color: var(--encre);
   border: 3px solid var(--or);
+}
+
+.cartes-verdict.verdict-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+.verdict-half {
+  background: var(--violet-pale);
+  color: var(--encre);
+  border: 3px solid var(--violet);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* RÉVISION : saisie, élément seul à l'écran, image en grand (js/revision.js) */
+/* ─────────────────────────────────────────────────────────────── */
+
+.revision-apercu { margin-top: 10px; }
+
+.apercu-bloc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  border-radius: var(--r-s);
+  background: var(--surface-2);
+  border: 1px solid var(--bord);
+}
+
+.apercu-icone { font-size: 1.2rem; }
+
+.apercu-texte {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.95rem;
+  color: var(--encre-2);
+  overflow-wrap: anywhere;
+}
+
+.apercu-image {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--surface);
+  box-shadow: var(--ombre-1);
+}
+
+.image-absente {
+  font-size: 0.85rem;
+  color: var(--encre-3);
+}
+
+.revision-contenu {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.revision-carte {
+  background: var(--surface);
+  border: 4px solid var(--violet);
+  border-radius: var(--r-xl);
+  box-shadow: var(--ombre-2);
+  padding: 26px 22px;
+  text-align: center;
+}
+
+.revision-q {
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--encre);
+  overflow-wrap: anywhere;
+}
+
+.revision-a {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: var(--r-m);
+  background: var(--menthe-pale);
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--encre);
+  overflow-wrap: anywhere;
+}
+
+.revision-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: var(--encre-3);
+  margin-bottom: 4px;
+}
+
+.lecon-titre {
+  font-size: 1.6rem;
+  margin: 0 0 12px;
+  color: var(--violet-fonce);
+}
+
+.lecon-texte {
+  text-align: left;
+  font-size: 1.25rem;
+  line-height: 1.55;
+  color: var(--encre);
+}
+
+.lecon-texte p { margin: 0 0 10px; }
+
+.lecon-image {
+  display: block;
+  max-width: 100%;
+  max-height: 46vh;
+  margin: 6px auto 14px;
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre-1);
+  cursor: zoom-in;
+}
+
+.revision-indice {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--encre-2);
+}
+
+/* Image en grand : un appui l'agrandit encore, on la fait défiler au doigt */
+.image-plein {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(35, 25, 45, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-defile {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  -webkit-overflow-scrolling: touch;
+}
+
+.image-defile img {
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+  cursor: zoom-in;
+}
+
+.image-defile img.grand {
+  max-width: none;
+  max-height: none;
+  width: 220%;
+  cursor: zoom-out;
+}
+
+.image-fermer {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  right: 14px;
+  z-index: 1;
+  background: var(--surface);
+}
+
+@media (max-width: 520px) {
+  .cartes-verdict.verdict-3 { grid-template-columns: 1fr; }
 }
 
 /* Entrée discrète de l'espace parents, en bas de l'accueil */
@@ -3915,22 +4346,6 @@ header h1 {
   cursor: default;
 }
 
-/* Carte à retourner : le dos reste caché tant qu'elle n'est pas retournée,
-   même si le navigateur montre les faces arrière (vu sur certains WebKit) */
-.flip-card .flip-back,
-.flip-card.flipped .flip-front {
-  visibility: hidden;
-  transition: visibility 0s linear 0.27s;
-}
-
-.flip-card.flipped .flip-back,
-.flip-card .flip-front {
-  visibility: visible;
-  transition: visibility 0s linear 0.27s;
-}
-
-.flip-card.no-anim .flip-face { transition: none; }
-
 @media (max-width: 640px) {
   .qcm-choices { grid-template-columns: 1fr; }
   .qcm-choice { min-height: 68px; font-size: 1.25rem; }
@@ -4000,41 +4415,84 @@ header h1 {
 /* SALLE DE JEUX : serpent, blocs, bonbons                         */
 /* ─────────────────────────────────────────────────────────────── */
 
-.arcade-grid {
+.arcade-salle {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px;
+  gap: 18px;
+  padding: 18px;
+  border-radius: var(--r-xl);
+  background: linear-gradient(180deg, #4B3F80 0%, #6B5BA8 70%, #8A7BC4 100%);
+  box-shadow: var(--ombre-2);
 }
 
-.arcade-card {
-  background: var(--surface);
-  border-radius: var(--r-l);
-  padding: 20px 16px 18px;
-  box-shadow: var(--ombre-2);
-  text-align: center;
+.arcade-borne {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  text-align: center;
+  color: #fff;
 }
 
-.arcade-card.locked {
-  background: var(--surface-2);
-  box-shadow: none;
-  border: 2px dashed var(--bord);
+.arcade-borne .arcade-desc { color: #EDE6FF; }
+.arcade-borne .arcade-record-line { color: #FFE38A; }
+.arcade-borne .btn { width: 100%; }
+
+/* Borne d'arcade dessinée en CSS */
+.borne {
+  width: 150px;
+  min-height: 190px;
+  border: 4px solid #3A2B3F;
+  border-radius: 26px 26px 12px 12px;
+  background: linear-gradient(180deg, #FF7EB9, #E8479A);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 14px;
+  cursor: pointer;
+  font-family: var(--police);
+  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s var(--rebond);
 }
 
-.arcade-card.locked .arcade-emoji { filter: grayscale(0.6); opacity: 0.8; }
+.borne:active { transform: translateY(3px) scale(0.98); }
+.arcade-borne.locked .borne { filter: grayscale(0.55); }
 
-.arcade-emoji {
-  font-size: 3.4rem;
-  line-height: 1.1;
-}
-
-.arcade-name {
-  font-size: 1.3rem;
+.borne-titre {
   font-weight: 900;
+  font-size: 1rem;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
 }
+
+.borne-ecran {
+  width: 100%;
+  height: 86px;
+  border-radius: 12px;
+  border: 4px solid #3A2B3F;
+  background: radial-gradient(circle at 50% 40%, #6FE3DC, #2B8F9A);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.8rem;
+}
+
+.borne-boutons {
+  display: flex;
+  gap: 10px;
+}
+
+.borne-boutons i {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid #3A2B3F;
+  background: #FFE38A;
+}
+
+.borne-boutons i:nth-child(2) { background: #5FD3CE; }
+.borne-boutons i:nth-child(3) { background: #fff; }
 
 .arcade-desc {
   font-size: 0.9rem;
@@ -4050,7 +4508,6 @@ header h1 {
   margin-bottom: 4px;
 }
 
-.arcade-card .btn { width: 100%; margin-top: 4px; }
 
 .arcade-sheet-emoji { font-size: 4rem; line-height: 1.2; }
 .arcade-item-emoji { font-size: 3.2rem; line-height: 84px; }

@@ -1,15 +1,15 @@
 // ═══════════════════════════════════════════════════════════════
 // MENTAL PALACE - Jeux des cartes questions corrigés par l'app
 // ═══════════════════════════════════════════════════════════════
-// Trois façons de jouer une liste « cartes questions », en plus des cartes
-// à retourner (js/app.js) :
+// Trois façons de jouer les questions d'une liste de révision, en plus
+// d'Apprendre et Se rappeler (js/revision.js) :
 //   qcm     la question et quatre réponses ; les mauvaises viennent des
 //           autres cartes de la liste
 //   paires  relier chaque question à sa réponse
 //   ecrire  écrire la réponse au clavier, pour les réponses courtes ;
 //           accents et majuscules ne comptent pas
 // L'app corrige : une bonne réponse du premier coup rapporte des étoiles.
-// Les cartes changent de boîte comme aux cartes à retourner, sauf aux paires
+// Les cartes changent de boîte comme à « Se rappeler », sauf aux paires
 // (on y joue sans risque) et le QCM ne monte pas plus haut que « ça vient ».
 // Les listes de langue jouent aussi au QCM et aux paires (mot → traduction) :
 // un échauffement qui rapporte des étoiles, sans toucher au niveau ni à la
@@ -76,9 +76,10 @@ const JeuxCartes = {
     return slots.every(ch => /^[a-z0-9]$/.test(ch.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')));
   },
 
-  // Cartes d'une liste. Liste de langue : une carte par mot, sans boîte.
+  // Cartes d'une liste : les questions (pas les leçons). Liste de langue :
+  // une carte par mot, sans boîte.
   cardsOf(list) {
-    if (!Storage.isLangList(list)) return list.cards || [];
+    if (!Storage.isLangList(list)) return (list.cards || []).filter(c => c.kind !== 'lecon');
     return list.words
       .map((word, i) => ({ id: i + 1, q: promptOf(list, word), a: word, box: 0 }))
       .filter(card => card.q);
@@ -102,7 +103,8 @@ const JeuxCartes = {
         <span class="game-gain">${gain}</span>
       </button>`;
     const per = n => `${n} ⭐ par réponse`;
-    let html = tile(`startCartes(${list.id})`, '🃏', 'Retourner les cartes', `${CARTES.etoilesSession} ⭐ la session`);
+    let html = tile(`Revision.demarrer(${list.id}, 'apprendre')`, '📖', 'Apprendre', `${ECONOMIE.etoilesApprentissage} ⭐ la visite`)
+      + tile(`Revision.demarrer(${list.id}, 'rappel')`, '🧠', 'Se rappeler', `${CARTES.etoilesSession} ⭐ la session`);
     if (this.playable(list, 'qcm')) html += tile(`JeuxCartes.start('qcm', ${list.id})`, '🎯', 'QCM', per(CARTES.etoilesQcm));
     if (this.playable(list, 'paires')) html += tile(`JeuxCartes.start('paires', ${list.id})`, '🧩', 'Paires', `${CARTES.etoilesPaire} ⭐ par paire`);
     if (this.playable(list, 'ecrire')) html += tile(`JeuxCartes.start('ecrire', ${list.id})`, '⌨️', 'Écrire la réponse', per(CARTES.etoilesEcrire));
@@ -702,7 +704,7 @@ const JeuxCartes = {
       <div class="result-actions">
         <button class="btn btn-primary btn-big" onclick="replaySession()">${this.JEUX[this.jeu].icone} Encore une partie</button>
         <button class="btn btn-secondary" onclick="showListsScreen()">📚 Changer de jeu</button>
-        ${freeStickers > 0 ? `<button class="btn btn-ghost" onclick="showPalaisScreen()">🏠 Coller mes ${freeStickers} sticker${freeStickers > 1 ? 's' : ''}</button>` : ''}
+        ${freeStickers > 0 ? `<button class="btn btn-ghost" onclick="collerStickers()">🏙️ Coller mes ${freeStickers} sticker${freeStickers > 1 ? 's' : ''}</button>` : ''}
       </div>
     `;
     container.innerHTML = html;

@@ -10,7 +10,9 @@ const AppState = {
   currentScreen: 'home',
   currentList: null,
   currentLevel: 0,
-  currentWordIndex: 0,
+  currentWordIndex: 0, // mot choisi dans le paquet (index dans currentLevelWords)
+  faits: {}, // paquet en cours : { index: true (vu, ou réussi) | false (raté) }
+  salleCourante: null, // pièce affichée pendant la session : "idListe:étage"
   currentMode: null, // 'apprentissage' ou 'interrogation'
   score: 0,
   totalQuestions: 0,
@@ -40,7 +42,6 @@ const AppState = {
   listMaxLevel: 0, // Niveau maximum de la liste (= niveau Ninja)
   decoyCount: 0, // Cases pièges en plus (niveau Ninja)
   newCompanionUnlocked: false, // Une liste vient d'atteindre Ninja et ouvre un compagnon
-  currentPiece: null, // Pièce ouverte dans "Mon palais"
   interrogationMode: 'progressive', // 'progressive' ou 'complete'
   errors: [], // Liste des erreurs commises pendant la session
   editingListId: null, // ID de la liste en cours d'édition
@@ -55,6 +56,14 @@ const AppState = {
 // UTILITAIRES LOCALSTORAGE
 // ───────────────────────────────────────────────────────────────
 
+// Élément d'une liste de révision, à partir de ce qui est saisi ({ q, a } ou
+// { kind: 'lecon', titre, texte, image }) et de ce qu'il garde (id, box)
+function elementDe(it, garde) {
+  const base = { id: garde.id, box: garde.box || 0 };
+  if (it.kind === 'lecon') return { ...base, kind: 'lecon', titre: it.titre || '', texte: it.texte || '', image: it.image || null };
+  return { ...base, q: it.q, a: it.a };
+}
+
 const Storage = {
   // Récupère toutes les listes de mots
   getLists() {
@@ -67,20 +76,139 @@ const Storage = {
     localStorage.setItem('wordLists', JSON.stringify(lists));
   },
 
-  // Ajoute une nouvelle liste
-  addList(name, words) {
+  // Ajoute une nouvelle liste, rangée dans son lieu (voir js/monde.js)
+  addList(name, words, lieu) {
     const lists = this.getLists();
     const newList = {
       id: Date.now(),
       name,
       words,
       createdAt: new Date().toISOString(),
-      wordLocations: this.assignLocations(words),
+      lieu: lieu || { kind: 'batiment', type: Monde.batimentPropose() },
+      places: {},
       progress: {} // {mot: {attempts: 0, successes: 0, lastScore: 0}}
     };
+    this.installerDansLaVille(newList, lists);
     lists.push(newList);
     this.saveLists(lists);
     return newList;
+  },
+
+  // Range les éléments dans le lieu et donne une parcelle sur la carte
+  installerDansLaVille(list, lists) {
+    Monde.rangerListe(list);
+    list.parcelle = Monde.parcelleLibre(lists, list);
+  },
+
+  // Change le lieu d'une liste : tous ses éléments sont rangés à nouveau
+  setLieu(listId, lieu) {
+    const lists = this.getLists();
+    const list = lists.find(l => l.id === listId);
+    if (!list) return false;
+    if (JSON.stringify(list.lieu) === JSON.stringify(lieu)) return true;
+    list.lieu = lieu;
+    list.places = {};
+    delete list.positions; // les places de l'ancien lieu ne veulent rien dire ici
+    Monde.rangerListe(list);
+    this.saveLists(lists);
+    return true;
+  },
+
+  // ── Maisons construites par l'enfant (« Créer ta maison », js/maisons.js) ──
+  // maisons = [{ id, nom, modele, objets: [{ id, forme, etage, x, y }], nextId }]
+  // Les objets sont des meubles de son inventaire : posés, ils portent les
+  // éléments de la liste qui habite la maison (une liste par maison).
+
+  getMaisons() {
+    try {
+      const maisons = JSON.parse(localStorage.getItem('maisons') || '[]');
+      return Array.isArray(maisons) ? maisons : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  saveMaisons(maisons) {
+    localStorage.setItem('maisons', JSON.stringify(maisons));
+  },
+
+  getMaison(id) {
+    return this.getMaisons().find(m => m.id === id) || null;
+  },
+
+  addMaison(nom, modele) {
+    const maisons = this.getMaisons();
+    const maison = { id: Date.now(), nom, modele, objets: [], nextId: 1 };
+    maisons.push(maison);
+    this.saveMaisons(maisons);
+    return maison;
+  },
+
+  renameMaison(id, nom) {
+    const maisons = this.getMaisons();
+    const m = maisons.find(x => x.id === id);
+    if (!m) return;
+    m.nom = nom;
+    this.saveMaisons(maisons);
+  },
+
+  // La liste qui habite la maison (ou null)
+  listeDeMaison(id) {
+    return this.getLists().find(l => l.lieu && l.lieu.kind === 'maison' && l.lieu.id === id) || null;
+  },
+
+  // Seulement une maison vide d'habitants ; ses meubles et ses déco reviennent dans l'inventaire
+  deleteMaison(id) {
+    if (this.listeDeMaison(id)) return false;
+    this.saveMaisons(this.getMaisons().filter(m => m.id !== id));
+    this.freeDecoOf(`maison:${id}:`);
+    return true;
+  },
+
+  // Meubles posés dans les maisons (ils ne sont plus libres dans l'inventaire)
+  countMeublesMaisons(forme) {
+    return this.getMaisons().reduce((n, m) => n + m.objets.filter(o => o.forme === forme).length, 0);
+  },
+
+  // Pose un meuble dans une maison : 'ok', ou la raison du refus
+  ajouterObjetMaison(id, forme, etage, x, y) {
+    const maisons = this.getMaisons();
+    const m = maisons.find(x2 => x2.id === id);
+    if (!m) return 'maison';
+    if (this.getFreeMeubleCount(forme) <= 0) return 'stock';
+    if (m.objets.filter(o => o.etage === etage).length >= OBJETS_PAR_ETAGE) return 'plein';
+    m.objets.push({ id: m.nextId++, forme, etage, x: Math.round(x), y: Math.round(y) });
+    this.saveMaisons(maisons);
+    this.rangerMaison(id);
+    Defis.track('maison');
+    return 'ok';
+  },
+
+  deplacerObjetMaison(id, objetId, x, y) {
+    const maisons = this.getMaisons();
+    const o = (maisons.find(m => m.id === id) || { objets: [] }).objets.find(x2 => x2.id === objetId);
+    if (!o) return;
+    o.x = Math.round(x);
+    o.y = Math.round(y);
+    this.saveMaisons(maisons);
+  },
+
+  // Retire un meuble : il revient dans l'inventaire, et ce qu'il portait
+  // est rangé sur un autre objet
+  retirerObjetMaison(id, objetId) {
+    const maisons = this.getMaisons();
+    const m = maisons.find(x => x.id === id);
+    if (!m) return;
+    m.objets = m.objets.filter(o => o.id !== objetId);
+    this.saveMaisons(maisons);
+    this.rangerMaison(id);
+  },
+
+  // Range à nouveau la liste qui habite la maison (objets ajoutés ou retirés)
+  rangerMaison(id) {
+    const lists = this.getLists();
+    const list = lists.find(l => l.lieu && l.lieu.kind === 'maison' && l.lieu.id === id);
+    if (list && Monde.rangerListe(list)) this.saveLists(lists);
   },
 
   // Met à jour une liste existante
@@ -96,33 +224,10 @@ const Storage = {
     list.name = name;
 
     // Met à jour les mots
-    const oldWords = list.words;
     list.words = words;
 
-    // Réassigne les emplacements uniquement pour les nouveaux mots
-    const newWords = words.filter(w => !oldWords.includes(w));
-    if (newWords.length > 0) {
-      const allLocations = this.getAllLocations();
-      const usedLocations = Object.values(list.wordLocations);
-      const availableLocations = allLocations.filter(loc =>
-        !usedLocations.some(used => used.piece === loc.piece && used.emplacement === loc.emplacement)
-      );
-      const shuffled = this.shuffleLocations(availableLocations);
-
-      const pool = shuffled.length > 0 ? shuffled : this.shuffleLocations(allLocations);
-      newWords.forEach((word, index) => {
-        if (pool.length > 0) {
-          list.wordLocations[word] = pool[index % pool.length];
-        }
-      });
-    }
-
-    // Nettoie les emplacements des mots supprimés
-    Object.keys(list.wordLocations).forEach(word => {
-      if (!words.includes(word)) {
-        delete list.wordLocations[word];
-      }
-    });
+    // Les mots gardés ne bougent pas ; seuls les nouveaux sont rangés
+    Monde.rangerListe(list);
 
     // Nettoie la progression des mots supprimés
     Object.keys(list.progress).forEach(word => {
@@ -136,18 +241,21 @@ const Storage = {
     return list;
   },
 
-  // ── Listes « cartes questions » ──
+  // ── Listes de révision (questions et leçons) ──
   // Même tiroir que les listes de mots (wordLists), avec type: 'cartes-questions'.
-  // Une liste sans type est une liste de mots. words/wordLocations/progress
-  // restent vides pour que le reste de l'app (palais, mots à travailler) les ignore.
-  // Carte : { id, q, a, box } — box 0 = jamais vue, 1 = à revoir, 2 = ça vient, 3 = connue.
-  // La progression est attachée à l'id : on peut corriger une question sans la perdre.
+  // Une liste sans type est une liste de mots. words/progress restent vides
+  // pour que le reste de l'app les ignore. Chaque élément est rangé sur un
+  // objet du lieu, dans l'ordre du texte (places, clé = id de l'élément).
+  // Question : { id, q, a, box } ; leçon : { id, kind: 'lecon', titre, texte,
+  // image, box } ; images = { n: id } (js/images.js). Voir js/revision.js.
+  // box 0 = jamais vu, 1 = à retravailler, 2 = ça vient, 3 = maîtrisé.
+  // La progression est attachée à l'id : corriger un élément ne la fait pas perdre.
 
   isCardList(list) {
     return list.type === 'cartes-questions';
   },
 
-  addCardList(name, pairs) {
+  addCardList(name, items, lieu, images) {
     const lists = this.getLists();
     const newList = {
       id: Date.now(),
@@ -155,21 +263,25 @@ const Storage = {
       name,
       createdAt: new Date().toISOString(),
       words: [],
-      wordLocations: {},
+      lieu: lieu || { kind: 'batiment', type: Monde.batimentPropose() },
+      places: {},
       progress: {},
-      cards: pairs.map((p, i) => ({ id: i + 1, q: p.q, a: p.a, box: 0 })),
-      nextCardId: pairs.length + 1,
+      cards: items.map((it, i) => elementDe(it, { id: i + 1, box: 0 })),
+      images: images || {},
+      nextCardId: items.length + 1,
       ninja: false
     };
+    this.installerDansLaVille(newList, lists);
     lists.push(newList);
     this.saveLists(lists);
     return newList;
   },
 
-  // Remplace les cartes par celles saisies, en gardant la boîte des cartes
-  // reconnues : même question, sinon même réponse, sinon même ligne
-  // (quand le nombre de lignes n'a pas changé).
-  updateCardList(listId, name, pairs) {
+  // Remplace les éléments par ceux saisis, en gardant l'id (donc l'objet) et
+  // la boîte de ceux qu'on reconnaît : même question (ou même titre, texte ou
+  // image pour une leçon), sinon même réponse, sinon même place dans le texte
+  // (quand le nombre d'éléments n'a pas changé).
+  updateCardList(listId, name, items, images) {
     const lists = this.getLists();
     const list = lists.find(l => l.id === listId);
     if (!list) return null;
@@ -181,24 +293,39 @@ const Storage = {
       if (card) taken.add(card.id);
       return card;
     };
-    const matches = pairs.map(p => claim(c => c.q === p.q));
-    pairs.forEach((p, i) => { if (!matches[i]) matches[i] = claim(c => c.a === p.a); });
-    if (pairs.length === old.length) {
-      pairs.forEach((p, i) => { if (!matches[i]) matches[i] = claim(c => c === old[i]); });
+    const matches = items.map(it => claim(c => Revision.memeCle(c, it)));
+    items.forEach((it, i) => { if (!matches[i]) matches[i] = claim(c => Revision.memeSecondeCle(c, it)); });
+    if (items.length === old.length) {
+      items.forEach((it, i) => {
+        if (!matches[i]) matches[i] = claim(c => c === old[i] && (c.kind === 'lecon') === (it.kind === 'lecon'));
+      });
     }
 
     let nextId = list.nextCardId || old.reduce((max, c) => Math.max(max, c.id), 0) + 1;
-    list.cards = pairs.map((p, i) => {
+    list.cards = items.map((it, i) => {
       const card = matches[i];
-      return card ? { ...card, q: p.q, a: p.a } : { id: nextId++, q: p.q, a: p.a, box: 0 };
+      return card ? elementDe(it, card) : elementDe(it, { id: nextId++, box: 0 });
     });
     list.nextCardId = nextId;
+    list.images = images || {};
     list.name = name;
+    Monde.rangerListe(list);
     this.saveLists(lists);
+    Images.nettoyer();
     return list;
   },
 
-  // Range une carte dans une boîte. Toutes les cartes en boîte 3 = liste Ninja,
+  // Niveau d'une liste de révision : 0, 1, puis 2 = Ninja (ne redescend jamais)
+  setRevisionLevel(listId, level) {
+    const lists = this.getLists();
+    const list = lists.find(l => l.id === listId);
+    if (!list) return;
+    list.level = Math.min(level, 1);
+    if (level >= 2) list.ninja = true;
+    this.saveLists(lists);
+  },
+
+  // Range un élément dans une boîte. Tous les éléments en boîte 3 = liste Ninja,
   // et ça ne redescend jamais. Retourne true si la liste vient de devenir Ninja.
   setCardBox(listId, cardId, box) {
     const lists = this.getLists();
@@ -221,8 +348,8 @@ const Storage = {
     return list.type === 'langue';
   },
 
-  addLangList(name, langFrom, langTo, pairs) {
-    const list = this.addList(name, pairs.map(p => p.a));
+  addLangList(name, langFrom, langTo, pairs, lieu) {
+    const list = this.addList(name, pairs.map(p => p.a), lieu);
     const lists = this.getLists();
     const saved = lists.find(l => l.id === list.id);
     Object.assign(saved, { type: 'langue', langFrom, langTo, translations: translationsOf(pairs) });
@@ -245,10 +372,10 @@ const Storage = {
   },
 
   // ── Listes archivées ──
-  // archived: true = rangée dans les archives. Elle garde tout (lieux,
+  // archived: true = rangée dans les archives. Elle garde tout (lieu,
   // niveau, cartes, Ninja) et compte toujours pour les compagnons et les
-  // listes dorées ; elle disparaît seulement de Mes listes, du mélange,
-  // des mots à travailler et des mots affichés dans les pièces.
+  // listes dorées ; elle disparaît seulement de la carte, de Mes listes,
+  // du mélange et des mots à travailler.
 
   isArchived(list) {
     return !!list.archived;
@@ -269,17 +396,21 @@ const Storage = {
     } else {
       delete list.archived;
       delete list.archivedAt;
+      // Ressortie : sa parcelle a pu être prise entre-temps
+      if (lists.some(l => l !== list && !l.archived && l.parcelle === list.parcelle)) list.parcelle = Monde.parcelleLibre(lists, list);
     }
     this.saveLists(lists);
     if (archived) this.saveMixSelection(this.getMixSelection().filter(id => id !== listId));
     return true;
   },
 
-  // Supprime une liste
+  // Supprime une liste (ses déco reviennent dans l'inventaire)
   deleteList(listId) {
     const lists = this.getLists();
     const filtered = lists.filter(l => l.id !== listId);
     this.saveLists(filtered);
+    this.freeDecoOf(`bat:${listId}:`);
+    Images.nettoyer();
     return filtered.length < lists.length; // true si suppression réussie
   },
 
@@ -295,178 +426,6 @@ const Storage = {
 
   saveMixSelection(listIds) {
     localStorage.setItem('mixSelection', JSON.stringify(listIds));
-  },
-
-  // Assigne les emplacements aux mots de façon DÉTERMINISTE
-  assignLocations(words) {
-    const allLocations = this.getAllLocations();
-    const mapping = {};
-
-    // Mélange aléatoire des emplacements (mais stable pour cette liste)
-    const shuffled = this.shuffleLocations(allLocations);
-
-    words.forEach((word, index) => {
-      if (shuffled.length > 0) {
-        mapping[word] = shuffled[index % shuffled.length];
-      }
-    });
-
-    return mapping;
-  },
-
-  // ── Maison : pièces et endroits, modifiables dans l'app ──
-  // Format stocké : [{ piece, emplacements: [] }] (l'ordre compte).
-  // Sans sauvegarde, la maison de départ vient de LIEUX (data/lieux.js).
-
-  maisonParDefaut() {
-    return Object.entries(LIEUX).map(([piece, emplacements]) => ({ piece, emplacements: [...emplacements] }));
-  },
-
-  getMaison() {
-    const raw = localStorage.getItem('maison');
-    if (raw) {
-      try {
-        const m = JSON.parse(raw);
-        if (Array.isArray(m)) return m;
-      } catch (e) {
-      }
-    }
-    return this.maisonParDefaut();
-  },
-
-  saveMaison(maison) {
-    localStorage.setItem('maison', JSON.stringify(maison));
-  },
-
-  // Renomme une pièce (emplacement null) ou un endroit, dans la maison,
-  // dans les listes (wordLocations) et dans les stickers collés.
-  renommerLieu(piece, emplacement, nouveauNom) {
-    const maison = this.getMaison();
-    const room = maison.find(r => r.piece === piece);
-    if (!room) return false;
-
-    const remap = (loc) => {
-      if (emplacement === null) {
-        return loc.piece === piece ? { piece: nouveauNom, emplacement: loc.emplacement } : null;
-      }
-      return (loc.piece === piece && loc.emplacement === emplacement)
-        ? { piece, emplacement: nouveauNom } : null;
-    };
-
-    if (emplacement === null) room.piece = nouveauNom;
-    else {
-      const i = room.emplacements.indexOf(emplacement);
-      if (i === -1) return false;
-      room.emplacements[i] = nouveauNom;
-    }
-    this.saveMaison(maison);
-
-    const lists = this.getLists();
-    lists.forEach(list => {
-      Object.entries(list.wordLocations || {}).forEach(([word, loc]) => {
-        const next = remap(loc);
-        if (next) list.wordLocations[word] = next;
-      });
-    });
-    this.saveLists(lists);
-
-    const eco = this.getEconomy();
-    const placed = {};
-    Object.entries(eco.placed || {}).forEach(([key, ids]) => {
-      const [p, e] = key.split('|');
-      const next = remap({ piece: p, emplacement: e });
-      placed[next ? placeKeyOf(next) : key] = ids;
-    });
-    eco.placed = placed;
-    this.saveEconomy(eco);
-    return true;
-  },
-
-  // Supprime une pièce (emplacement null) ou un endroit. Les stickers collés
-  // redeviennent libres, les mots rangés là sont déplacés ailleurs.
-  supprimerLieu(piece, emplacement) {
-    const maison = this.getMaison();
-    const idx = maison.findIndex(r => r.piece === piece);
-    if (idx === -1) return false;
-
-    const supprimes = emplacement === null
-      ? maison[idx].emplacements.map(e => placeKeyOf({ piece, emplacement: e }))
-      : [placeKeyOf({ piece, emplacement })];
-
-    if (emplacement === null) maison.splice(idx, 1);
-    else maison[idx].emplacements = maison[idx].emplacements.filter(e => e !== emplacement);
-    this.saveMaison(maison);
-
-    const eco = this.getEconomy();
-    supprimes.forEach(key => delete eco.placed[key]);
-    this.saveEconomy(eco);
-
-    this.reparerEmplacements();
-    return true;
-  },
-
-  // Donne un endroit à chaque mot dont l'endroit n'existe plus (ou n'a jamais
-  // existé, par exemple plus de mots que d'endroits). Appelé au démarrage et
-  // après une suppression.
-  reparerEmplacements() {
-    const all = this.getAllLocations();
-    if (all.length === 0) return;
-    const valides = new Set(all.map(placeKeyOf));
-
-    const lists = this.getLists();
-    let changed = false;
-    lists.forEach(list => {
-      list.wordLocations = list.wordLocations || {};
-      const orphelins = (list.words || []).filter(w => {
-        const loc = list.wordLocations[w];
-        return !loc || !valides.has(placeKeyOf(loc));
-      });
-      if (orphelins.length === 0) return;
-
-      const utilises = new Set(
-        Object.values(list.wordLocations).map(placeKeyOf).filter(k => valides.has(k))
-      );
-      const libres = this.shuffleLocations(all.filter(loc => !utilises.has(placeKeyOf(loc))));
-      orphelins.forEach((word, i) => {
-        list.wordLocations[word] = libres[i] || all[Math.floor(Math.random() * all.length)];
-      });
-      changed = true;
-    });
-    if (changed) this.saveLists(lists);
-  },
-
-  // Récupère tous les emplacements disponibles
-  getAllLocations() {
-    const locations = [];
-    Storage.getMaison().forEach(({ piece, emplacements }) => {
-      emplacements.forEach(emplacement => {
-        locations.push({ piece, emplacement });
-      });
-    });
-    return locations;
-  },
-
-  // Mélange les emplacements en évitant 3 emplacements consécutifs de la même pièce
-  shuffleLocations(locations) {
-    const shuffled = [...locations].sort(() => Math.random() - 0.5);
-
-    // Vérifie et corrige si 3 emplacements consécutifs de la même pièce
-    for (let i = 0; i < shuffled.length - 2; i++) {
-      if (
-        shuffled[i].piece === shuffled[i + 1].piece &&
-        shuffled[i + 1].piece === shuffled[i + 2].piece
-      ) {
-        // Trouve un emplacement différent à échanger
-        for (let j = i + 3; j < shuffled.length; j++) {
-          if (shuffled[j].piece !== shuffled[i].piece) {
-            [shuffled[i + 2], shuffled[j]] = [shuffled[j], shuffled[i + 2]];
-            break;
-          }
-        }
-      }
-    }
-
-    return shuffled;
   },
 
   // ── Équipe de kawaii : un principal + jusqu'à 5 compagnons ──
@@ -546,7 +505,8 @@ const Storage = {
       chestsOpened: eco.chestsOpened || 0,     // coffres de palier déjà attribués
       pendingChests: eco.pendingChests || [],  // coffres à ouvrir : 'normal' | 'rare'
       inventory: eco.inventory || {},          // { stickerId: nombre possédé }
-      placed: eco.placed || {},                // { "piece|emplacement": [stickerId, ...] }
+      placed: eco.placed || {},                // déco posées : { scène: [{ sticker | meuble, x, y }] } (js/scene.js)
+      meubles: eco.meubles || {},              // { forme: nombre possédé } (meubles de déco, js/objets.js)
       wardrobe: eco.wardrobe || [],            // accessoires d'atelier débloqués ("hat:couronne")
       albumClaimed: eco.albumClaimed || [],    // paliers de l'album déjà récupérés (js/recompenses.js)
       daily: eco.daily || null,                // défis du jour : { date, ids, progress, done, bonus }
@@ -601,14 +561,18 @@ const Storage = {
     this.saveEconomy(eco);
   },
 
+  // Exemplaires posés quelque part, pour un sticker ou un meuble
+  countPlaced(eco, kind, id) {
+    let n = 0;
+    Object.values(eco.placed).forEach(items => {
+      (Array.isArray(items) ? items : []).forEach(it => { if (it && it[kind] === id) n++; });
+    });
+    return n;
+  },
+
   // Nombre d'exemplaires d'un sticker pas encore collés
   getFreeCount(stickerId, eco = this.getEconomy()) {
-    const owned = eco.inventory[stickerId] || 0;
-    let placedCount = 0;
-    Object.values(eco.placed).forEach(ids => {
-      placedCount += ids.filter(id => id === stickerId).length;
-    });
-    return owned - placedCount;
+    return (eco.inventory[stickerId] || 0) - this.countPlaced(eco, 'sticker', stickerId);
   },
 
   // Tous les stickers libres : [{sticker, count}]
@@ -619,23 +583,92 @@ const Storage = {
       .filter(x => x.count > 0);
   },
 
-  placeSticker(placeKey, stickerId) {
+  // ── Meubles de déco (formes de js/objets.js) ──
+
+  addMeuble(forme) {
     const eco = this.getEconomy();
-    const list = eco.placed[placeKey] || [];
-    if (list.length >= ECONOMIE.maxStickersParLieu) return false;
-    if (this.getFreeCount(stickerId, eco) <= 0) return false;
-    list.push(stickerId);
-    eco.placed[placeKey] = list;
+    eco.meubles[forme] = (eco.meubles[forme] || 0) + 1;
+    this.saveEconomy(eco);
+  },
+
+  getFreeMeubleCount(forme, eco = this.getEconomy()) {
+    return (eco.meubles[forme] || 0) - this.countPlaced(eco, 'meuble', forme) - this.countMeublesMaisons(forme);
+  },
+
+  // Tous les meubles libres : [{forme, count}]
+  getFreeMeubles() {
+    const eco = this.getEconomy();
+    return Object.keys(eco.meubles)
+      .filter(f => Objets.info(f))
+      .map(forme => ({ forme, count: this.getFreeMeubleCount(forme, eco) }))
+      .filter(x => x.count > 0);
+  },
+
+  // Meuble au hasard, de préférence un qu'elle n'a pas encore
+  // Meuble offert pour un niveau gagné : un qu'elle n'a pas encore, si possible
+  gagnerMeubleNiveau() {
+    const owned = this.getEconomy().meubles;
+    const formes = Objets.ids();
+    const nouveaux = formes.filter(f => !owned[f]);
+    const pool = nouveaux.length ? nouveaux : formes;
+    const forme = pool[Math.floor(Math.random() * pool.length)];
+    this.addMeuble(forme);
+    return forme;
+  },
+
+  drawMeuble() {
+    const formes = Objets.ids();
+    const owned = this.getEconomy().meubles;
+    const missing = formes.filter(f => !owned[f]);
+    const pool = missing.length > 0 && Math.random() < 0.7 ? missing : formes;
+    return pool[Math.floor(Math.random() * pool.length)];
+  },
+
+  // ── Déco posée librement dans une scène (étage d'un lieu) ──
+  // item = { sticker: id } ou { meuble: forme } ; x, y dans les unités de la scène
+
+  placeDeco(sceneId, item, x, y) {
+    const eco = this.getEconomy();
+    const items = eco.placed[sceneId] || [];
+    if (items.length >= ECONOMIE.maxDecoParScene) return false;
+    if (item.sticker && this.getFreeCount(item.sticker, eco) <= 0) return false;
+    if (item.meuble && this.getFreeMeubleCount(item.meuble, eco) <= 0) return false;
+    items.push({ ...item, x: Math.round(x), y: Math.round(y) });
+    eco.placed[sceneId] = items;
     this.saveEconomy(eco);
     return true;
   },
 
-  removeSticker(placeKey, index) {
+  moveDeco(sceneId, index, x, y) {
     const eco = this.getEconomy();
-    const list = eco.placed[placeKey] || [];
-    list.splice(index, 1);
-    if (list.length === 0) delete eco.placed[placeKey];
-    else eco.placed[placeKey] = list;
+    const item = (eco.placed[sceneId] || [])[index];
+    if (!item) return;
+    item.x = Math.round(x);
+    item.y = Math.round(y);
+    this.saveEconomy(eco);
+  },
+
+  removeDeco(sceneId, index) {
+    const eco = this.getEconomy();
+    const items = eco.placed[sceneId] || [];
+    items.splice(index, 1);
+    if (items.length === 0) delete eco.placed[sceneId];
+    else eco.placed[sceneId] = items;
+    this.saveEconomy(eco);
+  },
+
+  // Déco d'une scène, avec leur sticker résolu : [{ sticker?, meuble?, x, y }]
+  getDeco(sceneId) {
+    const eco = this.getEconomy();
+    return (eco.placed[sceneId] || [])
+      .map(it => ({ ...it, sticker: it.sticker ? getSticker(it.sticker) : null }))
+      .filter(it => it.sticker || (it.meuble && Objets.info(it.meuble)));
+  },
+
+  // Déco d'un lieu qui disparaît : elles reviennent dans l'inventaire
+  freeDecoOf(prefix) {
+    const eco = this.getEconomy();
+    Object.keys(eco.placed).forEach(k => { if (k.startsWith(prefix)) delete eco.placed[k]; });
     this.saveEconomy(eco);
   },
 
@@ -660,11 +693,6 @@ const Storage = {
     const locked = accessoryCatalog().filter(x => !this.hasAccessory(x.id));
     if (locked.length === 0) return null;
     return locked[Math.floor(Math.random() * locked.length)];
-  },
-
-  getPlacedStickers(placeKey) {
-    const eco = this.getEconomy();
-    return (eco.placed[placeKey] || []).map(id => getSticker(id)).filter(Boolean);
   },
 
   // Tire un sticker au hasard selon la rareté. Un coffre 'rare' garantit rare ou mieux.
@@ -703,6 +731,7 @@ function showScreen(screenId) {
 
   // Nettoie les timers et animations en cours avant de changer d'écran
   cleanupCurrentScreen();
+  closeSheet();
 
   document.querySelectorAll('.screen').forEach(screen => {
     screen.classList.remove('active');
@@ -744,7 +773,7 @@ function cleanupCurrentScreen() {
 }
 
 // ───────────────────────────────────────────────────────────────
-// AUDIO - Système de notes musicales pour chaque lettre
+// AUDIO - Contexte audio (sons des jeux et des récompenses)
 // ───────────────────────────────────────────────────────────────
 
 async function initAudio() {
@@ -766,93 +795,6 @@ async function initAudio() {
     } catch (e) {
       console.error('Erreur resume AudioContext:', e);
     }
-  }
-}
-
-// Gamme pentatonique majeure sur 2 octaves (limité à ~1400Hz pour rester agréable)
-const PENTATONIC_SCALE = [
-  261.63, // C4 - Do
-  293.66, // D4 - Ré
-  329.63, // E4 - Mi
-  392.00, // G4 - Sol
-  440.00, // A4 - La
-  523.25, // C5 - Do
-  587.33, // D5 - Ré
-  659.25, // E5 - Mi
-  783.99, // G5 - Sol
-  880.00, // A5 - La
-  1046.50, // C6 - Do
-  1174.66, // D6 - Ré
-  1318.51  // E6 - Mi (1318 Hz max)
-];
-
-// Convertit un caractère en fréquence musicale
-function charToFrequency(char) {
-  // Liste de tous les caractères possibles
-  const chars = 'abcdefghijklmnopqrstuvwxyzàâäéèêëïîôùûüÿç\'-_ ';
-
-  // Trouve l'index du caractère (insensible à la casse)
-  const index = chars.indexOf(char.toLowerCase());
-
-  // Si caractère inconnu, utilise une note par défaut
-  if (index === -1) return PENTATONIC_SCALE[0];
-
-  // Map l'index du caractère à une note de la gamme
-  return PENTATONIC_SCALE[index % PENTATONIC_SCALE.length];
-}
-
-// Joue une note musicale pour un caractère
-async function playBeep(char = 'a') {
-  // Vérifie si le son est activé
-  if (!AppState.soundEnabled) {
-    return; // Son désactivé, on ne joue rien
-  }
-
-  // Initialise l'audio si nécessaire
-  if (!AppState.audioContext) {
-    await initAudio();
-  }
-
-  // Vérifie que le contexte audio est prêt
-  if (!AppState.audioContext) {
-    console.warn('AudioContext non disponible');
-    return;
-  }
-
-  // Resume le contexte s'il est suspendu (iOS/Safari)
-  if (AppState.audioContext.state === 'suspended') {
-    await AppState.audioContext.resume();
-  }
-
-  try {
-    const oscillator = AppState.audioContext.createOscillator();
-    const gainNode = AppState.audioContext.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(AppState.audioContext.destination);
-
-    // Obtient la fréquence basée sur le caractère
-    const frequency = charToFrequency(char);
-    oscillator.frequency.value = frequency;
-
-    console.log(`Joue note pour '${char}': ${frequency}Hz`);
-
-    // Son de type 'sine' pour un son doux et musical
-    oscillator.type = 'sine';
-
-    // Enveloppe ADSR pour un son plus agréable
-    const now = AppState.audioContext.currentTime;
-    gainNode.gain.setValueAtTime(0, now);
-    const v = AppState.volume;
-    gainNode.gain.linearRampToValueAtTime(0.3 * v, now + 0.05); // Attack
-    gainNode.gain.linearRampToValueAtTime(0.2 * v, now + 0.1); // Decay
-    gainNode.gain.setValueAtTime(0.2 * v, now + 0.3); // Sustain
-    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4); // Release
-
-    oscillator.start(now);
-    oscillator.stop(now + 0.4);
-  } catch (e) {
-    console.error('Erreur playBeep:', e);
   }
 }
 
@@ -880,7 +822,7 @@ function sessionItems(lists) {
   return lists.flatMap(list => list.words.map(word => ({ word, list })));
 }
 
-// Listes de mots (pas les cartes questions) correspondant aux ids, dans l'ordre de « Mes listes »
+// Listes de mots (pas les listes de révision) correspondant aux ids, dans l'ordre de « Mes listes »
 function wordListsByIds(listIds) {
   return Storage.getActiveLists().filter(l => listIds.includes(l.id) && !Storage.isCardList(l));
 }
@@ -889,7 +831,7 @@ function wordListsByIds(listIds) {
 function setCurrentItem(item) {
   AppState.currentList = item.list;
   AppState.currentWord = item.word;
-  AppState.currentLocation = item.list.wordLocations[item.word];
+  AppState.currentLocation = Monde.placeOf(item.list, item.word);
   AppState.listLevel = Storage.getListLevel(item.list);
   AppState.listMaxLevel = Storage.getListMaxLevel(item.list);
 }
@@ -951,6 +893,8 @@ function startApprentissageOnLists(listIds) {
   AppState.currentMode = 'apprentissage';
   AppState.currentLevel = 0;
   AppState.currentWordIndex = 0;
+  AppState.faits = {};
+  AppState.salleCourante = null;
 
   AppState.allApprentissageLevels = splitIntoLevels(items);
   AppState.currentLevelWords = AppState.allApprentissageLevels[AppState.currentLevel];
@@ -958,35 +902,39 @@ function startApprentissageOnLists(listIds) {
   showApprentissageScreen();
 }
 
+// La pièce : elle choisit l'objet à aller voir, autant de fois qu'elle veut
 function showApprentissageScreen() {
   showScreen('apprentissage');
+  const n = AppState.currentLevelWords.length;
+  const vus = Object.keys(AppState.faits).length;
 
-  setCurrentItem(AppState.currentLevelWords[AppState.currentWordIndex]);
-  const location = AppState.currentLocation;
-
-  // Met à jour la progression
   const progress = document.getElementById('apprentissage-progress');
-  if (progress) {
-    progress.textContent = `Mot ${AppState.currentWordIndex + 1}/${AppState.currentLevelWords.length}`;
-  }
+  if (progress) progress.textContent = `Vus ${vus}/${n}`;
 
-  // Affiche uniquement le lieu et le bouton "J'y suis"
-  displayLocation(location);
   document.getElementById('translation-prompt').classList.add('hidden');
-
-  // Cache l'animation du mot, les contrôles et le bouton suivant
   document.getElementById('word-animation').classList.add('hidden');
   document.getElementById('playback-controls').classList.add('hidden');
   document.getElementById('next-button-container').classList.add('hidden');
+  document.getElementById('lieu-display').classList.remove('hidden');
 
-  // Affiche le bouton "J'y suis"
-  document.getElementById('ready-button-container').classList.remove('hidden');
+  renderPieceSession('lieu-display', choisirApprentissage, vus === n
+    ? `<div class="text-center mt-20"><button class="btn btn-primary btn-big" onclick="finishApprentissageLevel()">✅ J'ai tout vu</button>
+       <p class="hint">Tu peux encore retourner voir les objets.</p></div>`
+    : '<p class="hint text-center">Choisis un objet et tape dessus pour voir le mot qui y est rangé.</p>');
+}
+
+// Elle a choisi un objet : la pièce disparaît, le mot s'anime
+function choisirApprentissage(index) {
+  AppState.currentWordIndex = index;
+  AppState.faits[index] = true;
+  setCurrentItem(AppState.currentLevelWords[index]);
+  document.getElementById('lieu-display').classList.add('hidden');
+  const progress = document.getElementById('apprentissage-progress');
+  if (progress) progress.textContent = `Vus ${Object.keys(AppState.faits).length}/${AppState.currentLevelWords.length}`;
+  showWordToTrace();
 }
 
 async function showWordToTrace() {
-  // Cache le bouton "J'y suis"
-  document.getElementById('ready-button-container').classList.add('hidden');
-
   // Vide le container du mot pour éviter de voir l'ancien mot
   const animatedWord = document.getElementById('animated-word');
   if (animatedWord) {
@@ -1008,18 +956,13 @@ async function showWordToTrace() {
     }
   }, 100);
 
-  // Lit le mot à voix haute PUIS lance l'animation avec les notes
+  // Le mot s'affiche d'abord en gris, puis il est lu à voix haute, puis
+  // ses lettres prennent leur couleur une à une
   showTranslationPrompt('translation-prompt');
-  console.log('Lecture du mot:', AppState.currentWord);
+  prepareWordAnimation(AppState.currentWord);
   speakCurrent(() => {
-    // Callback appelé quand la lecture vocale est TERMINÉE
-    console.log('Début de l\'animation avec les notes musicales');
-
-    // Attend un petit délai supplémentaire pour laisser l'AudioContext se libérer
-    setTimeout(() => {
-      prepareWordAnimation(AppState.currentWord);
-      startWordAnimation();
-    }, 200);
+    // Petit délai pour laisser l'AudioContext se libérer
+    setTimeout(startWordAnimation, 200);
   });
 }
 
@@ -1042,29 +985,6 @@ function starsPerWord(mode, level) {
     ? ECONOMIE.etoilesParBonneReponseComplet
     : ECONOMIE.etoilesParBonneReponse;
   return base + level;
-}
-
-function placeKeyOf(location) {
-  return `${location.piece}|${location.emplacement}`;
-}
-
-// Endroits d'une pièce de la maison actuelle
-function emplacementsDe(piece) {
-  const room = Storage.getMaison().find(r => r.piece === piece);
-  return room ? room.emplacements : [];
-}
-
-// Emoji d'une pièce : celui choisi dans « Ma maison », sinon par mot-clé dans son nom
-function roomEmoji(piece) {
-  const room = Storage.getMaison().find(r => r.piece === piece);
-  if (room && room.emoji) return room.emoji;
-  return roomEmojiAuto(piece);
-}
-
-function roomEmojiAuto(piece) {
-  const name = piece.toLowerCase();
-  const found = PIECE_EMOJIS.find(p => p.motCle !== 'defaut' && name.includes(p.motCle));
-  return found ? found.emoji : PIECE_EMOJIS.find(p => p.motCle === 'defaut').emoji;
 }
 
 function getSticker(id) {
@@ -1107,27 +1027,84 @@ function accessoryArt(acc, size) {
   return Kawaii.draw({ ...base, [acc.type]: acc.value }, size);
 }
 
-function displayLocation(location, containerId = 'lieu-display') {
+// ── La pièce pendant une session ──
+// Les mots du paquet sont rangés dans une ou plusieurs pièces (un étage d'un
+// lieu). On en montre une à la fois, avec des boutons pour changer de pièce.
+// Elle choisit l'objet ; en entraînement, un objet déjà fait ne se touche plus.
+
+function sallesDuPaquet() {
+  const salles = [];
+  AppState.currentLevelWords.forEach((item, index) => {
+    const place = Monde.placeOf(item.list, item.word);
+    if (!place) return;
+    const key = `${item.list.id}:${place.etage}`;
+    let salle = salles.find(x => x.key === key);
+    if (!salle) salles.push(salle = { key, list: item.list, etage: place.etage, place, items: [] });
+    salle.items.push({ index, slotId: place.slotId });
+  });
+  return salles;
+}
+
+function renderPieceSession(containerId, onChoisir, pied = '') {
   const container = document.getElementById(containerId);
-  if (!container || !location) return;
+  if (!container) return;
+  const interro = AppState.currentMode === 'interrogation';
+  const fait = (it) => AppState.faits[it.index] !== undefined;
+  const reste = (salle) => salle.items.filter(it => !fait(it)).length;
+  const salles = sallesDuPaquet();
+  if (salles.length === 0) {
+    // Maison pas encore meublée : rien n'est rangé
+    const list = (AppState.currentLevelWords[0] || {}).list;
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🏡</div>Ta maison n'a pas encore de meubles : pose-en pour y ranger ta liste.
+      ${list && list.lieu.kind === 'maison' ? `<div class="mt-20"><button class="btn btn-primary" onclick="Maisons.amenager(${list.lieu.id})">🛠️ Aménager ma maison</button></div>` : ''}</div>`;
+    return;
+  }
+  const salle = salles.find(x => x.key === AppState.salleCourante) || salles.find(x => reste(x) > 0) || salles[0];
+  AppState.salleCourante = salle.key;
 
-  const pieceDisplay = location.piece.replace(/_/g, ' ');
-  const emplacementDisplay = location.emplacement.replace(/_/g, ' ');
+  // État de chaque objet de la pièce
+  const session = {};
+  salle.items.forEach(it => {
+    const st = session[it.slotId] || (session[it.slotId] = { indices: [] });
+    st.indices.push(it.index);
+  });
+  Object.values(session).forEach(st => {
+    const res = st.indices.map(i => AppState.faits[i]);
+    const tousFaits = res.every(r => r !== undefined);
+    if (interro) {
+      st.etat = !tousFaits ? 'a-faire' : (res.every(r => r === true) ? 'reussi' : 'rate');
+      st.fini = tousFaits;
+    } else {
+      st.etat = tousFaits ? 'vu' : 'a-faire';
+      st.fini = false;
+    }
+  });
 
-  // Stickers collés à cet endroit : le palais s'embellit avec les mots appris
-  const stickers = Storage.getPlacedStickers(placeKeyOf(location));
-  const stickersHTML = stickers
-    .map(s => `<span class="sticker-on-place" title="${s.nom}">${stickerArt(s, 56)}</span>`)
-    .join('');
+  const verbe = interro ? 'à faire' : 'à voir';
+  const chips = salles.length > 1
+    ? `<div class="etages">${salles.map(x => `
+        <button type="button" class="etage-chip${x === salle ? ' selected' : ''}" onclick="changerSalle('${x.key}')" aria-pressed="${x === salle}">
+          <strong>${escapeText(Monde.lieuModele(x.list.lieu).nom)} · étage ${x.etage + 1}</strong>
+          <span>${isMixSession() ? escapeText(x.list.name) + ' · ' : ''}${reste(x) ? `${reste(x)} ${verbe}` : '✓ fini'}</span>
+        </button>`).join('')}</div>`
+    : `<p class="lieu-place text-center">${escapeText(Monde.lieuTexte(salle.place))}</p>`;
 
-  container.innerHTML = `
-    <div class="lieu-display">
-      <div class="lieu-stickers">${stickersHTML}</div>
-      <div class="lieu-room-emoji">${roomEmoji(location.piece)}</div>
-      <div class="lieu-room">${capitalizeFirst(pieceDisplay)}</div>
-      <div class="lieu-place">${emplacementDisplay}</div>
-    </div>
-  `;
+  container.innerHTML = `<div class="lieu-display">${chips}<div class="lieu-scene"></div>${pied}</div>`;
+  Scene.render(container.querySelector('.lieu-scene'), {
+    list: salle.list, etage: salle.etage, mode: 'calme', session,
+    onChoisir: (slotId) => {
+      const indices = session[slotId].indices;
+      const index = indices.find(i => AppState.faits[i] === undefined);
+      onChoisir(index !== undefined ? index : indices[0]);
+    }
+  });
+}
+
+function changerSalle(key) {
+  AppState.salleCourante = key;
+  if (AppState.currentScreen === 'revision') Revision.piece();
+  else if (AppState.currentMode === 'interrogation') showInterrogationScreen();
+  else showApprentissageScreen();
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -1175,9 +1152,6 @@ function startWordAnimation() {
       }
 
       letterElement.classList.add('active');
-
-      // Joue la note correspondant au caractère
-      playBeep(char);
 
       currentIndex++;
 
@@ -1249,18 +1223,10 @@ function updateSpeed(value) {
   }
 }
 
+// Retour à la pièce pour choisir un autre objet
 function nextWordInApprentissage() {
-  // Arrête l'animation si active
   stopWordAnimation();
-
-  AppState.currentWordIndex++;
-
-  // Vérifie si on a fini ce niveau
-  if (AppState.currentWordIndex >= AppState.currentLevelWords.length) {
-    finishApprentissageLevel();
-  } else {
-    showApprentissageScreen();
-  }
+  showApprentissageScreen();
 }
 
 function finishApprentissageLevel() {
@@ -1270,9 +1236,11 @@ function finishApprentissageLevel() {
   if (AppState.currentLevel < levels.length - 1) {
     AppState.currentLevel++;
     AppState.currentWordIndex = 0;
+    AppState.faits = {};
+    AppState.salleCourante = null;
     AppState.currentLevelWords = levels[AppState.currentLevel];
 
-    showFeedback('Niveau terminé ! 🎉', 'success');
+    showFeedback('Paquet terminé ! 🎉', 'success');
     setTimeout(() => showApprentissageScreen(), 2000);
   } else {
     // Sauvegarde les mots appris pour l'interrogation
@@ -1299,7 +1267,7 @@ function showApprentissageComplete() {
       <div class="result-hero">
         <div class="result-icon">🎉</div>
         <h2>Bravo !</h2>
-        <p class="result-sub">Tu as visité ${n} lieu${n > 1 ? 'x' : ''} du palais.</p>
+        <p class="result-sub">Tu as vu ${n} objet${n > 1 ? 's' : ''} et ce qui y est rangé.</p>
         <div class="stars-earned">+${earned} ⭐</div>
       </div>
       ${Defis.celebrationHTML()}
@@ -1391,6 +1359,8 @@ function startInterrogationOnItems(sessionWords) {
   AppState.currentMode = 'interrogation';
   AppState.currentLevel = 0;
   AppState.currentWordIndex = 0;
+  AppState.faits = {};
+  AppState.salleCourante = null;
   AppState.score = 0;
   AppState.totalQuestions = 0;
   AppState.sessionStars = 0;
@@ -1439,37 +1409,29 @@ function shuffleArray(array) {
   return array;
 }
 
+// La pièce : elle choisit l'objet dont elle va écrire le mot
 function showInterrogationScreen() {
-  console.log('showInterrogationScreen appelé');
-  console.log(`Index mot: ${AppState.currentWordIndex}, total: ${AppState.currentLevelWords.length}`);
-
   showScreen('interrogation');
-  renderSessionProgress('session-progress', AppState.currentLevelWords.length, AppState.currentWordIndex);
-
-  setCurrentItem(AppState.currentLevelWords[AppState.currentWordIndex]);
-  const word = AppState.currentWord;
-  const location = AppState.currentLocation;
-  console.log(`Mot à afficher: "${word}"`, location);
+  const n = AppState.currentLevelWords.length;
+  const faits = Object.keys(AppState.faits).length;
+  renderSessionProgress('session-progress', n, faits);
+  const progress = document.getElementById('interrogation-progress');
+  if (progress) progress.textContent = `Fait ${faits}/${n}`;
 
   AppState.userInput = '';
-
-  // Met à jour la progression (affiche le progrès dans le niveau actuel)
-  const progress = document.getElementById('interrogation-progress');
-  if (progress) {
-    progress.textContent = `Mot ${AppState.currentWordIndex + 1}/${AppState.currentLevelWords.length}`;
-  }
-
-  // Calcule le pattern de difficulté selon le niveau
-  createWordPattern(word);
-  console.log(`Pattern créé: "${AppState.wordPattern}"`);
-
-  displayLocation(location, 'interrogation-lieu-display');
-
-  // Affiche uniquement le lieu et le bouton "J'y suis"
-  document.getElementById('interrogation-ready-button').classList.remove('hidden');
   document.getElementById('interrogation-question-zone').classList.add('hidden');
+  document.getElementById('interrogation-lieu-display').classList.remove('hidden');
+  renderPieceSession('interrogation-lieu-display', choisirInterrogation,
+    '<p class="hint text-center">Choisis un objet, et écris le mot qui y est rangé.</p>');
+}
 
-  // Affiche l'indice de difficulté (pour préparer l'affichage)
+// Elle a choisi un objet : la pièce disparaît, la question s'affiche
+function choisirInterrogation(index) {
+  AppState.currentWordIndex = index;
+  setCurrentItem(AppState.currentLevelWords[index]);
+  AppState.userInput = '';
+  createWordPattern(AppState.currentWord);
+
   const difficultyHint = document.getElementById('difficulty-hint');
   if (difficultyHint) {
     const perWord = starsPerWord(AppState.interrogationMode, AppState.listLevel);
@@ -1491,13 +1453,11 @@ function showInterrogationScreen() {
       : 'Complète le mot';
   }
 
-  console.log('showInterrogationScreen terminé');
+  document.getElementById('interrogation-lieu-display').classList.add('hidden');
+  showInterrogationQuestion();
 }
 
 function showInterrogationQuestion() {
-  // Cache le bouton "J'y suis"
-  document.getElementById('interrogation-ready-button').classList.add('hidden');
-
   // Affiche la zone de question
   document.getElementById('interrogation-question-zone').classList.remove('hidden');
 
@@ -1837,6 +1797,8 @@ function validateAnswer() {
   const stat = AppState.sessionByList[listId] || (AppState.sessionByList[listId] = { correct: 0, total: 0 });
   stat.total++;
   if (correct) stat.correct++;
+  // L'objet est fait : il ne se touchera plus dans ce paquet
+  AppState.faits[AppState.currentWordIndex] = correct;
 
   // Mot « à travailler » : déjà interrogé, et pas encore à 80 % de réussite
   const before = (AppState.currentList.progress || {})[AppState.currentWord];
@@ -1920,24 +1882,14 @@ function enableInterrogationInputs() {
   }
 }
 
+// Retour à la pièce, ou fin du paquet quand tous les objets sont faits
 function nextWordInInterrogation() {
-  console.log('nextWordInInterrogation appelé');
-  console.log(`Index actuel: ${AppState.currentWordIndex}, total mots niveau: ${AppState.currentLevelWords.length}`);
-
-  // Nettoie le feedback
   const feedbackContainer = document.getElementById('feedback-container');
-  if (feedbackContainer) {
-    feedbackContainer.innerHTML = '';
-  }
+  if (feedbackContainer) feedbackContainer.innerHTML = '';
 
-  AppState.currentWordIndex++;
-  console.log(`Nouvel index: ${AppState.currentWordIndex}`);
-
-  if (AppState.currentWordIndex >= AppState.currentLevelWords.length) {
-    console.log('Fin du niveau, appel finishInterrogationLevel');
+  if (Object.keys(AppState.faits).length >= AppState.currentLevelWords.length) {
     finishInterrogationLevel();
   } else {
-    console.log('Mot suivant, appel showInterrogationScreen');
     showInterrogationScreen();
   }
 }
@@ -1964,6 +1916,8 @@ function finishInterrogationLevel() {
     if (hasNextLevel) {
       AppState.currentLevel++;
       AppState.currentWordIndex = 0;
+      AppState.faits = {};
+      AppState.salleCourante = null;
       AppState.currentLevelWords = AppState.allInterrogationLevels[AppState.currentLevel];
       AppState.score = 0;
       AppState.totalQuestions = 0;
@@ -2022,6 +1976,7 @@ function showResultsScreen() {
           ${celebrationArt(ninja ? '🥷' : '🚀')}
           <div class="level-up-title">${name}Niveau ${next + 1} atteint : ${levelName(next, maxLevel)} !</div>
           <div class="level-up-sub">${sub} · ${starsPerWord('progressive', next)} ⭐ par mot</div>
+          ${meubleGagneHTML(Storage.gagnerMeubleNiveau())}
         </div>
       `;
     } else if (level >= maxLevel) {
@@ -2086,8 +2041,8 @@ function showResultsScreen() {
   }
   if (freeStickers > 0) {
     html += `
-      <button class="btn btn-secondary" onclick="showPalaisScreen()">
-        🏠 Coller mes ${freeStickers} sticker${freeStickers > 1 ? 's' : ''}
+      <button class="btn btn-secondary" onclick="collerStickers()">
+        🏙️ Coller mes ${freeStickers} sticker${freeStickers > 1 ? 's' : ''}
       </button>
     `;
   }
@@ -2315,7 +2270,7 @@ function refreshListsDisplay() {
     return;
   }
 
-  // Sections toujours visibles : mots à réécrire, mots de langue, cartes questions
+  // Sections toujours visibles : mots à réécrire, mots de langue, révision
   const spellLists = lists.filter(l => !Storage.isCardList(l) && !Storage.isLangList(l));
   const langLists = lists.filter(l => Storage.isLangList(l));
   const cardLists = lists.filter(l => Storage.isCardList(l));
@@ -2333,7 +2288,7 @@ function refreshListsDisplay() {
   spellLists.forEach(list => { html += wordListHTML(list); });
   if (titled && langLists.length) html += '<h2 class="lists-section">🌍 Mots de langue</h2>';
   langLists.forEach(list => { html += wordListHTML(list); });
-  if (titled && cardLists.length) html += '<h2 class="lists-section">🃏 Cartes questions</h2>';
+  if (titled && cardLists.length) html += '<h2 class="lists-section">📚 Révision</h2>';
   cardLists.forEach(list => { html += cardListHTML(list); });
 
   container.innerHTML = html + archivesButton;
@@ -2352,7 +2307,7 @@ function archivesHTML(archived) {
     <div class="mix-entry">
       <button class="btn btn-secondary" onclick="toggleArchives(false)">← Retour à mes listes</button>
     </div>
-    <p class="intro">Les listes archivées gardent leurs lieux, leur niveau et leurs cartes. Ressors-en une quand tu veux la retravailler.</p>
+    <p class="intro">Les listes archivées gardent leur lieu, leur niveau et leur progression. Ressors-en une quand tu veux la retravailler.</p>
   `;
   if (archived.length === 0) {
     return html + '<div class="empty-state"><div class="empty-icon">📦</div>Aucune liste archivée.</div>';
@@ -2383,6 +2338,12 @@ function setListArchived(listId, archived) {
   if (!Storage.setArchived(listId, archived)) return;
   showFeedback(archived ? 'Liste rangée dans les archives 📦' : 'Liste ressortie ! 📤', 'success');
   if (!Storage.getLists().some(l => Storage.isArchived(l))) AppState.showArchives = false;
+  // Depuis la carte : le bâtiment disparaît de la ville
+  if (AppState.currentScreen === 'home') {
+    closeSheet();
+    renderHome();
+    return;
+  }
   refreshListsDisplay();
 }
 
@@ -2414,7 +2375,7 @@ function wordListHTML(list) {
           <button class="btn-icon" onclick="confirmDeleteList(${list.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
         </div>
       </div>
-      <p class="list-meta">${langDirection(list)}${wordCount} mot${wordCount > 1 ? 's' : ''} · ${masteredCount} maîtrisé${masteredCount > 1 ? 's' : ''}${gold ? ' · Liste dorée !' : ''}</p>
+      <p class="list-meta">${langDirection(list)}${wordCount} mot${wordCount > 1 ? 's' : ''} · ${masteredCount} maîtrisé${masteredCount > 1 ? 's' : ''}${gold ? ' · Liste dorée !' : ''} · ${escapeText(Monde.lieuModele(list.lieu).nom)}</p>
       <div class="list-level">
         <span class="level-badge">Niveau ${level + 1} · ${levelName(level, maxLevel)}${level >= maxLevel ? ' 🥷' : ''}</span>
         <span class="level-stars">${starsPerWord('progressive', level)} ⭐ par mot</span>
@@ -2518,6 +2479,10 @@ function cardListHTML(list) {
   const count = (box) => cards.filter(c => c.box === box).length;
   const known = count(3);
   const pct = cards.length ? Math.round((known / cards.length) * 100) : 0;
+  const nq = cards.filter(c => c.kind !== 'lecon').length;
+  const nl = cards.length - nq;
+  const niveau = Revision.niveau(list);
+  const contenu = [nq ? `${nq} question${nq > 1 ? 's' : ''}` : '', nl ? `${nl} leçon${nl > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
 
   return `
     <div class="card">
@@ -2529,16 +2494,15 @@ function cardListHTML(list) {
           <button class="btn-icon" onclick="confirmDeleteList(${list.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
         </div>
       </div>
-      <p class="list-meta">${cards.length} carte${cards.length > 1 ? 's' : ''} · ${known} connue${known > 1 ? 's' : ''}</p>
+      <p class="list-meta">${contenu || 'Vide'} · ${escapeText(Monde.lieuModele(list.lieu).nom)}</p>
       <div class="list-level">
-        <span class="level-badge">${list.ninja ? 'Ninja 🥷' : 'Toutes les cartes connues = Ninja 🥷'}</span>
-        <span class="level-stars">jusqu'à ${CARTES.etoilesEcrire} ⭐ par réponse</span>
+        <span class="level-badge">${niveau >= 2 ? 'Ninja 🥷' : `${Revision.nomNiveau(niveau)} · ${Math.ceil(ECONOMIE.seuilPassageNiveau * 100)} % pour monter`}</span>
       </div>
       <div class="card-boxes">
-        <span class="card-box">🆕 ${count(0)} nouvelle${count(0) > 1 ? 's' : ''}</span>
-        <span class="card-box box-1">🔁 ${count(1)} à revoir</span>
+        <span class="card-box">🆕 ${count(0)} nouveau${count(0) > 1 ? 'x' : ''}</span>
+        <span class="card-box box-1">🔁 ${count(1)} à retravailler</span>
         <span class="card-box box-2">🙂 ${count(2)} ça vient</span>
-        <span class="card-box box-3">✅ ${known} connue${known > 1 ? 's' : ''}</span>
+        <span class="card-box box-3">✅ ${known} maîtrisé${known > 1 ? 's' : ''}</span>
       </div>
       <div class="list-mastery"><div class="list-mastery-fill" style="width:${pct}%"></div></div>
       ${JeuxCartes.actionsHTML(list)}
@@ -2549,6 +2513,32 @@ function cardListHTML(list) {
 function showNewListScreen() {
   showScreen('new-list');
   setNewListType(AppState.newListType || 'mots');
+  pickNewListLieu(Monde.batimentPropose());
+}
+
+// ── Choix du lieu d'une liste (création, édition) ──
+
+// valeur : un bâtiment ('boulangerie') ou une maison ('maison:12')
+function lieuChoisi(valeur) {
+  return Monde.lieuDeValeur(valeur);
+}
+
+function pickNewListLieu(valeur) {
+  AppState.newListLieu = valeur;
+  Monde.renderChoixLieu('new-list-lieu', valeur, 'pickNewListLieu');
+}
+
+function pickEditListLieu(valeur) {
+  AppState.editListLieu = valeur;
+  Monde.renderChoixLieu('edit-list-lieu', valeur, 'pickEditListLieu', AppState.editingListId);
+}
+
+// Liste créée : retour à la ville (son bâtiment y apparaît), ou dans sa
+// maison s'il faut encore des meubles pour y ranger ses éléments
+function apresCreation(lieu) {
+  const list = lieu.kind === 'maison' ? Storage.listeDeMaison(lieu.id) : null;
+  if (list && Monde.objetsManquants(list) > 0) Maisons.amenager(lieu.id);
+  else showScreen('home');
 }
 
 // Type de la liste en cours de création : 'mots', 'langue' ou 'cartes-questions'
@@ -2564,6 +2554,7 @@ function setNewListType(type) {
   document.getElementById('new-list-cartes').classList.toggle('hidden', !cartes);
   document.getElementById('scan-card').classList.toggle('hidden', cartes || langue);
   if (langue && !document.getElementById('new-lang-from').options.length) fillLangSelects('new-', 'fr', 'en');
+  if (cartes && !document.getElementById('new-cards-input').value.trim()) Revision.initEditeur('new-', null);
 }
 
 // ── Listes de langue : choix des langues et saisie « mot = traduction » ──
@@ -2624,11 +2615,11 @@ function createLangListFromInput() {
   const input = readLangInput('new-');
   if (!input) return;
 
-  Storage.addLangList(name, input.langFrom, input.langTo, input.pairs);
+  Storage.addLangList(name, input.langFrom, input.langTo, input.pairs, lieuChoisi(AppState.newListLieu));
   document.getElementById('list-name-input').value = '';
   document.getElementById('new-lang-input').value = '';
   showFeedback(`Liste créée : ${input.pairs.length} mots ! 🎉`, 'success');
-  setTimeout(() => showListsScreen(), 1500);
+  setTimeout(() => apresCreation(lieuChoisi(AppState.newListLieu)), 1500);
 }
 
 // Lit la saisie des cartes : une carte par ligne, « question = réponse ».
@@ -2656,25 +2647,11 @@ function parseCards(text) {
 function checkCards(parsed, errorsId) {
   const box = document.getElementById(errorsId);
   const errors = parsed.errors.length > 0 ? parsed.errors
-    : (parsed.pairs.length === 0 ? ['Aucune carte détectée'] : []);
+    : ((parsed.items || parsed.pairs).length === 0 ? ['Rien de détecté'] : []);
   box.innerHTML = errors.map(e => `<div>⚠️ ${escapeText(e)}</div>`).join('');
   box.classList.toggle('hidden', errors.length === 0);
   if (errors.length > 0) showFeedback('Des lignes sont à corriger', 'error');
   return errors.length === 0;
-}
-
-// Consigne à coller dans une IA pour fabriquer une liste de cartes
-function copyCardsPrompt() {
-  const prompt = `Crée 30 questions-réponses pour un enfant de primaire sur le thème : [THÈME].
-Format strict : une par ligne, « question = réponse », sans numéro, sans puce, sans ligne vide.
-Réponses très courtes (quelques mots). Jamais de « = » dans la question ni dans la réponse
-(si c'est indispensable, sépare alors la question et la réponse par « | » à la place).`;
-  const done = () => showFeedback('Consigne copiée ! Colle-la dans ton IA 📋', 'success');
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(prompt).then(done).catch(() => window.prompt('Copie cette consigne :', prompt));
-  } else {
-    window.prompt('Copie cette consigne :', prompt);
-  }
 }
 
 function createCardListFromInput() {
@@ -2683,14 +2660,16 @@ function createCardListFromInput() {
     alert('Il faut un nom pour la liste');
     return;
   }
-  const parsed = parseCards(document.getElementById('cards-input').value);
-  if (!checkCards(parsed, 'cards-errors')) return;
+  const parsed = Revision.lireSaisie('new-');
+  if (!checkCards(parsed, 'new-cards-errors')) return;
 
-  Storage.addCardList(name, parsed.pairs);
+  Storage.addCardList(name, parsed.items, lieuChoisi(AppState.newListLieu), parsed.images);
   document.getElementById('list-name-input').value = '';
-  document.getElementById('cards-input').value = '';
-  showFeedback(`Liste créée : ${parsed.pairs.length} cartes ! 🎉`, 'success');
-  setTimeout(() => showListsScreen(), 1500);
+  document.getElementById('new-cards-input').value = '';
+  Revision.initEditeur('new-', null);
+  const n = parsed.items.length;
+  showFeedback(`Liste créée : ${n} élément${n > 1 ? 's' : ''} ! 🎉`, 'success');
+  setTimeout(() => apresCreation(lieuChoisi(AppState.newListLieu)), 1500);
 }
 
 function createListFromManualInput() {
@@ -2721,10 +2700,9 @@ function createListFromManualInput() {
     return;
   }
 
-  Storage.addList(name, words);
-  console.log('Liste créée avec apostrophes normalisées:', words);
+  Storage.addList(name, words, lieuChoisi(AppState.newListLieu));
   showFeedback('Liste créée ! 🎉', 'success');
-  setTimeout(() => showListsScreen(), 1500);
+  setTimeout(() => apresCreation(lieuChoisi(AppState.newListLieu)), 1500);
 }
 
 function showEditListScreen(listId) {
@@ -2737,6 +2715,7 @@ function showEditListScreen(listId) {
   }
 
   AppState.editingListId = listId;
+  pickEditListLieu(Monde.lieuValeur(list.lieu));
 
   document.getElementById('edit-list-name-input').value = list.name;
 
@@ -2756,10 +2735,8 @@ function showEditListScreen(listId) {
       })
       .join('\n');
   } else if (cartes) {
-    // Le « | » sert de séparateur dès qu'un = traîne dans le texte
-    document.getElementById('edit-cards-input').value = (list.cards || [])
-      .map(c => (c.q + c.a).includes('=') ? `${c.q} | ${c.a}` : `${c.q} = ${c.a}`)
-      .join('\n');
+    document.getElementById('edit-cards-input').value = Revision.texteDe(list.cards);
+    Revision.initEditeur('edit-', list);
   } else {
     document.getElementById('edit-words-input').value = list.words.join('\n');
   }
@@ -2773,10 +2750,11 @@ function saveEditedCardList(listId) {
     alert('Il faut un nom pour la liste');
     return;
   }
-  const parsed = parseCards(document.getElementById('edit-cards-input').value);
+  const parsed = Revision.lireSaisie('edit-');
   if (!checkCards(parsed, 'edit-cards-errors')) return;
 
-  Storage.updateCardList(listId, name, parsed.pairs);
+  Storage.updateCardList(listId, name, parsed.items, parsed.images);
+  Storage.setLieu(listId, lieuChoisi(AppState.editListLieu));
   showFeedback('Liste modifiée ! ✅', 'success');
   AppState.editingListId = null;
   setTimeout(() => showListsScreen(), 1500);
@@ -2792,6 +2770,7 @@ function saveEditedLangList(listId) {
   if (!input) return;
 
   Storage.updateLangList(listId, name, input.langFrom, input.langTo, input.pairs);
+  Storage.setLieu(listId, lieuChoisi(AppState.editListLieu));
   showFeedback('Liste modifiée ! ✅', 'success');
   AppState.editingListId = null;
   setTimeout(() => showListsScreen(), 1500);
@@ -2833,7 +2812,7 @@ function saveEditedList() {
   }
 
   Storage.updateList(listId, name, words);
-  console.log('Liste modifiée avec apostrophes normalisées:', words);
+  Storage.setLieu(listId, lieuChoisi(AppState.editListLieu));
   showFeedback('Liste modifiée ! ✅', 'success');
   AppState.editingListId = null;
   setTimeout(() => showListsScreen(), 1500);
@@ -2853,8 +2832,13 @@ function confirmDeleteList(listId) {
     if (success) {
       AppState.editingListId = null;
       showFeedback('Liste supprimée', 'success');
-      // Depuis les archives, on y reste
-      setTimeout(() => AppState.currentScreen === 'lists' ? refreshListsDisplay() : showListsScreen(), 1000);
+      // Depuis les archives, on y reste ; depuis la carte aussi
+      closeSheet();
+      setTimeout(() => {
+        if (AppState.currentScreen === 'lists') refreshListsDisplay();
+        else if (AppState.currentScreen === 'home') renderHome();
+        else showListsScreen();
+      }, 1000);
     } else {
       alert('Erreur lors de la suppression');
     }
@@ -2935,11 +2919,10 @@ document.addEventListener('DOMContentLoaded', () => {
     ['unlockedRewards', 'equippedItems', 'itemPositions'].forEach(k => localStorage.removeItem(k));
   }
 
-  // Mémorise la maison telle qu'elle est, pour qu'elle survive à un
-  // changement de la maison de départ (data/lieux.js), puis vérifie que
-  // chaque mot a bien un endroit.
-  if (!localStorage.getItem('maison')) Storage.saveMaison(Storage.maisonParDefaut());
-  Storage.reparerEmplacements();
+  // Le monde : chaque liste a son lieu et chaque élément son objet
+  // (installe aussi les listes d'avant le monde virtuel, voir js/monde.js)
+  Monde.migrer();
+  Images.nettoyer(); // images de leçon qu'aucune liste n'utilise plus
 
   // Charge la préférence son depuis localStorage
   const savedSound = localStorage.getItem('soundEnabled');
@@ -3255,12 +3238,23 @@ function openPendingChests(onDone) {
     }
   }
 
+  // Puis un meuble pour décorer ses lieux, ou un sticker
+  if (Math.random() < ECONOMIE.chanceMeubleCoffre) {
+    const forme = Storage.drawMeuble();
+    Storage.addMeuble(forme);
+    showChestOverlay(tier, {
+      art: Objets.draw(forme, { taille: 170 }), nom: capitalizeFirst(Objets.info(forme).nom), tag: 'Meuble', tagColor: '#2BB3AE',
+      sub: 'Un nouveau meuble pour décorer tes lieux !'
+    }, next);
+    return;
+  }
+
   const sticker = Storage.drawSticker(tier);
   Storage.addSticker(sticker.id);
   const rarity = RARETES[sticker.rarete];
   showChestOverlay(tier, {
     art: stickerArt(sticker, 170), nom: sticker.nom, tag: rarity.nom, tagColor: rarity.couleur,
-    sub: 'Nouveau sticker pour ton palais !'
+    sub: 'Un nouveau sticker à coller dans tes lieux !'
   }, next);
 }
 
@@ -3354,7 +3348,7 @@ function countGoldLists(lists) {
 }
 
 // Liste dorée : chaque mot a été interrogé et réussi à 80 % ou plus
-// (cartes questions : toutes les cartes dans la boîte 3)
+// (révision : tous les éléments maîtrisés, boîte 3)
 function isListGold(list) {
   if (Storage.isCardList(list)) {
     return (list.cards || []).length > 0 && list.cards.every(c => c.box >= 3);
@@ -3408,6 +3402,7 @@ function renderTeamCard() {
 }
 
 function renderHome() {
+  Monde.renderCarte();
   renderTeamCard();
   Defis.renderHomeCard();
   renderPalaceCard();
@@ -3421,12 +3416,12 @@ function renderPalaceCard() {
   const per = ECONOMIE.etoilesParCoffre;
   const progress = eco.totalEarned % per;
   const pending = eco.pendingChests.length;
-  const placedCount = Object.values(eco.placed).reduce((sum, ids) => sum + ids.length, 0);
+  const placedCount = Object.values(eco.placed).reduce((sum, items) => sum + items.length, 0);
   const freeCount = Storage.getFreeStickers().reduce((sum, x) => sum + x.count, 0);
   const goldCount = countGoldLists(Storage.getLists());
 
   let html = `
-    <div class="palace-icon">🏰</div>
+    <div class="palace-icon">⭐</div>
     <div class="palace-info">
       <div class="palace-stars"><strong>${eco.stars}</strong><span>⭐ à dépenser</span></div>
       <div class="gauge">
@@ -3450,8 +3445,8 @@ function renderPalaceCard() {
   }
 
   const badges = [];
-  if (placedCount > 0) badges.push(`<span class="badge">🏠 ${placedCount} sticker${placedCount > 1 ? 's' : ''} collé${placedCount > 1 ? 's' : ''}</span>`);
-  if (freeCount > 0) badges.push(`<span class="badge">🎒 ${freeCount} à coller</span>`);
+  if (placedCount > 0) badges.push(`<span class="badge">🏙️ ${placedCount} sticker${placedCount > 1 ? 's' : ''} collé${placedCount > 1 ? 's' : ''}</span>`);
+  if (freeCount > 0) badges.push(`<button class="badge badge-gift" onclick="collerStickers()">🎒 ${freeCount} à coller</button>`);
   if (goldCount > 0) badges.push(`<span class="badge gold">🏅 ${goldCount} liste${goldCount > 1 ? 's' : ''} dorée${goldCount > 1 ? 's' : ''}</span>`);
   if (eco.daysPlayed > 1) badges.push(`<span class="badge">🗓️ ${eco.daysPlayed} jours de jeu</span>`);
   const gifts = Album.claimable().length;
@@ -3462,154 +3457,8 @@ function renderPalaceCard() {
 }
 
 // ───────────────────────────────────────────────────────────────
-// MON PALAIS : pièces, lieux, stickers
+// FEUILLES EN BAS D'ÉCRAN ET SAISIE D'UN NOM
 // ───────────────────────────────────────────────────────────────
-
-function showPalaisScreen() {
-  showScreen('palais');
-
-  const grid = document.getElementById('palais-grid');
-  const intro = document.getElementById('palais-intro');
-  if (!grid) return;
-
-  const freeCount = Storage.getFreeStickers().reduce((sum, x) => sum + x.count, 0);
-  if (intro) {
-    intro.textContent = freeCount > 0
-      ? `Tu as ${freeCount} sticker${freeCount > 1 ? 's' : ''} à coller. Choisis une pièce !`
-      : 'Gagne des étoiles pour décorer ton palais.';
-  }
-
-  let html = '';
-  Storage.getMaison().forEach(({ piece, emplacements }) => {
-    const stickers = [];
-    emplacements.forEach(emplacement => {
-      Storage.getPlacedStickers(placeKeyOf({ piece, emplacement })).forEach(s => stickers.push(stickerArt(s, 30)));
-    });
-    html += `
-      <div class="room-card" onclick="showPieceScreen('${piece.replace(/'/g, "\\'")}')">
-        <div class="room-emoji">${roomEmoji(piece)}</div>
-        <div class="room-name">${capitalizeFirst(piece)}</div>
-        <div class="room-meta">${emplacements.length} lieu${emplacements.length > 1 ? 'x' : ''}</div>
-        <div class="room-stickers">${stickers.slice(0, 6).join('')}</div>
-      </div>
-    `;
-  });
-  grid.innerHTML = html;
-}
-
-// Mots actuellement rangés à un emplacement (toutes listes confondues)
-function wordsAtPlace(piece, emplacement) {
-  const words = [];
-  Storage.getActiveLists().forEach(list => {
-    Object.entries(list.wordLocations || {}).forEach(([word, loc]) => {
-      if (loc.piece !== piece || loc.emplacement !== emplacement) return;
-      const prompt = promptOf(list, word);
-      words.push(prompt ? `${word} (${prompt})` : word);
-    });
-  });
-  return words;
-}
-
-function showPieceScreen(piece) {
-  AppState.currentPiece = piece;
-  showScreen('piece');
-
-  const title = document.getElementById('piece-title');
-  const content = document.getElementById('piece-content');
-  if (title) title.textContent = `${roomEmoji(piece)} ${capitalizeFirst(piece)}`;
-  if (!content) return;
-
-  const emplacements = emplacementsDe(piece);
-  const freeCount = Storage.getFreeStickers().reduce((sum, x) => sum + x.count, 0);
-  let html = '';
-
-  emplacements.forEach((emplacement, placeIndex) => {
-    const key = placeKeyOf({ piece, emplacement });
-    const placed = Storage.getPlacedStickers(key);
-    const words = wordsAtPlace(piece, emplacement);
-
-    let slots = placed.map((s, i) =>
-      `<div class="slot filled" onclick="askRemoveSticker(${placeIndex}, ${i})" title="${s.nom}">${stickerArt(s, 52)}</div>`
-    ).join('');
-
-    if (placed.length < ECONOMIE.maxStickersParLieu) {
-      slots += freeCount > 0
-        ? `<div class="slot add" onclick="openStickerPicker(${placeIndex})">+</div>`
-        : `<div class="slot" onclick="showShopScreen()" title="Boutique">🛍️</div>`;
-    }
-
-    html += `
-      <div class="place-card">
-        <div class="place-head">
-          <div>
-            <div class="place-name">${emplacement.replace(/_/g, ' ')}</div>
-            ${words.length ? `<div class="place-word">📝 ${words.map(escapeText).join(', ')}</div>` : ''}
-          </div>
-        </div>
-        <div class="place-slots">${slots}</div>
-      </div>
-    `;
-  });
-
-  content.innerHTML = html;
-}
-
-function currentPlaceKey(placeIndex) {
-  const piece = AppState.currentPiece;
-  const emplacement = emplacementsDe(piece)[placeIndex];
-  return placeKeyOf({ piece, emplacement });
-}
-
-function openStickerPicker(placeIndex) {
-  const free = Storage.getFreeStickers();
-  if (free.length === 0) return;
-
-  const items = free.map(({ sticker, count }) => `
-    <div class="sheet-item" onclick="pickSticker(${placeIndex}, '${sticker.id}')">
-      <div class="emoji">${stickerArt(sticker, 64)}</div>
-      <div class="count">${sticker.nom}${count > 1 ? ` ×${count}` : ''}</div>
-    </div>
-  `).join('');
-
-  showSheet(`
-    <h3>Quel sticker coller ici ?</h3>
-    <div class="sheet-grid">${items}</div>
-    <div class="sheet-actions">
-      <button class="btn btn-ghost" onclick="closeSheet()">Annuler</button>
-    </div>
-  `);
-}
-
-function pickSticker(placeIndex, stickerId) {
-  closeSheet();
-  if (Storage.placeSticker(currentPlaceKey(placeIndex), stickerId)) {
-    playStarSound();
-    showPieceScreen(AppState.currentPiece);
-    Defis.track('sticker');
-  }
-}
-
-function askRemoveSticker(placeIndex, stickerIndex) {
-  const placed = Storage.getPlacedStickers(currentPlaceKey(placeIndex));
-  const sticker = placed[stickerIndex];
-  if (!sticker) return;
-
-  showSheet(`
-    <div class="sheet-art">${stickerArt(sticker, 110)}</div>
-    <h3>${sticker.nom}</h3>
-    <p class="text-center">Le retirer de cet endroit ? Il retourne dans ton sac.</p>
-    <div class="sheet-actions">
-      <button class="btn btn-ghost" onclick="closeSheet()">Garder</button>
-      <button class="btn btn-secondary" onclick="removeStickerConfirmed(${placeIndex}, ${stickerIndex})">Retirer</button>
-    </div>
-  `);
-}
-
-function removeStickerConfirmed(placeIndex, stickerIndex) {
-  closeSheet();
-  Storage.removeSticker(currentPlaceKey(placeIndex), stickerIndex);
-  showPieceScreen(AppState.currentPiece);
-}
 
 // Feuille en bas d'écran (sélecteur, confirmation)
 function showSheet(innerHTML) {
@@ -3627,65 +3476,6 @@ function showSheet(innerHTML) {
 function closeSheet() {
   const existing = document.getElementById('sheet-overlay');
   if (existing) existing.remove();
-}
-
-// ───────────────────────────────────────────────────────────────
-// MA MAISON : pièces et endroits modifiables
-// ───────────────────────────────────────────────────────────────
-
-function showMaisonScreen() {
-  showScreen('maison');
-  const content = document.getElementById('maison-content');
-  if (!content) return;
-
-  const maison = Storage.getMaison();
-  const total = maison.reduce((n, r) => n + r.emplacements.length, 0);
-  const attr = (str) => str.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-
-  let html = `<p class="intro">Les pièces de ta maison et les endroits où ranger les mots. Appuie sur un nom pour le changer, sur l'emoji pour en choisir un autre.</p>`;
-
-  maison.forEach((room, ri) => {
-    const p = attr(room.piece);
-    const places = room.emplacements.map((emplacement, ei) => {
-      const words = wordsAtPlace(room.piece, emplacement);
-      return `
-        <div class="maison-place">
-          <button class="maison-name" onclick="askRenameLieu('${p}', '${attr(emplacement)}')">
-            ${escapeText(emplacement)}
-            ${words.length ? `<span class="maison-words">📝 ${escapeText(words.join(', '))}</span>` : ''}
-          </button>
-          <div class="maison-actions">
-            <button class="btn-icon" onclick="moveEndroit(${ri}, ${ei}, -1)" ${ei === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
-            <button class="btn-icon" onclick="moveEndroit(${ri}, ${ei}, 1)" ${ei === room.emplacements.length - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
-            <button class="btn-icon" onclick="askDeleteLieu('${p}', '${attr(emplacement)}')" aria-label="Supprimer">🗑️</button>
-          </div>
-        </div>`;
-    }).join('');
-
-    html += `
-      <div class="maison-room">
-        <div class="maison-room-head">
-          <button class="maison-emoji" onclick="askRoomEmoji('${p}')" aria-label="Choisir l'emoji">${roomEmoji(room.piece)}</button>
-          <button class="maison-name maison-room-name" onclick="askRenameLieu('${p}', null)">
-            ${escapeText(capitalizeFirst(room.piece))}
-          </button>
-          <div class="maison-actions">
-            <button class="btn-icon" onclick="moveRoom(${ri}, -1)" ${ri === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
-            <button class="btn-icon" onclick="moveRoom(${ri}, 1)" ${ri === maison.length - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
-            <button class="btn-icon" onclick="askDeleteLieu('${p}', null)" aria-label="Supprimer">🗑️</button>
-          </div>
-        </div>
-        <div class="maison-places">${places || '<p class="hint">Aucun endroit pour l\'instant.</p>'}</div>
-        <button class="btn btn-ghost btn-block" onclick="askAddEndroit('${p}')">➕ Ajouter un endroit</button>
-      </div>`;
-  });
-
-  html += `
-    <button class="btn btn-primary btn-block mt-10" onclick="askAddRoom()">➕ Ajouter une pièce</button>
-    <p class="hint mt-10">${maison.length} pièce${maison.length > 1 ? 's' : ''} · ${total} endroit${total > 1 ? 's' : ''}</p>
-    <button class="btn btn-ghost btn-block btn-danger-text mt-20" onclick="askResetMaison()">↩️ Revenir à la maison de départ</button>
-  `;
-  content.innerHTML = html;
 }
 
 function escapeText(str) {
@@ -3724,148 +3514,6 @@ function submitNameSheet() {
   closeSheet();
   nameSheetCallback = null;
   if (cb) cb(value);
-}
-
-// Choix de l'emoji d'une pièce : palette EMOJIS_PIECES, ou automatique (mot-clé)
-function askRoomEmoji(piece) {
-  const room = Storage.getMaison().find(r => r.piece === piece);
-  if (!room) return;
-  const p = piece.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  const auto = roomEmojiAuto(piece);
-  // Repli si data/lieux.js est une ancienne version encore en cache
-  const palette = typeof EMOJIS_PIECES !== 'undefined' ? EMOJIS_PIECES : PIECE_EMOJIS.map(x => x.emoji);
-  const items = palette.map(e => `
-    <button class="sheet-item ${room.emoji === e ? 'selected' : ''}" onclick="setRoomEmoji('${p}', '${e}')">
-      <div class="emoji">${e}</div>
-    </button>
-  `).join('');
-  showSheet(`
-    <h3>Emoji de « ${escapeText(piece)} »</h3>
-    <div class="sheet-grid sheet-grid-emoji">${items}</div>
-    <div class="sheet-actions">
-      <button class="btn btn-ghost" onclick="closeSheet()">Annuler</button>
-      <button class="btn btn-ghost ${room.emoji ? '' : 'selected'}" onclick="setRoomEmoji('${p}', null)">${auto} Automatique</button>
-    </div>
-  `);
-}
-
-function setRoomEmoji(piece, emoji) {
-  const maison = Storage.getMaison();
-  const room = maison.find(r => r.piece === piece);
-  if (!room) return;
-  if (emoji) room.emoji = emoji;
-  else delete room.emoji;
-  Storage.saveMaison(maison);
-  closeSheet();
-  showMaisonScreen();
-}
-
-function askAddRoom() {
-  askName('Nom de la nouvelle pièce', '', (nom) => {
-    const maison = Storage.getMaison();
-    if (maison.some(r => r.piece === nom)) {
-      showFeedback('Cette pièce existe déjà', 'error');
-      return;
-    }
-    maison.push({ piece: nom, emplacements: [] });
-    Storage.saveMaison(maison);
-    showMaisonScreen();
-  });
-}
-
-function askAddEndroit(piece) {
-  askName(`Nouvel endroit : ${piece}`, '', (nom) => {
-    const maison = Storage.getMaison();
-    const room = maison.find(r => r.piece === piece);
-    if (!room) return;
-    if (room.emplacements.includes(nom)) {
-      showFeedback('Cet endroit existe déjà', 'error');
-      return;
-    }
-    room.emplacements.push(nom);
-    Storage.saveMaison(maison);
-    showMaisonScreen();
-  });
-}
-
-function askRenameLieu(piece, emplacement) {
-  const isRoom = emplacement === null;
-  askName(isRoom ? 'Nom de la pièce' : 'Nom de l\'endroit', isRoom ? piece : emplacement, (nom) => {
-    const maison = Storage.getMaison();
-    if (isRoom) {
-      if (nom === piece) return;
-      if (maison.some(r => r.piece === nom)) {
-        showFeedback('Cette pièce existe déjà', 'error');
-        return;
-      }
-    } else {
-      if (nom === emplacement) return;
-      const room = maison.find(r => r.piece === piece);
-      if (room && room.emplacements.includes(nom)) {
-        showFeedback('Cet endroit existe déjà', 'error');
-        return;
-      }
-    }
-    Storage.renommerLieu(piece, emplacement, nom);
-    showMaisonScreen();
-  });
-}
-
-function askDeleteLieu(piece, emplacement) {
-  const isRoom = emplacement === null;
-  const maison = Storage.getMaison();
-  const total = maison.reduce((n, r) => n + r.emplacements.length, 0);
-  const room = maison.find(r => r.piece === piece);
-  const removed = isRoom ? (room ? room.emplacements.length : 0) : 1;
-  if (total - removed <= 0) {
-    alert('Il faut garder au moins un endroit dans la maison.');
-    return;
-  }
-
-  const words = isRoom
-    ? (room ? room.emplacements : []).flatMap(e => wordsAtPlace(piece, e))
-    : wordsAtPlace(piece, emplacement);
-  let message = isRoom
-    ? `Supprimer la pièce « ${piece} » et ses ${removed} endroit${removed > 1 ? 's' : ''} ?`
-    : `Supprimer l'endroit « ${emplacement} » ?`;
-  if (words.length) message += `\n\nLes mots rangés ici (${words.join(', ')}) seront déplacés ailleurs.`;
-  message += '\nLes stickers collés ici redeviennent libres.';
-
-  if (confirm(message)) {
-    Storage.supprimerLieu(piece, emplacement);
-    showMaisonScreen();
-  }
-}
-
-function moveRoom(index, delta) {
-  const maison = Storage.getMaison();
-  const target = index + delta;
-  if (target < 0 || target >= maison.length) return;
-  [maison[index], maison[target]] = [maison[target], maison[index]];
-  Storage.saveMaison(maison);
-  showMaisonScreen();
-}
-
-function moveEndroit(roomIndex, index, delta) {
-  const maison = Storage.getMaison();
-  const room = maison[roomIndex];
-  if (!room) return;
-  const target = index + delta;
-  if (target < 0 || target >= room.emplacements.length) return;
-  [room.emplacements[index], room.emplacements[target]] = [room.emplacements[target], room.emplacements[index]];
-  Storage.saveMaison(maison);
-  showMaisonScreen();
-}
-
-function askResetMaison() {
-  if (!confirm('Revenir à la maison de départ ?\n\nLes mots rangés dans des endroits qui n\'existent plus seront déplacés, et les stickers collés là redeviennent libres.')) return;
-  Storage.saveMaison(Storage.maisonParDefaut());
-  const valides = new Set(Storage.getAllLocations().map(placeKeyOf));
-  const eco = Storage.getEconomy();
-  Object.keys(eco.placed || {}).forEach(key => { if (!valides.has(key)) delete eco.placed[key]; });
-  Storage.saveEconomy(eco);
-  Storage.reparerEmplacements();
-  showMaisonScreen();
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -4126,12 +3774,12 @@ function showShopScreen() {
         <strong>🎒 Mon sac</strong>
         <div class="inventory-emojis">${freeCount ? free.map(x => `<span class="inv-item" title="${x.sticker.nom}">${stickerArt(x.sticker, 44)}${x.count > 1 ? `<b>×${x.count}</b>` : ''}</span>`).join('') : 'vide'}</div>
       </div>
-      ${freeCount ? '<button class="btn btn-secondary" onclick="showPalaisScreen()">Coller dans mon palais</button>' : ''}
+      ${freeCount ? '<button class="btn btn-secondary" onclick="collerStickers()">Coller dans mes lieux</button>' : ''}
     </div>
   `;
 
   // Rayons : un appui y descend, la boutique est longue
-  const rayons = [['habits', '🎩 Habits'], ...['commun', 'rare', 'legendaire', 'kawaii']
+  const rayons = [['meubles', '🛋️ Meubles'], ['habits', '🎩 Habits'], ...['commun', 'rare', 'legendaire', 'kawaii']
     .map(r => [r, `<span style="color:${RARETES[r].couleur}">●</span> ${RARETES[r].nom}`])];
   html += `
     <nav class="shop-nav" aria-label="Rayons de la boutique">
@@ -4139,6 +3787,28 @@ function showShopScreen() {
       <button class="shop-nav-chip" onclick="scrollToRayon('jeux')">🕹️ Jeux</button>
       <button class="shop-nav-chip" onclick="showAlbumScreen()">📒 Album</button>
     </nav>
+  `;
+
+  // Rayon meubles : pour décorer ses lieux (mode 🧸 Jouer)
+  const formes = Objets.ids().sort((a, b) => ECONOMIE.prixMeubles[Objets.info(a).k] - ECONOMIE.prixMeubles[Objets.info(b).k]);
+  html += `
+    <div class="category-section" id="rayon-meubles">
+      <div class="category-title">🛋️ Meubles <span class="price-tag">${formes.filter(f => eco.meubles[f]).length}/${formes.length}</span></div>
+      <p class="hint" style="margin:0 0 10px">Pour décorer tes lieux. On en trouve aussi dans les coffres.</p>
+      <div class="items-grid">
+        ${formes.map(f => {
+          const prix = ECONOMIE.prixMeubles[Objets.info(f).k];
+          const owned = eco.meubles[f] || 0;
+          return `
+            <div class="item-card accessory ${eco.stars >= prix ? '' : 'too-expensive'}" onclick="askBuyMeuble('${f}')">
+              ${owned ? `<span class="item-owned">×${owned}</span>` : ''}
+              <div class="item-preview">${Objets.draw(f, { taille: 76 })}</div>
+              <div class="item-name">${escapeText(capitalizeFirst(Objets.info(f).nom))}</div>
+              <div class="item-price">${prix} ⭐</div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
   `;
 
   // Rayon habits et accessoires pour l'atelier
@@ -4173,7 +3843,7 @@ function showShopScreen() {
       <div class="category-title">
         🕹️ Salle de jeux <span class="price-tag">${arcade.unlocked.length}/${ARCADE.jeux.length}</span>
       </div>
-      <p class="hint" style="margin:0 0 10px">De vrais jeux, pour se détendre après l'entraînement.${ARCADE.prixJeton > 0 ? ` Une partie coûte ${ARCADE.prixJeton} ⭐.` : ''}</p>
+      <p class="hint" style="margin:0 0 10px">De vrais jeux, dans la salle de jeux de ta ville. On y joue sur ton temps de jeu du jour.</p>
       <div class="items-grid">
         ${ARCADE.jeux.map(jeu => {
           const owned = arcade.unlocked.includes(jeu.id);
@@ -4254,6 +3924,35 @@ function askBuySticker(stickerId) {
   `);
 }
 
+function askBuyMeuble(forme) {
+  const info = Objets.info(forme);
+  if (!info) return;
+  const prix = ECONOMIE.prixMeubles[info.k];
+  const eco = Storage.getEconomy();
+  const nom = escapeText(capitalizeFirst(info.nom));
+  const art = `<div class="sheet-art">${Objets.draw(forme, { taille: 110 })}</div>`;
+  if (eco.stars < prix) {
+    showSheet(`${art}<h3>${nom}</h3><p class="text-center">Il te manque ${prix - eco.stars} ⭐. Continue à t'entraîner !</p>
+      <div class="sheet-actions"><button class="btn btn-primary" onclick="closeSheet()">D'accord</button></div>`);
+    return;
+  }
+  showSheet(`${art}<h3>${nom}</h3><p class="text-center">Acheter pour ${prix} ⭐ ? Il te restera ${eco.stars - prix} ⭐.</p>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" onclick="closeSheet()">Non</button>
+      <button class="btn btn-primary" onclick="buyMeuble('${forme}')">Oui, j'achète !</button>
+    </div>`);
+}
+
+function buyMeuble(forme) {
+  closeSheet();
+  const info = Objets.info(forme);
+  if (!info || !Storage.spendStars(ECONOMIE.prixMeubles[info.k])) return;
+  Storage.addMeuble(forme);
+  playChestSound();
+  showShopScreen();
+  showFeedback(`${capitalizeFirst(info.nom)} : à toi ! Pose-le dans un lieu 🧸`, 'success');
+}
+
 function buySticker(stickerId) {
   closeSheet();
   const sticker = getSticker(stickerId);
@@ -4281,6 +3980,32 @@ function showStrugglingWordsScreen() {
   let total = 0;
 
   lists.forEach(list => {
+    if (Storage.isCardList(list)) {
+      const aRetravailler = (list.cards || []).filter(c => c.box === 1);
+      if (!aRetravailler.length) return;
+      total += aRetravailler.length;
+      html += `<div class="card"><div class="list-card-head"><h3>${escapeText(list.name)}</h3></div>`;
+      aRetravailler.forEach(c => {
+        const loc = Monde.placeOf(list, String(c.id));
+        const texte = c.kind === 'lecon' ? `📖 ${c.titre || c.texte.split(/\s+/).slice(0, 8).join(' ') || 'Image'}` : c.q;
+        html += `
+          <div class="word-item">
+            <div>
+              <strong>${escapeText(texte)}</strong>
+              ${loc ? `<span class="word-place">${escapeText(capitalizeFirst(loc.nom))} · ${escapeText(Monde.lieuTexte(loc))}</span>` : ''}
+            </div>
+          </div>`;
+      });
+      const n = aRetravailler.length;
+      html += `
+          <div class="list-actions mt-20">
+            <button class="btn btn-primary" onclick="Revision.demarrer(${list.id}, 'rappel', [${aRetravailler.map(c => c.id).join(',')}])">
+              🧠 Me rappeler ces ${n} élément${n > 1 ? 's' : ''}
+            </button>
+          </div>
+        </div>`;
+      return;
+    }
     const struggling = list.words
       .filter(word => {
         const p = list.progress[word];
@@ -4298,12 +4023,12 @@ function showStrugglingWordsScreen() {
     struggling.forEach(word => {
       const p = list.progress[word];
       const pct = Math.round(p.lastScore * 100);
-      const loc = list.wordLocations[word];
+      const loc = Monde.placeOf(list, word);
       html += `
         <div class="word-item">
           <div>
             <strong>${promptOf(list, word) ? `${escapeText(promptOf(list, word))} → ` : ''}${escapeText(word)}</strong>
-            ${loc ? `<span class="word-place">${roomEmoji(loc.piece)} ${loc.piece} · ${loc.emplacement}</span>` : ''}
+            ${loc ? `<span class="word-place">${escapeText(capitalizeFirst(loc.nom))} · ${escapeText(Monde.lieuTexte(loc))}</span>` : ''}
           </div>
           <span class="word-score ${pct < 50 ? 'low' : 'mid'}">${p.successes}/${p.attempts}</span>
         </div>
@@ -4323,11 +4048,11 @@ function showStrugglingWordsScreen() {
     html = `
       <div class="empty-state">
         <div class="empty-icon">🌟</div>
-        Aucun mot difficile pour le moment.<br>Continue comme ça !
+        Rien à retravailler pour le moment.<br>Continue comme ça !
       </div>
     `;
   } else {
-    html = '<p class="intro">Ces mots méritent encore un peu d\'entraînement. Tu vas y arriver ! 💪</p>' + html;
+    html = '<p class="intro">Ces mots et ces leçons méritent encore un peu d\'entraînement. Tu vas y arriver ! 💪</p>' + html;
   }
 
   container.innerHTML = html;
@@ -4352,26 +4077,15 @@ function startScan() {
   alert('Le scanner arrive bientôt. En attendant, saisis la liste à la main.');
 }
 
-// ───────────────────────────────────────────────────────────────
-// CARTES QUESTIONS : cartes à retourner, rangées en boîtes
-// ───────────────────────────────────────────────────────────────
-// On lit la question, on répond à voix haute, on retourne la carte, puis
-// on dit soi-même « Je savais » ou « À revoir ». Seule ou avec un parent,
-// c'est le même écran : seul change celui qui appuie.
+// Le meuble gagné avec un niveau, sous la célébration
+function meubleGagneHTML(forme) {
+  const info = Objets.info(forme);
+  return `<div class="meuble-gagne">${Objets.draw(forme, { taille: 64 })}<span>🎁 Nouveau meuble : <strong>${escapeText(info.nom)}</strong>, à poser dans tes lieux</span></div>`;
+}
 
-const CartesGame = {
-  listId: null,
-  cards: {},      // id → carte (copie de travail)
-  queue: [],      // ids des cartes à venir, la première est à l'écran
-  total: 0,       // cartes tirées pour la session
-  done: 0,        // cartes terminées
-  returns: {},    // id → nombre de retours dans la session
-  toReview: [],   // ids des cartes ratées au moins une fois
-  becameNinja: false
-};
-
-// Tirage pondéré : les cartes à revoir et les nouvelles sortent en premier,
-// les cartes connues reviennent de temps en temps.
+// Tirage pondéré des questions pour les jeux (js/jeux-cartes.js) : celles
+// à retravailler et les nouvelles sortent en premier, les maîtrisées
+// reviennent de temps en temps.
 function drawCards(cards) {
   return cards
     .map(card => ({ card, key: Math.random() * (CARTES.poidsTirage[card.box] || 1) }))
@@ -4380,192 +4094,12 @@ function drawCards(cards) {
     .map(x => x.card);
 }
 
-function startCartes(listId) {
-  const list = Storage.getLists().find(l => l.id === listId);
-  if (!list || !(list.cards || []).length) return;
-
-  const drawn = shuffleArray(drawCards(list.cards));
-  CartesGame.listId = listId;
-  CartesGame.cards = {};
-  drawn.forEach(c => { CartesGame.cards[c.id] = { ...c }; });
-  CartesGame.queue = drawn.map(c => c.id);
-  CartesGame.total = drawn.length;
-  CartesGame.done = 0;
-  CartesGame.returns = {};
-  CartesGame.toReview = [];
-  CartesGame.becameNinja = false;
-  AppState.currentList = list;
-  AppState.sessionReplay = () => startCartes(listId);
-
-  showScreen('cartes');
-  document.getElementById('cartes-list-name').textContent = list.name;
-  showCarte();
-}
-
-function currentCarte() {
-  return CartesGame.cards[CartesGame.queue[0]];
-}
-
-// Taille du texte selon sa longueur, pour que tout tienne sur la carte
+// Taille du texte selon sa longueur, pour que tout tienne
 function carteTextClass(text) {
   if (text.length > 120) return 'xs';
   if (text.length > 60) return 's';
   if (text.length > 25) return 'm';
   return '';
-}
-
-function showCarte() {
-  const card = currentCarte();
-  const flip = document.getElementById('flip-card');
-  const again = (CartesGame.returns[card.id] || 0) > 0;
-
-  // Revient côté question sans animation : sinon on verrait passer la réponse suivante
-  flip.classList.add('no-anim');
-  flip.classList.remove('flipped');
-  const q = document.getElementById('carte-question');
-  const a = document.getElementById('carte-answer');
-  q.textContent = card.q;
-  q.className = `carte-text ${carteTextClass(card.q)}`;
-  a.textContent = card.a;
-  a.className = `carte-text ${carteTextClass(card.a)}`;
-  void flip.offsetWidth;
-  flip.classList.remove('no-anim');
-
-  renderSessionProgress('cartes-session-progress', CartesGame.total, CartesGame.done);
-  document.getElementById('cartes-progress').textContent =
-    again ? '🔁 On la revoit' : `Carte ${Math.min(CartesGame.done + 1, CartesGame.total)}/${CartesGame.total}`;
-  document.getElementById('cartes-flip-zone').classList.remove('hidden');
-  document.getElementById('cartes-verdict-zone').classList.add('hidden');
-}
-
-function flipCarte() {
-  const flip = document.getElementById('flip-card');
-  flip.classList.toggle('flipped');
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-  // Une fois la réponse vue, on peut la valider (et re-regarder la question)
-  document.getElementById('cartes-flip-zone').classList.add('hidden');
-  document.getElementById('cartes-verdict-zone').classList.remove('hidden');
-}
-
-// Lit à voix haute le côté visible de la carte
-function speakCarte() {
-  const card = currentCarte();
-  if (!card || !AppState.soundEnabled) return;
-  const flipped = document.getElementById('flip-card').classList.contains('flipped');
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-  speakWord(flipped ? card.a : card.q);
-}
-
-function answerCarte(known) {
-  const card = currentCarte();
-  if (!card) return;
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-  const failedBefore = CartesGame.toReview.includes(card.id);
-
-  if (known) {
-    // Ratée plus tôt dans la session : elle reste « à revoir » jusqu'à la prochaine fois
-    const box = failedBefore ? 1 : (card.box === 0 ? 2 : Math.min(3, card.box + 1));
-    const slotsBefore = Storage.getCompanionSlots();
-    if (Storage.setCardBox(CartesGame.listId, card.id, box)) {
-      CartesGame.becameNinja = true;
-      if (Storage.getCompanionSlots() > slotsBefore) AppState.newCompanionUnlocked = true;
-    }
-    card.box = box;
-    CartesGame.queue.shift();
-    CartesGame.done++;
-  } else {
-    Storage.setCardBox(CartesGame.listId, card.id, 1);
-    card.box = 1;
-    if (!failedBefore) CartesGame.toReview.push(card.id);
-    CartesGame.queue.shift();
-    // La carte revient un peu plus loin dans la session
-    const returns = CartesGame.returns[card.id] || 0;
-    if (returns < CARTES.retoursMaxParCarte) {
-      CartesGame.returns[card.id] = returns + 1;
-      CartesGame.queue.splice(Math.min(3, CartesGame.queue.length), 0, card.id);
-    } else {
-      CartesGame.done++;
-    }
-  }
-
-  if (CartesGame.queue.length === 0) finishCartes();
-  else showCarte();
-}
-
-function finishCartes() {
-  // La récompense est pour la session terminée, pas pour les bonnes réponses
-  Storage.addStars(CARTES.etoilesSession);
-  playStarSound();
-  if (CartesGame.becameNinja) Storage.grantChest('rare');
-  Defis.track('session');
-  Defis.track('jeu');
-  openPendingChests(showCartesResults);
-}
-
-function showCartesResults() {
-  showScreen('results');
-  const container = document.getElementById('results-content');
-  if (!container) return;
-
-  const review = CartesGame.toReview.map(id => CartesGame.cards[id]);
-  const knownCount = CartesGame.total - review.length;
-  const freeStickers = Storage.getFreeStickers().reduce((sum, x) => sum + x.count, 0);
-
-  let html = `
-    <div class="result-hero">
-      <div class="result-icon">${review.length === 0 ? '🏆' : '👏'}</div>
-      <h2>Session terminée !</h2>
-      <p class="result-score">${knownCount} / ${CartesGame.total}</p>
-      <p class="result-sub">carte${knownCount > 1 ? 's' : ''} connue${knownCount > 1 ? 's' : ''} du premier coup</p>
-      <div class="stars-earned">+${CARTES.etoilesSession} ⭐ gagnées</div>
-    </div>
-  `;
-
-  if (CartesGame.becameNinja) {
-    html += `
-      <div class="level-up">
-        ${celebrationArt('🥷')}
-        <div class="level-up-title">Liste Ninja !</div>
-        <div class="level-up-sub">Tu connais toutes les cartes de cette liste</div>
-      </div>
-    `;
-  }
-  html += Defis.celebrationHTML();
-
-  if (review.length > 0) {
-    html += `<div class="error-card"><h3>À revoir (${review.length})</h3>`;
-    review.forEach(card => {
-      html += `
-        <div class="error-item">
-          <div class="error-word">${escapeText(card.q)}</div>
-          <div class="error-detail">Réponse : <span class="error-expected">${escapeText(card.a)}</span></div>
-        </div>
-      `;
-    });
-    html += '<p class="hint">Ces cartes reviendront en premier la prochaine fois.</p></div>';
-  } else {
-    html += '<div class="success-card">✅ Toutes les cartes connues !</div>';
-  }
-
-  if (AppState.newCompanionUnlocked) {
-    AppState.newCompanionUnlocked = false;
-    html += `
-      <div class="level-up">
-        ${celebrationArt('🐾')}
-        <div class="level-up-title">Nouveau compagnon débloqué !</div>
-        <div class="level-up-sub">Va choisir ton kawaii de compagnie</div>
-        <div class="team-actions"><button class="btn btn-secondary" onclick="showKawaiiScreen()">🎨 Choisir mon compagnon</button></div>
-      </div>
-    `;
-  }
-
-  html += `
-    <div class="result-actions">
-      <button class="btn btn-primary btn-big" onclick="replaySession()">🃏 Encore une session</button>
-      ${freeStickers > 0 ? `<button class="btn btn-secondary" onclick="showPalaisScreen()">🏠 Coller mes ${freeStickers} sticker${freeStickers > 1 ? 's' : ''}</button>` : ''}
-    </div>
-  `;
-  container.innerHTML = html;
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -4612,9 +4146,14 @@ function showParentsScreen() {
   document.getElementById('parents-summary').textContent =
     `${lists.length} liste${lists.length > 1 ? 's' : ''} · ${Storage.getEconomy().stars} ⭐ · ` +
     (last ? `dernière sauvegarde le ${new Date(last).toLocaleDateString('fr-FR')}` : 'jamais sauvegardé');
+  // Les images sont lues d'avance : sur iPad, la feuille de partage doit
+  // s'ouvrir tout de suite après l'appui sur « Sauvegarder »
+  imagesSauvegarde = Images.exporter();
 }
 
-function exportData() {
+let imagesSauvegarde = null;
+
+async function exportData() {
   localStorage.setItem('lastExportAt', new Date().toISOString());
   const data = {};
   for (let i = 0; i < localStorage.length; i++) {
@@ -4623,7 +4162,9 @@ function exportData() {
     if (Sync.LOCAL_ONLY_KEYS.includes(key)) continue;
     data[key] = localStorage.getItem(key);
   }
-  const json = JSON.stringify({ app: 'mental-palace', format: 1, exportedAt: new Date().toISOString(), data }, null, 1);
+  // Les images des leçons (IndexedDB) voyagent dans le même fichier
+  const images = await (imagesSauvegarde || Images.exporter());
+  const json = JSON.stringify({ app: 'mental-palace', format: 2, exportedAt: new Date().toISOString(), data, images }, null, 1);
   const name = `mental-palace-${new Date().toISOString().slice(0, 10)}.json`;
   const file = new File([json], name, { type: 'application/json' });
 
@@ -4654,7 +4195,7 @@ function importData(input) {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     let payload;
     try {
       payload = JSON.parse(reader.result);
@@ -4686,6 +4227,14 @@ function importData(input) {
     Object.entries(payload.data).forEach(([key, value]) => {
       if (typeof value === 'string' && !Sync.LOCAL_ONLY_KEYS.includes(key)) localStorage.setItem(key, value);
     });
+    // Images des leçons (fichiers de format 2)
+    if (payload.images) {
+      try {
+        await Images.importer(payload.images);
+      } catch (e) {
+        alert('Les images des leçons n\'ont pas pu être restaurées.');
+      }
+    }
     window.location.reload();
   };
   reader.readAsText(file);

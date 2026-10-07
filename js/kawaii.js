@@ -472,7 +472,8 @@ let pet = null; // { svg, id, x, y, moved, lastFly, stopSound }
 
 function petStart(e) {
   const svg = e.target.closest && e.target.closest('.k-alive');
-  if (!svg || pet) return;
+  // Un kawaii qu'on fait glisser (mode libre) ne se caresse pas
+  if (!svg || pet || svg.closest('[data-drag]')) return;
   try { svg.setPointerCapture(e.pointerId); } catch (err) {}
   pet = { svg, id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, lastFly: 0, stopSound: null, stroking: false };
 }

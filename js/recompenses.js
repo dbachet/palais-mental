@@ -48,9 +48,9 @@ const Defis = {
       case 'session':
         return wordLists.length + cardLists.length > 0;
       case 'visite':
-        return wordLists.length > 0;
+        return wordLists.length + cardLists.length > 0;
       case 'jeu':
-        return cardLists.length > 0;
+        return cardLists.some(l => l.cards.some(c => c.kind !== 'lecon'));
       case 'travail': {
         const hard = wordLists.reduce((n, l) => n + l.words.filter(w => {
           const p = l.progress[w];
@@ -60,13 +60,11 @@ const Defis = {
       }
       case 'calin':
         return !!Storage.getTeam().main;
-      case 'sticker': {
-        const eco = Storage.getEconomy();
-        const free = Storage.getFreeStickers().length > 0;
-        const room = Storage.getAllLocations()
-          .some(loc => (eco.placed[placeKeyOf(loc)] || []).length < ECONOMIE.maxStickersParLieu);
-        return free && room;
-      }
+      case 'maison':
+        return Storage.getMaisons().length > 0 && Storage.getFreeMeubles().length > 0;
+      case 'sticker':
+        // Il faut un sticker dans le sac, un lieu où le coller et du temps de jeu
+        return Storage.getFreeStickers().length > 0 && Storage.getActiveLists().length > 0 && TempsJeu.peutJouer();
       default:
         return true;
     }
@@ -215,8 +213,9 @@ const Defis = {
   // Où aller pour réussir ce défi
   go(id) {
     if (id === 'travail') showStrugglingWordsScreen();
-    else if (id === 'sticker') showPalaisScreen();
+    else if (id === 'sticker') collerStickers();
     else if (id === 'album') showAlbumScreen();
+    else if (id === 'maison') Maisons.afficher();
     else if (id === 'calin') {
       const main = document.querySelector('#team-card .team-main');
       if (main) main.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -395,6 +394,30 @@ function showAlbumScreen(keepScroll) {
     `;
   });
 
+  // ── Collection de meubles : ceux pas encore trouvés en silhouette ──
+  const formes = Objets.ids();
+  const trouves = formes.filter(f => eco.meubles[f] > 0).length;
+  html += `
+    <div class="album-page meubles${trouves === formes.length ? ' complete' : ''}">
+      <div class="category-title">
+        🛋️ Mes meubles
+        <span class="price-tag">${trouves}/${formes.length}</span>
+      </div>
+      <p class="hint">Un meuble de plus à chaque niveau gagné, dans les coffres et à la boutique.</p>
+      <div class="album-grid">
+        ${formes.map(f => {
+          const n = eco.meubles[f] || 0;
+          return `
+            <div class="album-cell meuble${n ? ' found' : ''}">
+              ${n > 1 ? `<span class="item-owned">×${n}</span>` : ''}
+              <span class="album-art">${Objets.draw(f, { taille: 64, gris: !n, visage: false })}</span>
+              <span class="album-name">${n ? escapeText(capitalizeFirst(Objets.info(f).nom)) : '?'}</span>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+
   content.innerHTML = html;
   if (keepScroll) window.scrollTo(0, y);
 }
@@ -425,8 +448,8 @@ function showAlbumSticker(stickerId) {
   const free = Storage.getFreeCount(stickerId, eco);
   const placed = count - free;
   const where = placed === 0
-    ? 'Pas encore collé dans ton palais.'
-    : `${placed} collé${placed > 1 ? 's' : ''} dans ton palais${free > 0 ? `, ${free} dans ton sac` : ''}.`;
+    ? 'Pas encore collé dans un lieu.'
+    : `${placed} collé${placed > 1 ? 's' : ''} dans tes lieux${free > 0 ? `, ${free} dans ton sac` : ''}.`;
   showSheet(`
     <div class="sheet-art">${stickerArt(sticker, 110)}</div>
     <h3>${escapeText(sticker.nom)}${count > 1 ? ` ×${count}` : ''}</h3>
@@ -434,7 +457,199 @@ function showAlbumSticker(stickerId) {
     <p class="text-center mt-10">${where}</p>
     <div class="sheet-actions">
       <button class="btn btn-ghost" onclick="closeSheet()">Fermer</button>
-      ${free > 0 ? '<button class="btn btn-primary" onclick="closeSheet(); showPalaisScreen()">🏠 Le coller</button>' : ''}
+      ${free > 0 ? '<button class="btn btn-primary" onclick="closeSheet(); collerStickers()">🏠 Le coller</button>' : ''}
     </div>
   `);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TEMPS DE JEU LIBRE (par jour)
+// ═══════════════════════════════════════════════════════════════
+// Jouer dans les lieux (🧸) et les jeux de la salle de jeux consomment le
+// temps du jour : TEMPS_JEU.offertMinutes offertes, puis des minutes à
+// acheter avec des étoiles, jusqu'à TEMPS_JEU.maxMinutesParJour.
+// Rangé dans economy.tempsJeu = { date, utilise (secondes), achete (minutes) },
+// donc synchronisé : le temps joué sur l'iPad compte aussi ailleurs.
+// Le temps ne compte que l'app à l'écran, et pas après un moment sans
+// toucher l'écran.
+
+const TempsJeu = {
+  timer: null,
+  onFin: null,
+  enAttente: 0,        // secondes jouées pas encore enregistrées
+  derniereActivite: 0,
+
+  aujourdhui() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+
+  etat(eco = Storage.getEconomy()) {
+    const t = eco.tempsJeu;
+    if (!t || t.date !== this.aujourdhui()) return { date: this.aujourdhui(), utilise: 0, achete: 0 };
+    return { date: t.date, utilise: t.utilise || 0, achete: t.achete || 0 };
+  },
+
+  // Secondes qui restent aujourd'hui
+  restant() {
+    const t = this.etat();
+    return Math.max(0, (TEMPS_JEU.offertMinutes + t.achete) * 60 - t.utilise - this.enAttente);
+  },
+
+  peutJouer() {
+    return this.restant() > 0;
+  },
+
+  // { ok } ou { ok: false, raison: 'max' | 'etoiles' }
+  achatPossible() {
+    const t = this.etat();
+    if (TEMPS_JEU.offertMinutes + t.achete + TEMPS_JEU.achatMinutes > TEMPS_JEU.maxMinutesParJour) return { ok: false, raison: 'max' };
+    if (Storage.getEconomy().stars < TEMPS_JEU.achatPrix) return { ok: false, raison: 'etoiles' };
+    return { ok: true };
+  },
+
+  acheter() {
+    if (!this.achatPossible().ok || !Storage.spendStars(TEMPS_JEU.achatPrix)) return false;
+    const eco = Storage.getEconomy();
+    const t = this.etat(eco);
+    t.achete += TEMPS_JEU.achatMinutes;
+    eco.tempsJeu = t;
+    Storage.saveEconomy(eco);
+    playStarSound();
+    this.afficher();
+    return true;
+  },
+
+  sauver() {
+    if (this.enAttente <= 0) return;
+    const eco = Storage.getEconomy();
+    const t = this.etat(eco);
+    t.utilise += this.enAttente;
+    eco.tempsJeu = t;
+    this.enAttente = 0;
+    Storage.saveEconomy(eco);
+  },
+
+  demarrer(onFin) {
+    this.arreter();
+    this.onFin = onFin;
+    this.derniereActivite = Date.now();
+    this.timer = setInterval(() => this.tic(), 1000);
+    this.afficher();
+  },
+
+  tic() {
+    if (document.hidden) return;
+    const pause = Date.now() - this.derniereActivite > TEMPS_JEU.pauseApresSecondes * 1000;
+    if (pause) {
+      this.afficher(true);
+      return;
+    }
+    this.enAttente++;
+    if (this.enAttente >= 5) this.sauver();
+    this.afficher();
+    if (this.restant() <= 0) {
+      const f = this.onFin;
+      this.arreter();
+      if (f) f();
+    }
+  },
+
+  activite() {
+    this.derniereActivite = Date.now();
+  },
+
+  arreter() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    this.onFin = null;
+    this.sauver();
+  },
+
+  format(sec) {
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  },
+
+  // Met à jour les jauges ⏳ affichées (salle de jeux, lieu)
+  afficher(enPause) {
+    const r = this.restant();
+    document.querySelectorAll('.temps-jeu').forEach(el => {
+      el.textContent = `⏳ ${this.format(r)}${enPause ? ' · pause' : ''}`;
+      el.classList.toggle('bas', r <= 60);
+    });
+  },
+
+  // Phrase pour l'accueil
+  texte() {
+    const r = this.restant();
+    if (r <= 0) return '🧸 Temps de jeu fini pour aujourd\'hui';
+    const m = Math.ceil(r / 60);
+    return `🧸 ${m} min de jeu aujourd'hui`;
+  },
+
+  boutonAchat() {
+    const a = this.achatPossible();
+    if (a.ok) return `<button class="btn btn-primary" onclick="TempsJeu.acheterPuis()">⏳ +${TEMPS_JEU.achatMinutes} min pour ${TEMPS_JEU.achatPrix} ⭐</button>`;
+    return '';
+  },
+
+  raisonTexte() {
+    const a = this.achatPossible();
+    if (a.raison === 'max') return 'Tu as assez joué pour aujourd\'hui. À demain !';
+    if (a.raison === 'etoiles') return `Il faut ${TEMPS_JEU.achatPrix} ⭐ pour ${TEMPS_JEU.achatMinutes} minutes de plus. Va apprendre un peu, et reviens !`;
+    return `Tu peux ajouter ${TEMPS_JEU.achatMinutes} minutes pour ${TEMPS_JEU.achatPrix} ⭐.`;
+  },
+
+  apresAchat: null,
+  acheterPuis() {
+    closeSheet();
+    const suite = this.apresAchat;
+    this.apresAchat = null;
+    if (this.acheter() && suite) suite();
+  },
+
+  // Plus de temps : propose d'en acheter, puis onOk()
+  proposerAchat(onOk) {
+    this.apresAchat = onOk;
+    showSheet(`
+      <div class="sheet-art temps-sheet-art">⏳</div>
+      <h3>Plus de temps de jeu aujourd'hui</h3>
+      <p class="text-center">${this.raisonTexte()}</p>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet()">D'accord</button>
+        ${this.boutonAchat()}
+      </div>
+    `);
+  },
+
+  // Le temps vient de finir pendant le jeu
+  messageFin(onRejouer, onQuitter, main) {
+    this.apresAchat = onRejouer;
+    showSheet(`
+      ${main ? `<div class="sheet-art">${Kawaii.draw(main, 110, { alive: true, mood: 'soir' })}</div>` : '<div class="sheet-art temps-sheet-art">⏳</div>'}
+      <h3>Ton temps de jeu est fini</h3>
+      <p class="text-center">${this.raisonTexte()}</p>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet(); TempsJeu.quitterApresFin()">D'accord</button>
+        ${this.boutonAchat()}
+      </div>
+    `);
+    this.onQuitter = onQuitter;
+  },
+
+  quitterApresFin() {
+    const f = this.onQuitter;
+    this.onQuitter = null;
+    if (f) f();
+  }
+};
+
+document.addEventListener('pointerdown', () => TempsJeu.activite(), { passive: true });
+document.addEventListener('keydown', () => TempsJeu.activite());
+document.addEventListener('visibilitychange', () => { if (document.hidden) TempsJeu.sauver(); });
+
+// Coller un sticker, depuis n'importe où : choisir un lieu, y entrer sac ouvert
+function collerStickers() {
+  Scene.choisirLieu('stickers');
 }

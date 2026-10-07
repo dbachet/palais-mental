@@ -1,3 +1,133 @@
+## [2026-10-07] - Le monde virtuel, étape 5 : Créer ta maison
+
+### Ajouté
+- **🏡 Mes maisons** (accueil) : construire une maison (6 modèles : cabane, maison de ville, chalet, villa, petit château, maison dans les arbres ; 1 à 3 étages), la renommer, la démolir quand aucune liste ne l'habite
+- **Aménager** : poser les meubles de son inventaire dans chaque étage (12 au plus), les déplacer au doigt, les retirer par un appui long. Sans temps de jeu
+- **Une liste dans sa maison** : la maison se choisit comme lieu, à la création ou à l'édition d'une liste (une liste par maison, « Construire ma maison » directement depuis le choix). Chaque meuble porte un élément ; « Il manque N objets » tant qu'il n'y a pas assez de meubles, et les éléments se répartissent dès qu'un meuble arrive. Une maison encore vide invite à l'aménager avant d'apprendre
+- En jouant (🧸) dans une maison, les meubles du tiroir s'y posent comme objets, et les stickers comme déco
+- Défi du jour « Pose un meuble dans ta maison »
+
+### Changé
+- Changer le lieu d'une liste remet aussi à zéro les objets qu'elle avait déplacés
+
+### Technique
+- Nouveau fichier `js/maisons.js` (`Maisons`) ; `MODELES` dans `data/monde.js` ; clé `maisons`, synchronisée (`SYNC_KEYS`)
+- `list.lieu = { kind: 'maison', id }` ; emplacements « étage:id du meuble ». `Monde.lieuModele`, `lieuValeur`, `lieuDeValeur`, `objetsManquants`, `bandeauManque` ; `Storage.getMaisons`, `addMaison`, `ajouterObjetMaison`, `retirerObjetMaison`… ; `Scene.ouvrirAtelier`
+- Déco d'une maison : scène `maison:<id>:<étage>`. Les meubles posés dans une maison ne sont plus libres dans l'inventaire
+- Le rangement répartit les éléments qui partageaient un objet dès qu'il y a de la place
+- Service worker et `?v=` : `v28`
+
+## [2026-10-07] - Le monde virtuel, étape 4 : quartiers, lieux dorés, compagnons, bac à sable
+
+### Ajouté
+- **Quartiers** : avec les étoiles gagnées depuis le début, la ville s'agrandit. À 150 ⭐, le quartier des spectacles ouvre le **Théâtre** (hall, scène, coulisses, loge, costumes, salle de spectacle) ; à 400 ⭐, la campagne ouvre la **Ferme** (étable, poulailler, grange, cuisine, potager, verger). Chaque quartier a son morceau de carte, et son ouverture est fêtée une fois. Les bâtiments pas encore ouverts sont grisés dans le choix du lieu, avec les étoiles qu'il faut
+- 17 nouveaux objets dessinés : vache, poule, cochon, mouton, lapin, canard, tracteur, brouette, botte de foin, carotte, citrouille, nid d'œufs, bidon de lait, épouvantail, projecteur, rideau, billet. Pièces sans fenêtre (la scène) et en plein air avec une barrière (potager, verger)
+- **Lieu doré** : une liste Ninja rend son bâtiment doré et scintillant, et un compagnon de l'équipe s'y installe, sur la carte et dans ses étages
+- **Bac à sable** : en mode libre, toute l'équipe kawaii est dans la pièce ; on la déplace au doigt, et un appui long ouvre l'habillage (seulement ce qu'elle possède)
+- **Un meuble par niveau gagné** (de préférence nouveau), montré avec la célébration du niveau. Page « 🛋️ Mes meubles » dans l'album, avec ceux pas encore trouvés en silhouette
+
+### Technique
+- `QUARTIERS` et le champ `quartier` des bâtiments (`data/monde.js`) ; `economy.quartiersVus`. `Monde.quartiersOuverts`, `batimentOuvert`, `compagnonDe` ; la migration ne donne que des bâtiments de départ
+- Décor : fenêtres `aucune` et `champ` (`js/scene.js`) ; façades du théâtre et de la ferme (`js/monde.js`)
+- `Storage.gagnerMeubleNiveau`, `meubleGagneHTML` ; `Scene.habiller`, `Scene.porter`
+- Service worker et `?v=` : `v27`
+
+## [2026-10-07] - Le monde virtuel, étape 3 : les listes de révision
+
+### Ajouté
+- **Listes de révision** (à la place des cartes questions) : des questions et des leçons dans une même liste, dans l'ordre du texte. Blocs séparés par une ligne vide : `# Titre` commence une leçon, un bloc de lignes `question = réponse` donne des questions, tout autre bloc est une leçon sans titre, `[📷 n]` place une image. Aperçu des blocs sous la zone de saisie, avec « 📷 » pour ajouter ou changer l'image d'une leçon et « 🖼️ Ajouter un bloc image ». Consigne pour une IA mise à jour
+- **Images des leçons** : réduites à 1600 px (JPEG) et rangées dans IndexedDB. Elles sont incluses dans le fichier de sauvegarde de l'espace parents, mais ne passent pas en ligne
+- **📖 Apprendre** une liste de révision, dans la pièce : elle choisit l'objet ; la question et sa réponse, ou la leçon (image en grand d'un appui, « 🔊 Lire » phrase par phrase), s'affichent seules. Un paquet par étage, « J'ai tout vu », puis proposition de se rappeler
+- **🧠 Se rappeler** : question → « Voir la réponse » → « Je savais » / « À revoir » ; leçon → indice selon le niveau (titre et 5 premiers mots, puis titre seul, puis rien en Ninja) → « Voir le cours » → « Presque rien », « Une partie » ou « L'essentiel ». 80 % des points font monter d'un niveau (niveau 1, niveau 2, Ninja), sans jamais redescendre
+- Les éléments de révision à retravailler apparaissent dans « Mots à travailler », avec « 🧠 Me rappeler ces éléments »
+
+### Changé
+- Corriger le texte d'une liste garde l'objet, la boîte et l'image de chaque élément reconnu (même question, ou même titre, texte ou image pour une leçon)
+- QCM, paires et écrire la réponse ne prennent que les questions. « Retourner les cartes » est remplacé par Apprendre et Se rappeler
+- Défis du jour : la visite compte aussi pour une liste de révision
+
+### Technique
+- Nouveaux fichiers `js/revision.js` (`Revision`) et `js/images.js` (`Images`). Leçon : `{ id, kind: 'lecon', titre, texte, image, box }` ; `list.images = { n: id }` ; `list.level` 0-1 puis `ninja`
+- Réglages `REVISION` et `IMAGES` dans `data/lieux.js` ; `CARTES.retoursMaxParCarte` retiré
+- Fichier de sauvegarde au format 2 (`images`) ; les fichiers de format 1 se restaurent toujours
+- Supprimés : l'écran des cartes à retourner (`CartesGame`, `startCartes`, `showCarte`, `flipCarte`, `answerCarte`, `speakCarte`, `showCartesResults`, `copyCardsPrompt`) et leurs styles
+- Service worker et `?v=` : `v26`
+
+## [2026-10-07] - Plus de notes sur les lettres
+
+### Changé
+- Les notes jouées sur chaque lettre sont retirées partout, y compris pour les langues étrangères : le mot s'affiche en gris, la voix le lit, puis les lettres se colorent en silence
+- Service worker et `?v=` : `v25`
+
+### Technique
+- `playBeep`, `charToFrequency` et `PENTATONIC_SCALE` supprimés (`initAudio` reste pour les sons des jeux et des récompenses)
+
+## [2026-10-07] - En session, la couleur montre ce qu'on peut toucher
+
+### Changé
+- Pendant Apprendre et S'entraîner, les objets qu'elle peut toucher sont en couleur, avec un léger halo ; tout le reste (objets faits ou hors du paquet, objets de décor, comptoirs, étagères, tables, socles, déco) est gris pâle. Avant, c'était l'inverse : les objets à toucher, pas encore maîtrisés, étaient gris et les supports en couleur. Le petit visage reste réservé aux éléments maîtrisés
+- Service worker et `?v=` : `v24`
+
+## [2026-10-07] - Des pièces pensées, et le mot avant la voix
+
+### Changé
+- **Chaque pièce est composée à la main** : 12 objets qui vont ensemble (le four, le pain et la balance au fournil ; le lit et la commode dans la chambre ; les socles au musée…), chacun à une place logique : au mur, au sol, sur un comptoir, une étagère, une table ou un socle. Plus de petite table automatique sous les petits objets. La pièce est toujours dessinée en entier : les objets qui ne portent aucun mot sont du décor (estompés pendant les sessions, sans ⭐ en mode libre). Elle peut toujours tout déplacer en mode libre ; les objets qu'elle avait déplacés reprennent une fois leur nouvelle place
+- **Le mot s'affiche avant d'être lu** : il apparaît en gris, la voix le dit, puis ses lettres prennent leur couleur une à une
+- **Mélodie des lettres seulement pour les langues étrangères** : pour les listes de mots simples, le mot est lu puis ses lettres s'animent en silence
+
+### Technique
+- `data/monde.js` : objets d'étage au format `'forme x y [taille]'` ou `'forme x sN'` (sur le support N), et `supports` par étage (`comptoir`, `etagere`, `table`, `socle`). Une forme ne sert qu'une fois par étage (avant : par bâtiment). `Monde.supportsDe`, `Scene.positionDepart` retiré
+- `economy.version = 4` : `list.positions` remis à zéro une fois
+- Service worker et `?v=` : `v23`
+
+## [2026-10-07] - Le monde virtuel, étape 2 : les étages, le mode libre, le temps de jeu
+
+### Ajouté
+- **Les étages** : chaque étage est une pièce dessinée par le code (murs, papier peint, fenêtres, sol selon le thème de l'étage ; ciel et rambarde sur les toits) avec ses objets d'apprentissage
+- **Apprendre et S'entraîner dans l'étage (mode calme)** : **elle choisit l'objet** à aller voir parmi ceux du paquet ; son kawaii y marche, puis la pièce disparaît pour laisser le mot seul (pas d'objet ni de nom à l'écran, pour rester concentrée). « ← Retour à la pièce » pour choisir le suivant. En Apprendre, on revoit un objet autant qu'on veut (✓ déjà vu, « J'ai tout vu ») ; en S'entraîner, un objet fait est marqué (✓ réussi, ↺ à revoir) et ne se touche plus. Plusieurs étages ou lieux dans le paquet : des boutons pour passer de l'un à l'autre. Animation lettre par lettre, mélodie, dictée, cases, timer et niveaux inchangés. Les objets hors du paquet et les déco sont estompés
+- **🧸 Jouer dans un lieu (mode libre)**, depuis la fiche d'un bâtiment : on passe d'étage en étage, on déplace au doigt les objets d'apprentissage (pastille ⭐ ; le mot suit son objet), son kawaii et ses déco. « ↩️ Remettre les objets » rend leur place de départ aux objets de l'étage
+- **Décorer** : le tiroir « 🎒 Décorer » montre les meubles et les stickers de l'inventaire ; on en choisit un, on tape dans la pièce pour le poser, un appui long le retire. 20 déco au plus par étage
+- **Meubles** : les formes dessinées servent aussi de meubles de déco. Kit de 12 meubles offert, meubles dans les coffres (environ un sur trois) et rayon « 🛋️ Meubles » à la boutique (4 à 8 ⭐)
+- **Temps de jeu du jour** : 5 minutes offertes chaque jour pour jouer dans les lieux et dans la salle de jeux, puis 5 minutes pour 5 ⭐, jusqu'à 20 minutes. Jauge ⏳ pendant le jeu, temps restant sur la carte. Quand il est fini : le kawaii bâille, retour à la ville avec un message doux
+- **Salle de jeux dans la ville** : un bâtiment à enseigne lumineuse, avec une borne d'arcade par jeu
+
+### Changé
+- **Les stickers se collent dans les étages**, plus sur la carte. Ceux déjà collés sur la carte reviennent dans le sac. « Coller un sticker » (défi du jour, album, fin de session) fait choisir un lieu, puis ouvre son tiroir
+- Salle de jeux : plus de jetons par partie ; le déblocage unique reste, et on joue sur le temps du jour. Une partie commencée se termine même si le temps finit
+- Défi « Colle un sticker dans un lieu »
+
+### Technique
+- Nouveau fichier `js/scene.js` (`Scene` : décor, `render` en mode calme ou libre, glisser-déposer, tiroir). `TempsJeu` dans `js/recompenses.js` (le composant `Stickers` de la carte est retiré)
+- `list.positions` ; `economy.placed` par étage (`bat:<liste>:<étage>`, `{ sticker | meuble, x, y }`) ; `economy.meubles`, `economy.kitDepart`, `economy.tempsJeu`, `economy.salleJeux`, `economy.version = 3`. Supprimer une liste remet ses déco dans l'inventaire
+- Réglages : `TEMPS_JEU`, `ECONOMIE.maxDecoParScene`, `chanceMeubleCoffre`, `prixMeubles`, `kitDepart` ; `ARCADE.prixJeton` retiré
+- `js/kawaii.js` : pas de caresse sur un kawaii qu'on fait glisser (`data-drag`)
+- Service worker et `?v=` : `v22`
+
+## [2026-10-07] - Le monde virtuel, étape 1 : la ville et ses bâtiments
+
+### Ajouté
+- **🏙️ La ville** : l'accueil est la carte d'une petite ville. Chaque liste est un bâtiment, avec son nom et sa barre de maîtrise ; un appui ouvre la liste et ses modes de jeu, le **+** crée une liste
+- **Six bâtiments tout prêts** : boulangerie, salon de coiffure, château, musée, labo, école. Chacun a **6 étages de 12 objets** (72 emplacements), un thème par étage (le fournil, la salle du trône, la tour du magicien…). Un étage ne s'ouvre que si la liste en a besoin, et le bâtiment grandit sur la carte avec ses étages
+- **Les objets sont dessinés par le code** : une centaine de meubles et objets dans le style des kawaii (lit, four, trône, télescope, piano…). Gris tant que l'élément n'est pas maîtrisé, en couleur avec un petit visage ensuite. Une même forme ne sert qu'une fois par bâtiment
+- **Choix du lieu** à la création d'une liste, et dans l'édition pour en changer
+- **Stickers collés où on veut** sur la carte (🎒 Mes stickers) : on choisit, on tape à l'endroit voulu, on déplace au doigt, un appui long décolle. Ils ne servent qu'à décorer
+- Apprendre et S'entraîner montrent l'objet, son nom et son étage ; « J'y suis ! » devient « 👀 Voir le mot » et « ✏️ J'écris le mot »
+
+### Retiré
+- La maison réelle : écrans « Mon palais », pièce et « Ma maison », `LIEUX`, emojis des pièces, déplacement physique
+
+### Migration (automatique, au premier lancement)
+- Chaque liste reçoit un bâtiment tout prêt (à tour de rôle) et ses éléments sont rangés sur des objets. Le contenu des listes, leur niveau et leur progression sont gardés, comme les étoiles, les coffres, la garde-robe et l'équipe de kawaii
+- Les stickers collés dans l'ancienne maison reviennent dans le sac (ceux possédés sont tous gardés)
+- Une copie de l'état d'avant est gardée sur l'appareil (`sauvegardeAvantMonde`, aussi dans le fichier de sauvegarde)
+
+### Technique
+- Nouveaux fichiers : `data/monde.js` (`BATIMENTS`), `js/objets.js` (`Objets`), `js/monde.js` (`Monde` : lieux, rangement, carte, migration). Composant `Stickers` dans `js/recompenses.js`
+- Liste : `lieu`, `places` (`{ clé: "étage:objet" }`, clé = mot ou id de carte), `parcelle` ; `wordLocations` supprimé. Rangement stable et reproductible (hasard tiré de l'id de la liste)
+- `economy.placed` : `{ scène: [{ sticker, x, y }] }`, `economy.version = 2` ; `ECONOMIE.maxStickersParScene` remplace `maxStickersParLieu`
+- Clé `maison` supprimée (et retirée de la synchronisation)
+- Service worker et `?v=` : `v20`
+
 ## [2026-09-29] - Jeux des cartes questions, album de stickers, défis du jour
 
 ### Ajouté

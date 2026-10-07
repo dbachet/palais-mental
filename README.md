@@ -182,8 +182,8 @@ Chaque mot est associé à un **objet précis** d'un lieu de la ville. L'enfant 
 ### Apprentissage multi-sensoriel
 
 - **Spatial** : chaque mot a sa place sur un objet, dans un étage, dans un bâtiment
-- **Visuel** : Animation de chaque lettre (agrandissement + couleur rose vif très contrastée)
-- **Auditif** : Mélodie unique pour chaque mot (gamme pentatonique majeure)
+- **Visuel** : le mot s'affiche en gris, il est lu à voix haute, puis chaque lettre s'anime (agrandissement + couleur rose vif très contrastée)
+- **Auditif** : la voix lit le mot ; pour les langues étrangères seulement, une mélodie unique accompagne les lettres (gamme pentatonique majeure)
   - Chaque lettre = une note musicale différente
   - 20 notes sur 4 octaves (C4 à A7)
   - Sons doux et agréables (pas de bip strident)
@@ -205,7 +205,7 @@ Avec un compte (espace parents), ces clés, plus `mixSelection` et `animationSpe
 
 ## 🎵 Sons
 
-- **Mélodie unique par mot** : Système de notes musicales basé sur la gamme pentatonique
+- **Mélodie unique par mot** (listes de langue seulement) : Système de notes musicales basé sur la gamme pentatonique
   - Chaque caractère est mappé à une note musicale (C4 à A7)
   - Gamme pentatonique majeure : Do, Ré, Mi, Sol, La (notes qui sonnent toujours bien)
   - Sons doux et agréables avec enveloppe ADSR

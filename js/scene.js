@@ -22,39 +22,35 @@
 const Scene = (function () {
 
 const W = 1000, H = 640, SOL = 430;
-const TAILLE = { sol: 170, petit: 110, mur: 120 };
+const TAILLE = { sol: 150, petit: 72, mur: 100 };
 let uid = 0;
-
-// ── Place de départ des 12 objets : de gauche à droite (ordre du parcours),
-// en deux rangées pour qu'ils ne se cachent pas ; les objets accrochés au mur.
-function positionDepart(index, k) {
-  const x = 80 + index * 76.4;
-  if (k === 'mur') return { x, y: index % 2 ? 250 : 335 };
-  return { x, y: index % 2 ? 612 : 512 };
-}
 
 function sceneId(list, etage) {
   return `bat:${list.id}:${etage}`;
 }
 
-// Objets d'apprentissage d'un étage : [{ slotId, info, keys, pos, maitrise }]
+// Objets d'un étage : [{ slotId, info, keys, pos, taille, vide, maitrise }]
+// Tous les objets de la pièce sont dessinés, pour qu'elle reste complète ;
+// ceux qui ne portent aucun élément (vide) ne servent que de décor.
 function objetsEtage(list, etage) {
   const parSlot = {};
   Object.entries(list.places || {}).forEach(([key, slot]) => {
     (parSlot[slot] = parSlot[slot] || []).push(key);
   });
-  return Object.keys(parSlot)
-    .filter(slot => Number(slot.split(':')[0]) === etage)
-    .map(slotId => {
-      const info = Monde.slotInfo(list.lieu, slotId);
-      if (!info) return null;
-      const k = (Objets.info(info.forme) || {}).k || 'sol';
-      const pos = (list.positions || {})[slotId] || positionDepart(info.index, k);
-      const keys = parSlot[slotId];
-      return { slotId, info, k, keys, pos, maitrise: keys.every(key => Monde.estMaitrise(list, key)) };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.info.index - b.info.index);
+  const e = Monde.batiment(list.lieu.type).etages[etage];
+  return (e ? e.objets : []).map((_, i) => {
+    const slotId = `${etage}:${i}`;
+    const info = Monde.slotInfo(list.lieu, slotId);
+    if (!info) return null;
+    const k = (Objets.info(info.forme) || {}).k || 'sol';
+    // Place de départ : celle choisie pour la pièce (data/monde.js)
+    const pos = (list.positions || {})[slotId] || { x: info.x, y: info.y, z: info.z };
+    const keys = parSlot[slotId] || [];
+    return {
+      slotId, info, k, keys, pos, taille: TAILLE[k] * info.echelle, vide: !keys.length,
+      maitrise: keys.length > 0 && keys.every(key => Monde.estMaitrise(list, key))
+    };
+  }).filter(Boolean);
 }
 
 // ── Décor de l'étage (murs, sol, fenêtres) ──
@@ -128,15 +124,43 @@ function decor(etage, b) {
   return `<svg class="scene-fond" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><defs>${defs}</defs>${art}</svg>`;
 }
 
-// Petite table sous les petits objets
-const TABLE = `<svg class="scene-table" viewBox="0 0 100 56" aria-hidden="true"><ellipse cx="50" cy="8" rx="46" ry="8" fill="#E8C7A0" stroke="#3A2B3F" stroke-width="3"/><path d="M50 16 V50 M30 54 H70" stroke="#3A2B3F" stroke-width="4" stroke-linecap="round"/></svg>`;
+// ── Supports du décor : comptoir, étagère, table, socle (on ne les touche
+// pas ; ils portent les petits objets au départ). Monde.supportsDe.
+function supportHTML(s, b) {
+  const w = s.x2 - s.x1, h = s.pied - s.haut;
+  const bois = '#D9A06B', ombre = '#A86F3F', ink = 'stroke="#3A2B3F" stroke-width="3" stroke-linejoin="round"';
+  let vb, art;
+  if (s.type === 'etagere') {
+    vb = `0 0 ${w} 40`;
+    art = `<rect x="2" y="2" width="${w - 4}" height="12" rx="4" fill="${bois}" ${ink}/>` +
+      `<path d="M18 14 v18 l14 -18 M${w - 18} 14 v18 l-14 -18" fill="none" ${ink}/>`;
+    return `<svg class="scene-support" viewBox="${vb}" style="${supportStyle(s.x1, s.haut - 2, w, 40, s.pied)}" aria-hidden="true">${art}</svg>`;
+  }
+  vb = `0 0 ${w} ${h}`;
+  if (s.type === 'comptoir') {
+    art = `<rect x="2" y="12" width="${w - 4}" height="${h - 14}" rx="6" fill="${b.couleurs.facade}" ${ink}/>` +
+      `<rect x="${w * .06}" y="26" width="${w * .88}" height="${h - 44}" rx="6" fill="rgba(255,255,255,.55)"/>` +
+      `<rect x="2" y="2" width="${w - 4}" height="14" rx="5" fill="${bois}" ${ink}/>`;
+  } else if (s.type === 'socle') {
+    art = `<rect x="10" y="12" width="${w - 20}" height="${h - 14}" rx="4" fill="#F5F0E8" ${ink}/>` +
+      `<rect x="2" y="2" width="${w - 4}" height="14" rx="4" fill="${b.couleurs.accent}" ${ink}/>`;
+  } else {
+    art = `<path d="M${w * .14} 14 V${h - 2} M${w * .86} 14 V${h - 2}" stroke="${ombre}" stroke-width="7" stroke-linecap="round"/>` +
+      `<rect x="2" y="2" width="${w - 4}" height="14" rx="6" fill="${bois}" ${ink}/>`;
+  }
+  return `<svg class="scene-support" viewBox="${vb}" preserveAspectRatio="none" style="${supportStyle(s.x1, s.haut, w, h, s.pied)}" aria-hidden="true">${art}</svg>`;
+}
+
+function supportStyle(x, y, w, h, z) {
+  return `left:${pct(x, W)};top:${pct(y, H)};width:${pct(w, W)};height:${pct(h, H)};z-index:${Math.round(z)}`;
+}
 
 function pct(v, total) {
   return (v / total * 100).toFixed(3) + '%';
 }
 
-function placeStyle(x, y, largeur) {
-  return `left:${pct(x, W)};top:${pct(y, H)};width:${pct(largeur, W)};z-index:${Math.round(y)}`;
+function placeStyle(x, y, largeur, z) {
+  return `left:${pct(x, W)};top:${pct(y, H)};width:${pct(largeur, W)};z-index:${Math.round(z || y)}`;
 }
 
 // ── Dessin d'une scène ──
@@ -152,16 +176,14 @@ function render(host, opts) {
 
   const BADGES = { vu: '✓', reussi: '✓', rate: '↺' };
   const objHTML = objets.map(o => {
-    const taille = TAILLE[o.k];
     const st = mode === 'calme' && opts.session ? opts.session[o.slotId] : null;
     let cls = '';
     if (mode === 'calme') cls = st ? ` obj-session obj-${st.etat}${st.fini ? ' obj-fini' : ''}` : ' obj-hors';
     const actif = mode === 'libre' || (st && !st.fini);
     return `<button type="button" class="scene-obj obj-${o.k}${cls}${o.maitrise ? ' obj-maitrise' : ''}" data-slot="${o.slotId}"
-        style="${placeStyle(o.pos.x, o.pos.y, taille)}" aria-label="${escapeText(o.info.nom)}"${actif ? '' : ' tabindex="-1" disabled'}>
+        style="${placeStyle(o.pos.x, o.pos.y, o.taille, o.pos.z)}" aria-label="${escapeText(o.info.nom)}"${actif ? '' : ' tabindex="-1" disabled'}>
         ${Objets.draw(o.info.forme, { couleur: o.info.couleur, taille: 100, gris: !o.maitrise })}
-        ${o.k === 'petit' ? TABLE : ''}
-        ${mode === 'libre' ? '<span class="obj-pastille" aria-hidden="true">⭐</span>' : ''}
+        ${mode === 'libre' && !o.vide ? '<span class="obj-pastille" aria-hidden="true">⭐</span>' : ''}
         ${st && BADGES[st.etat] ? `<span class="obj-badge badge-${st.etat}" aria-hidden="true">${BADGES[st.etat]}</span>` : ''}
       </button>`;
   }).join('');
@@ -178,7 +200,7 @@ function render(host, opts) {
   host.innerHTML = `
     <div class="scene scene-${mode}" data-scene="${sceneId(list, etage)}">
       ${decor(e, b)}
-      <div class="scene-items">${decoHTML}${objHTML}${kawaii}</div>
+      <div class="scene-items">${Monde.supportsDe(e).map(sp => supportHTML(sp, b)).join('')}${decoHTML}${objHTML}${kawaii}</div>
       <div class="scene-armed-hint hidden">👆 Tape dans la pièce pour le poser</div>
     </div>`;
 
@@ -205,7 +227,7 @@ function marcherVers(el, o, onArrive) {
     if (onArrive) onArrive();
     return;
   }
-  const x = Math.max(60, o.pos.x - (o.k === 'sol' ? 110 : 80));
+  const x = Math.max(60, o.pos.x - o.taille / 2 - 40);
   const y = o.k === 'mur' ? 600 : Math.max(o.pos.y + 8, 560);
   // Petit délai : la scène est d'abord dessinée, puis le kawaii part
   setTimeout(() => {
@@ -499,7 +521,7 @@ function choisirLieu(onglet = 'stickers') {
 }
 
 return {
-  render, objetsEtage, sceneId, positionDepart,
+  render, objetsEtage, sceneId,
   ouvrirLibre, allerEtage, basculerTiroir, onglet, armer, retirer,
   remettreEnPlace, demanderRemettre, quitter, choisirLieu
 };

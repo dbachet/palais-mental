@@ -1,7 +1,19 @@
+## [2026-10-07] - Des pièces pensées, et le mot avant la voix
+
+### Changé
+- **Chaque pièce est composée à la main** : 12 objets qui vont ensemble (le four, le pain et la balance au fournil ; le lit et la commode dans la chambre ; les socles au musée…), chacun à une place logique : au mur, au sol, sur un comptoir, une étagère, une table ou un socle. Plus de petite table automatique sous les petits objets. La pièce est toujours dessinée en entier : les objets qui ne portent aucun mot sont du décor (estompés pendant les sessions, sans ⭐ en mode libre). Elle peut toujours tout déplacer en mode libre ; les objets qu'elle avait déplacés reprennent une fois leur nouvelle place
+- **Le mot s'affiche avant d'être lu** : il apparaît en gris, la voix le dit, puis ses lettres prennent leur couleur une à une
+- **Mélodie des lettres seulement pour les langues étrangères** : pour les listes de mots simples, le mot est lu puis ses lettres s'animent en silence
+
+### Technique
+- `data/monde.js` : objets d'étage au format `'forme x y [taille]'` ou `'forme x sN'` (sur le support N), et `supports` par étage (`comptoir`, `etagere`, `table`, `socle`). Une forme ne sert qu'une fois par étage (avant : par bâtiment). `Monde.supportsDe`, `Scene.positionDepart` retiré
+- `economy.version = 4` : `list.positions` remis à zéro une fois
+- Service worker et `?v=` : `v23`
+
 ## [2026-10-07] - Le monde virtuel, étape 2 : les étages, le mode libre, le temps de jeu
 
 ### Ajouté
-- **Les étages** : chaque étage est une pièce dessinée par le code (murs, papier peint, fenêtres, sol selon le thème de l'étage ; ciel et rambarde sur les toits) avec ses objets d'apprentissage, en deux rangées et au mur
+- **Les étages** : chaque étage est une pièce dessinée par le code (murs, papier peint, fenêtres, sol selon le thème de l'étage ; ciel et rambarde sur les toits) avec ses objets d'apprentissage
 - **Apprendre et S'entraîner dans l'étage (mode calme)** : **elle choisit l'objet** à aller voir parmi ceux du paquet ; son kawaii y marche, puis la pièce disparaît pour laisser le mot seul (pas d'objet ni de nom à l'écran, pour rester concentrée). « ← Retour à la pièce » pour choisir le suivant. En Apprendre, on revoit un objet autant qu'on veut (✓ déjà vu, « J'ai tout vu ») ; en S'entraîner, un objet fait est marqué (✓ réussi, ↺ à revoir) et ne se touche plus. Plusieurs étages ou lieux dans le paquet : des boutons pour passer de l'un à l'autre. Animation lettre par lettre, mélodie, dictée, cases, timer et niveaux inchangés. Les objets hors du paquet et les déco sont estompés
 - **🧸 Jouer dans un lieu (mode libre)**, depuis la fiche d'un bâtiment : on passe d'étage en étage, on déplace au doigt les objets d'apprentissage (pastille ⭐ ; le mot suit son objet), son kawaii et ses déco. « ↩️ Remettre les objets » rend leur place de départ aux objets de l'étage
 - **Décorer** : le tiroir « 🎒 Décorer » montre les meubles et les stickers de l'inventaire ; on en choisit un, on tape dans la pièce pour le poser, un appui long le retire. 20 déco au plus par étage

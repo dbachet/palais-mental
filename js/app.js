@@ -907,18 +907,13 @@ async function showWordToTrace() {
     }
   }, 100);
 
-  // Lit le mot à voix haute PUIS lance l'animation avec les notes
+  // Le mot s'affiche d'abord en gris, puis il est lu à voix haute, puis
+  // ses lettres prennent leur couleur une à une
   showTranslationPrompt('translation-prompt');
-  console.log('Lecture du mot:', AppState.currentWord);
+  prepareWordAnimation(AppState.currentWord);
   speakCurrent(() => {
-    // Callback appelé quand la lecture vocale est TERMINÉE
-    console.log('Début de l\'animation avec les notes musicales');
-
-    // Attend un petit délai supplémentaire pour laisser l'AudioContext se libérer
-    setTimeout(() => {
-      prepareWordAnimation(AppState.currentWord);
-      startWordAnimation();
-    }, 200);
+    // Petit délai pour laisser l'AudioContext se libérer
+    setTimeout(startWordAnimation, 200);
   });
 }
 
@@ -1102,8 +1097,8 @@ function startWordAnimation() {
 
       letterElement.classList.add('active');
 
-      // Joue la note correspondant au caractère
-      playBeep(char);
+      // Une note par lettre, seulement pour les langues étrangères
+      if (Storage.isLangList(AppState.currentList)) playBeep(char);
 
       currentIndex++;
 

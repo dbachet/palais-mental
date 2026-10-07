@@ -39,18 +39,46 @@ function slotInfo(lieu, slotId) {
   const b = batiment(lieu.type);
   const [ei, i] = slotId.split(':').map(Number);
   const etage = b.etages[ei];
-  const o = etage && objetDe(etage.objets[i]);
+  const o = etage && objetDe(etage.objets[i], etage);
   if (!o) return null;
   return { batiment: b, etage: ei, etageNom: etage.nom, index: i, slotId, ...o };
 }
 
-// 'four' ou { f, c, nom } → { forme, couleur, nom }
-function objetDe(entree) {
+// Supports d'un étage (comptoir, étagère, table, socle) :
+// [{ type, x1, x2, haut, pied }] ; haut = y où l'on pose un objet
+const HAUTEUR = { comptoir: 90, table: 62, socle: 80 };
+function supportsDe(etage) {
+  return (etage.supports || []).map(texte => {
+    const [type, ...n] = texte.split(' ');
+    const v = n.map(Number);
+    if (type === 'comptoir') return { type, x1: v[0], x2: v[1], pied: 470, haut: 470 - HAUTEUR.comptoir };
+    if (type === 'etagere') return { type, x1: v[0], x2: v[1], pied: v[2], haut: v[2] };
+    if (type === 'socle') return { type, x1: v[0] - 45, x2: v[0] + 45, pied: v[1], haut: v[1] - HAUTEUR.socle };
+    return { type, x1: v[0], x2: v[1], pied: v[2], haut: v[2] - HAUTEUR.table };
+  });
+}
+
+// 'four 110 470 1.3', 'pain 500 s0' ou { f, c, nom, at } →
+// { forme, couleur, nom, x, y, echelle, z } (z : profondeur de départ)
+function objetDe(entree, etage) {
   if (!entree) return null;
-  const forme = typeof entree === 'string' ? entree : entree.f;
+  const texte = typeof entree === 'string' ? entree : `${entree.f} ${entree.at || ''}`;
+  const [forme, xs, ys, es] = texte.trim().split(/\s+/);
   const info = Objets.info(forme);
   if (!info) return null;
-  return { forme, couleur: entree.c || null, nom: entree.nom || info.nom };
+  const x = Number(xs) || 500;
+  let y = Number(ys) || 600, z = y;
+  if (/^s\d+$/.test(ys || '') && etage) {
+    const sup = supportsDe(etage)[Number(ys.slice(1))];
+    if (sup) {
+      y = sup.haut;
+      z = sup.pied + 1;
+    }
+  }
+  return {
+    forme, couleur: entree.c || null, nom: entree.nom || info.nom,
+    x, y, z, echelle: Number(es) || 1
+  };
 }
 
 // Dessin d'un objet de lieu. gris : pas encore maîtrisé
@@ -237,8 +265,14 @@ function migrer() {
     eco.kitDepart = true;
     ecoChange = true;
   }
-  if (eco.version !== 3) {
-    eco.version = 3;
+  // Version 4 : les pièces ont été recomposées (objets et places de
+  // départ) ; les objets déplacés reprennent leur nouvelle place.
+  if (eco.version !== 4) {
+    if (lists.some(l => l.positions)) {
+      lists.forEach(l => { delete l.positions; });
+      Storage.saveLists(lists);
+    }
+    eco.version = 4;
     ecoChange = true;
   }
   if (ecoChange) Storage.saveEconomy(eco);
@@ -472,7 +506,7 @@ function lieuTexte(info) {
 }
 
 return {
-  batiment, slotsOf, slotInfo, elementKeys, placeOf, etagesUtilises,
+  batiment, slotsOf, slotInfo, supportsDe, elementKeys, placeOf, etagesUtilises,
   rangerListe, batimentPropose, objetDe, dessinObjet, parcelleLibre, donnerParcelles, migrer,
   renderCarte, ouvrirLieu, renderChoixLieu, lieuTexte, maitrise, estMaitrise, facade
 };

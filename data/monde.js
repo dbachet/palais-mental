@@ -6,11 +6,17 @@
 //
 // Chaque bâtiment a au moins 6 étages de 12 objets, soit 72 emplacements.
 // Un étage n'est montré que si la liste en a besoin (12 éléments par étage).
-// Les objets sont dessinés par js/objets.js : un objet = l'id d'une forme
-// ('four'), ou { f: forme, c: couleur, nom } pour changer sa couleur ou son
-// nom. Dans un même bâtiment, une forme ne sert qu'une fois, pour que chaque
-// emplacement reste bien distinct. L'ordre des objets d'un étage est l'ordre
-// du parcours (de gauche à droite).
+// Les objets sont dessinés par js/objets.js. Chaque pièce est composée à la
+// main : des objets qui vont ensemble, chacun à sa place de départ.
+//   'four 110 470'      forme, x, y du pied (scène de 1000 × 640, sol à 430)
+//   'four 110 470 1.3'  … et une taille (1 = taille normale de la forme)
+//   'pain 500 s0'       posé sur le support n° 0 de l'étage
+//   { f, c, nom, at: '770 575 1.4' }  pour changer la couleur ou le nom
+// Supports (meubles du décor, qu'on ne touche pas) :
+//   'comptoir x1 x2' (contre le mur), 'etagere x1 x2 y' (au mur),
+//   'table x1 x2 y' (y = pied), 'socle x y' (y = pied).
+// Dans un même étage, une forme ne sert qu'une fois, pour que chaque
+// emplacement reste bien distinct. L'enfant peut ensuite tout déplacer.
 // Les emojis et les stickers ne servent que de décor : jamais d'objet ici.
 //
 // Décor d'un étage (dessiné par js/monde.js, sans image) :
@@ -19,6 +25,8 @@
 //   | pierre | herbe | damier ; fenetre : carree | ronde | arche | vitrail | ciel
 //
 // Ajouter un bâtiment = ajouter une entrée ici (6 étages × 12 objets).
+// Fenêtres à x = 230 et 770 : rien d'accroché au mur entre 150 et 310, ni
+// entre 690 et 850.
 
 const BATIMENTS = [
   {
@@ -26,17 +34,29 @@ const BATIMENTS = [
     couleurs: { facade: '#FFE3C2', toit: '#E8875A', accent: '#FFB3D6' },
     etages: [
       { nom: 'le fournil', mur: '#FCE2C4', sol: '#B98556', motif: 'briques', solType: 'parquet', fenetre: 'ronde',
-        objets: ['four', 'pain', 'baguette', 'balance', 'tonneau', 'caisse', 'seau', 'horloge', 'etagere', 'table', 'marmite', 'echelle'] },
+        supports: ['comptoir 380 700', 'etagere 840 990 260'],
+        objets: ['lanterne 70 255', 'four 110 470 1.3', 'tonneau 300 560', 'balance 420 s0', 'horloge 500 205', 'pain 500 s0',
+          'baguette 580 s0', 'tarte 660 s0', 'panier 600 610', 'frigo 765 470', 'caisse 900 480', 'marmite 905 s1'] },
       { nom: 'la boutique', mur: '#FFE9F2', sol: '#E8C7A0', motif: 'rayures', solType: 'damier', fenetre: 'carree',
-        objets: ['croissant', 'gateau', 'cupcake', 'donut', 'tarte', 'bocal', 'panier', 'sac_or', 'plante', 'cloche', 'tableau', 'lampadaire'] },
+        supports: ['etagere 30 150 270', 'comptoir 300 720', 'etagere 850 990 270'],
+        objets: ['bocal 60 s0', 'plante 75 475', 'sucette 120 s0', 'croissant 340 s1', 'donut 420 s1', 'cupcake 500 s1',
+          'cloche 500 205', 'tarte 580 s1', 'gateau 660 s1', 'pain 885 s2', 'panier 955 s2', 'parapluie 930 480'] },
       { nom: 'le salon de thé', mur: '#E6F4EA', sol: '#C99A6E', motif: 'pois', solType: 'parquet', fenetre: 'arche',
-        objets: ['theiere', 'tasse', 'glace', 'sucette', 'fraise', 'fauteuil', 'chaise', 'vase', 'miroir', 'coussin', 'lampe', 'chandelier'] },
+        supports: ['table 240 430 570', 'table 590 780 570', 'etagere 860 990 260'],
+        objets: ['tableau 70 230', 'fauteuil 150 575', 'theiere 290 s0', 'tasse 375 s0', 'chaise 500 575', 'miroir 500 250',
+          'glace 640 s1', 'cupcake 725 s1', 'pouf 860 610', 'vase 890 s2', 'bougie 955 s2', 'lampadaire 930 480'] },
       { nom: 'la pâtisserie', mur: '#FFF1D6', sol: '#F2B8C6', motif: 'losanges', solType: 'carrelage', fenetre: 'carree',
-        objets: ['fromage', 'pomme', 'frigo', 'commode', 'cadeau', 'coeur', 'bougie', 'couronne', 'ballons', 'etoile', 'lanterne', 'pendule'] },
+        supports: ['comptoir 330 670', 'table 420 600 610'],
+        objets: ['coeur 70 250', 'frigo 95 470', 'bocal 370 s0', 'pomme 445 s0', 'gateau 470 s1', 'horloge 500 205',
+          'fraise 520 s0', 'bougie 555 s1', 'tarte 600 s0', 'cadeau 800 610', 'etagere 920 470', 'ballons 925 255'] },
       { nom: 'la réserve', mur: '#E9E2D8', sol: '#9C8B78', motif: 'pierre', solType: 'pierre', fenetre: 'ronde',
-        objets: ['armoire', 'coffre', 'valise', 'parapluie', 'arrosoir', 'boussole', 'sablier', 'radio', 'telephone', 'nounours', 'cubes', 'toupie'] },
+        supports: ['etagere 380 640 270'],
+        objets: ['armoire 90 470 1.1', 'seau 230 615', 'echelle 330 470', 'bocal 420 s0', 'marmite 480 s0', 'theiere 545 s0',
+          'tasse 605 s0', 'panier 560 615', 'tonneau 730 470', 'arrosoir 760 615', 'caisse 890 480', 'lanterne 930 255'] },
       { nom: 'la terrasse sur le toit', mur: '#CFE8FF', sol: '#A8DDA0', motif: 'uni', solType: 'herbe', fenetre: 'ciel',
-        objets: ['parasol', 'banc', 'soleil', 'nuage', 'arbre', 'fleur', 'tournesol', 'fontaine', 'buisson', 'cactus', 'nichoir', 'cerf_volant'] }
+        supports: ['table 230 420 585'],
+        objets: ['arbre 90 470 1.3', 'pomme 280 s0', 'parasol 325 500 1.2', 'glace 370 s0', 'nuage 430 175', 'fleur 480 470',
+          'cactus 520 615', 'banc 640 480', 'cerf_volant 650 215', 'fontaine 760 600', 'tournesol 840 470', 'buisson 935 600'] }
     ]
   },
   {
@@ -44,17 +64,29 @@ const BATIMENTS = [
     couleurs: { facade: '#F6D8FF', toit: '#B48CDB', accent: '#FF7EB9' },
     etages: [
       { nom: "l'accueil", mur: '#FBE7FF', sol: '#D9B8E8', motif: 'rayures', solType: 'damier', fenetre: 'carree',
-        objets: ['canape', 'fauteuil', 'plante', 'horloge', 'telephone', 'tableau', 'lampadaire', 'vase', 'cadeau', 'pouf', 'coussin', 'aquarium'] },
+        supports: ['comptoir 580 820', 'table 380 560 600'],
+        objets: ['plante 75 470', 'fauteuil 200 605', 'canape 300 480 1.1', 'livres 420 s1', 'tableau 470 225', 'tasse 510 s1',
+          'telephone 620 s0', 'vase 700 s0', 'lampe 780 s0', 'pouf 690 615', 'lampadaire 910 475', 'horloge 925 250'] },
       { nom: 'les fauteuils', mur: '#E3F6F5', sol: '#BFD9D8', motif: 'carreaux', solType: 'carrelage', fenetre: 'arche',
-        objets: ['chaise', 'miroir', 'seche_cheveux', 'ciseaux', 'peigne', 'lavabo', 'seau', 'etagere', 'lampe', 'tasse', 'radio', 'sablier'] },
+        supports: ['comptoir 560 840', 'table 620 790 615'],
+        objets: ['lavabo 110 470', 'pouf 250 610', 'miroir 430 270', 'chaise 430 480', 'ciseaux 600 s0', 'peigne 670 s0',
+          'livres 665 s1', 'seche_cheveux 740 s0', 'tasse 745 s1', 'radio 810 s0', 'horloge 920 250', 'plante 935 470'] },
       { nom: 'le maquillage', mur: '#FFE4EC', sol: '#F0B9CB', motif: 'pois', solType: 'tapis', fenetre: 'ronde',
-        objets: ['vernis', 'rouge_levres', 'parfum', 'diamant', 'coeur', 'etoile', 'lune', 'pinceaux', 'palette', 'bougie', 'bocal', 'coquillage'] },
+        supports: ['comptoir 330 670'],
+        objets: ['lampadaire 90 475', 'coussin 230 615', 'vernis 370 s0', 'rouge_levres 440 s0', 'miroir 500 300', 'parfum 510 s0',
+          'chaise 500 610', 'pinceaux 580 s0', 'bougie 650 s0', 'pouf 790 610', 'commode 890 470', 'coeur 925 255'] },
       { nom: 'les bijoux et chapeaux', mur: '#FFF6D9', sol: '#D6B979', motif: 'losanges', solType: 'parquet', fenetre: 'vitrail',
-        objets: ['collier', 'couronne', 'chapeau', 'sac_main', 'coffre', 'commode', 'boule_cristal', 'sac_or', 'masque', 'baton_magique', 'ballons', 'lanterne'] },
+        supports: ['etagere 30 140 285', 'comptoir 330 650'],
+        objets: ['chaussure 75 s0', 'coffre 100 480', 'pouf 250 610', 'couronne 370 s1', 'diamant 450 s1', 'collier 500 250',
+          'chapeau 530 s1', 'plante 570 610', 'sac_main 610 s1', 'fauteuil 760 605', 'commode 890 475', 'masque 925 250'] },
       { nom: 'le dressing', mur: '#E8EEFF', sol: '#B7C4EA', motif: 'rayures', solType: 'tapis', fenetre: 'carree',
-        objets: ['robe', 'chaussure', 'mannequin', 'armoire', 'valise', 'parapluie', 'cartable', 'nounours', 'lit', 'television', 'table', 'bureau'] },
+        supports: ['etagere 30 150 285'],
+        objets: ['chapeau 60 s0', 'lampadaire 100 480', 'sac_main 120 s0', 'pouf 280 610', 'robe 400 225', 'mannequin 400 490',
+          'chaussure 520 615', 'miroir 600 255', 'commode 620 480', 'valise 770 610', 'parapluie 790 475', 'armoire 920 475 1.1'] },
       { nom: 'le spa sur le toit', mur: '#D4F2EE', sol: '#9ED9C9', motif: 'vagues', solType: 'herbe', fenetre: 'ciel',
-        objets: ['baignoire', 'fontaine', 'arbre', 'fleur', 'tournesol', 'buisson', 'cactus', 'parasol', 'banc', 'soleil', 'nuage', 'theiere'] }
+        supports: ['table 510 680 600'],
+        objets: ['arbre 90 470 1.2', 'pouf 190 615', 'baignoire 320 520 1.3', 'coquillage 380 625', 'nuage 450 170', 'fleur 520 470',
+          'theiere 555 s0', 'tasse 635 s0', 'fontaine 700 470', 'cactus 790 615', 'parasol 870 490', 'buisson 935 610'] }
     ]
   },
   {
@@ -62,17 +94,29 @@ const BATIMENTS = [
     couleurs: { facade: '#E9E3F5', toit: '#8E7CC3', accent: '#FFD466' },
     etages: [
       { nom: 'la grande salle', mur: '#E4DCCF', sol: '#A88F74', motif: 'pierre', solType: 'pierre', fenetre: 'arche',
-        objets: ['epee', 'bouclier', 'armure', 'drapeau', 'chandelier', 'cheminee', 'tambour', 'trompette', 'table', 'tonneau', 'lanterne', 'tableau'] },
+        supports: ['table 190 430 605'],
+        objets: ['lanterne 70 255', 'armure 90 480', 'pain 235 s0', 'chandelier 310 s0 0.6', 'pomme 385 s0', 'bouclier 385 225',
+          'cheminee 500 470 1.3', 'epee 615 225', 'tambour 640 610', 'tonneau 800 610', 'drapeau 920 480', 'tableau 930 250'] },
       { nom: 'la salle du trône', mur: '#F3E0E8', sol: '#C0394B', motif: 'losanges', solType: 'tapis', fenetre: 'vitrail',
-        objets: ['trone', 'couronne', 'sac_or', 'coffre', 'diamant', 'collier', 'miroir', 'cloche', 'carte_tresor', 'masque', 'statue', 'colonne'] },
+        supports: ['socle 220 590', 'socle 780 590'],
+        objets: ['drapeau 90 480', 'couronne 220 s0', 'colonne 340 475', 'sac_or 420 615', 'tableau 500 205', 'trone 500 475 1.3',
+          'coussin 585 615', 'statue 660 475', 'diamant 780 s1', 'coffre 880 610', 'chandelier 935 480', 'cloche 930 245'] },
       { nom: 'la chambre de la princesse', mur: '#FFE4F1', sol: '#E9B6D0', motif: 'pois', solType: 'tapis', fenetre: 'arche',
-        objets: ['lit', 'nounours', 'coeur', 'commode', 'coussin', 'fauteuil', 'violon', 'horloge', 'vase', 'parfum', 'robe', 'chaussure'] },
+        supports: ['etagere 30 150 300', 'table 640 780 525'],
+        objets: ['parfum 65 s0', 'commode 90 475', 'vase 125 s0', 'coffre 220 610', 'nounours 340 615', 'coeur 500 235',
+          'lit 500 525 1.4', 'lampe 680 s1', 'couronne 745 s1', 'pouf 680 615', 'chaussure 820 615', 'armoire 920 475 1.1'] },
       { nom: 'la cuisine du château', mur: '#F2E6D2', sol: '#8C6A4F', motif: 'briques', solType: 'pierre', fenetre: 'carree',
-        objets: ['four', 'marmite', 'pain', 'fromage', 'pomme', 'fraise', 'panier', 'balance', 'tarte', 'gateau', 'seau', 'caisse'] },
+        supports: ['comptoir 330 700', 'etagere 840 990 270'],
+        objets: ['four 110 475 1.2', 'chaudron 260 615', 'pain 370 s0', 'fromage 445 s0', 'lanterne 500 210', 'pomme 520 s0',
+          'tarte 595 s0', 'panier 665 s0', 'tonneau 780 480', 'marmite 880 s1', 'bocal 950 s1', 'caisse 920 615'] },
       { nom: 'la tour du magicien', mur: '#DCD3F5', sol: '#5E4E8C', motif: 'etoiles', solType: 'parquet', fenetre: 'ronde',
-        objets: ['boule_cristal', 'potion', 'chaudron', 'parchemin', 'baton_magique', 'livres', 'telescope', 'sablier', 'lune', 'etoile', 'planete', 'globe'] },
+        supports: ['etagere 340 660 300', 'table 380 620 605'],
+        objets: ['planete 70 255', 'etagere 90 470', 'chaudron 250 615', 'potion 380 s0', 'boule_cristal 460 s0', 'parchemin 450 s1',
+          'lune 500 195', 'sablier 540 s0', 'baton_magique 550 s1', 'livres 620 s0', 'telescope 800 480', 'etoile 930 250'] },
       { nom: 'le donjon', mur: '#CFCAD6', sol: '#77707F', motif: 'pierre', solType: 'pierre', fenetre: 'ronde',
-        objets: ['echelle', 'cage', 'os', 'amphore', 'pendule', 'bougie', 'valise', 'champignon', { f: 'dinosaure', c: 'violet', nom: 'le dragon' }, 'boussole', 'engrenage', 'armoire'] }
+        objets: ['echelle 90 475 1.1', 'champignon 200 615', 'carte_tresor 230 330', 'cage 320 480', 'os 420 615', 'lanterne 470 245',
+          'amphore 560 480', 'engrenage 640 225', { f: 'dinosaure', c: 'violet', nom: 'le dragon', at: '770 575 1.4' },
+          'tonneau 925 480', 'bouclier 930 250', 'coffre 935 615'] }
     ]
   },
   {
@@ -80,17 +124,29 @@ const BATIMENTS = [
     couleurs: { facade: '#F4EFE6', toit: '#C9B79C', accent: '#7FB3F5' },
     etages: [
       { nom: 'le hall', mur: '#F5F0E8', sol: '#D8CBB4', motif: 'uni', solType: 'damier', fenetre: 'arche',
-        objets: ['colonne', 'statue', 'banc', 'plante', 'horloge', 'carte_tresor', 'boussole', 'valise', 'parapluie', 'cloche', 'lampadaire', 'telephone'] },
+        supports: ['comptoir 640 860'],
+        objets: ['colonne 90 475 1.2', 'valise 230 615', 'parapluie 300 475', 'carte_tresor 380 245', 'statue 500 480 1.2', 'banc 500 615',
+          'lanterne 620 225', 'telephone 680 s0', 'livres 750 s0', 'globe 820 s0', 'plante 930 475', 'horloge 930 255'] },
       { nom: 'les dinosaures', mur: '#E2F0D9', sol: '#B7A27F', motif: 'vagues', solType: 'herbe', fenetre: 'carree',
-        objets: ['dinosaure', 'os', 'coquillage', 'cactus', 'arbre', 'sapin', 'buisson', 'champignon', 'fontaine', 'nichoir', 'arrosoir', 'seau'] },
+        supports: ['socle 200 580', 'socle 830 580', 'socle 945 625'],
+        objets: ['nichoir 70 255', 'sapin 90 470', 'os 200 s0', 'arbre 250 470', 'fleur 365 470', 'champignon 400 620',
+          'dinosaure 560 545 1.7', 'cactus 700 620', 'coquillage 830 s1', 'buisson 935 480', 'carte_tresor 935 260', 'boussole 945 s2'] },
       { nom: "l'Égypte", mur: '#FBE9C4', sol: '#E0C08A', motif: 'losanges', solType: 'pierre', fenetre: 'arche',
-        objets: ['pyramide', 'amphore', 'sablier', 'masque', 'couronne', 'trone', 'sac_or', 'diamant', 'parchemin', 'collier', 'coffre', 'chaudron'] },
+        supports: ['socle 390 615', 'socle 660 575'],
+        objets: ['collier 70 250', 'amphore 110 475', 'cactus 240 615', 'trone 300 480', 'parchemin 390 s0', 'masque 500 210',
+          'pyramide 510 480 2', 'sablier 660 s1', 'colonne 770 475', 'coffre 870 615', 'statue 930 475', 'carte_tresor 930 255'] },
       { nom: 'les peintures', mur: '#FFF7EC', sol: '#B98556', motif: 'uni', solType: 'parquet', fenetre: 'vitrail',
-        objets: ['tableau', 'chevalet', 'palette', 'pinceaux', 'miroir', 'vase', 'fleur', 'tournesol', 'pomme', 'fraise', 'fauteuil', 'lampe'] },
+        supports: ['socle 370 575', 'table 600 780 605'],
+        objets: ['lampadaire 90 475', 'chevalet 240 520', 'miroir 365 245', 'vase 370 s0', 'tableau 500 255 1.3', 'banc 500 615',
+          'pinceaux 630 s1', 'crayon 690 s1', 'pomme 750 s1', 'tournesol 790 475', 'plante 935 475', 'palette 930 255'] },
       { nom: 'les sciences', mur: '#E3EEFF', sol: '#9DB2D6', motif: 'carreaux', solType: 'carrelage', fenetre: 'ronde',
-        objets: ['telescope', 'microscope', 'eprouvette', 'robot', 'fusee', 'planete', 'aimant', 'ampoule', 'engrenage', 'ordinateur', 'antenne', 'globe'] },
-      { nom: 'les jouets anciens', mur: '#FFE9DC', sol: '#C99A6E', motif: 'pois', solType: 'parquet', fenetre: 'ciel',
-        objets: ['nounours', 'cubes', 'toupie', 'quilles', 'velo', 'trottinette', 'cerf_volant', 'ballons', 'ballon', 'tambour', 'trompette', 'radio'] }
+        supports: ['socle 330 570', 'table 510 730 610', 'socle 860 600'],
+        objets: ['robot 110 480', 'antenne 260 475', 'globe 330 s0', 'engrenage 380 230', 'planete 500 200', 'microscope 550 s1',
+          'eprouvette 620 s1', 'tableau 620 225', 'telescope 680 470', 'ordinateur 690 s1', 'aimant 860 s2', 'fusee 930 475 1.2'] },
+      { nom: 'les jouets anciens', mur: '#FFE9DC', sol: '#C99A6E', motif: 'pois', solType: 'parquet', fenetre: 'carree',
+        supports: ['etagere 380 620 290'],
+        objets: ['ballons 70 250', 'nounours 110 480', 'tambour 240 480', 'cubes 300 615', 'trompette 420 s0', 'radio 500 s0',
+          'quilles 560 605', 'toupie 580 s0', 'ballon 700 615', 'velo 760 480', 'trottinette 925 480', 'cerf_volant 930 255'] }
     ]
   },
   {
@@ -98,17 +154,29 @@ const BATIMENTS = [
     couleurs: { facade: '#DDF6F3', toit: '#5FD3CE', accent: '#B48CDB' },
     etages: [
       { nom: "l'accueil du labo", mur: '#EEF7F6', sol: '#C3D6D4', motif: 'carreaux', solType: 'carrelage', fenetre: 'carree',
-        objets: ['bureau', 'ordinateur', 'telephone', 'horloge', 'plante', 'chaise', 'crayon', 'livres', 'cartable', 'lampe', 'tableau_noir', 'radio'] },
+        supports: ['table 400 620 495', 'table 700 830 610'],
+        objets: ['plante 75 475', 'canape 260 480 1.1', 'cartable 330 615', 'ordinateur 440 s0', 'tableau_noir 500 215', 'telephone 520 s0',
+          'crayon 590 s0', 'chaise 500 610', 'aquarium 735 s1', 'lampe 795 s1', 'etagere 920 470', 'horloge 925 250'] },
       { nom: 'la chimie', mur: '#E9F9E4', sol: '#A9CFA0', motif: 'pois', solType: 'carrelage', fenetre: 'ronde',
-        objets: ['eprouvette', 'potion', 'chaudron', 'bocal', 'balance', 'aimant', 'ampoule', 'lavabo', 'frigo', 'seau', 'sablier', 'etagere'] },
+        supports: ['comptoir 300 700'],
+        objets: ['lavabo 110 475', 'chaudron 250 615', 'eprouvette 340 s0', 'potion 420 s0', 'horloge 500 200', 'bocal 500 s0',
+          'balance 580 s0', 'sablier 660 s0', 'chaise 600 615', 'plante 780 610', 'frigo 900 470', 'tableau 930 255'] },
       { nom: 'les robots', mur: '#E4E8F2', sol: '#8C96AD', motif: 'carreaux', solType: 'damier', fenetre: 'carree',
-        objets: ['robot', 'engrenage', 'antenne', 'television', 'cubes', 'toupie', 'echelle', 'caisse', 'boussole', 'micro', 'cadeau', 'coffre'] },
+        supports: ['table 600 790 610'],
+        objets: ['horloge 70 250', 'antenne 120 475', 'cubes 250 615', 'echelle 320 475', 'engrenage 380 220', 'robot 500 500 1.4',
+          'tableau 620 225', 'radio 635 s0', 'aimant 700 s0', 'telephone 760 s0', 'caisse 790 480', 'television 920 475'] },
       { nom: 'la biologie', mur: '#F1FBE6', sol: '#B7D69A', motif: 'vagues', solType: 'herbe', fenetre: 'arche',
-        objets: ['microscope', 'aquarium', 'cactus', 'champignon', 'arbre', 'fleur', 'buisson', 'nichoir', 'cage', 'coquillage', 'os', 'pomme'] },
+        supports: ['table 380 620 565', 'table 720 830 610'],
+        objets: ['cactus 90 475', 'fleur 220 475', 'champignon 300 615', 'microscope 420 s0', 'tableau_noir 500 220', 'coquillage 500 s0',
+          'pomme 580 s0', 'arrosoir 640 615', 'tournesol 760 475', 'aquarium 775 s1', 'cage 900 475', 'nichoir 930 250'] },
       { nom: "l'espace", mur: '#2E2A5C', sol: '#4A4580', motif: 'etoiles', solType: 'damier', fenetre: 'ronde',
-        objets: ['fusee', 'planete', 'telescope', 'lune', 'etoile', 'soleil', 'nuage', 'globe', 'boule_cristal', 'diamant', 'ballons', 'lanterne'] },
+        supports: ['socle 250 590', 'socle 350 625', 'table 620 760 615'],
+        objets: ['soleil 70 255', 'robot 120 480', 'globe 250 s0', 'diamant 350 s1', 'planete 400 225', 'fusee 500 475 1.5',
+          'lune 600 205', 'ordinateur 655 s2', 'boussole 725 s2', 'telescope 800 480', 'antenne 950 480', 'etoile 930 255'] },
       { nom: 'la serre sur le toit', mur: '#DDF5E3', sol: '#8FCB7E', motif: 'losanges', solType: 'herbe', fenetre: 'ciel',
-        objets: ['tournesol', 'sapin', 'arrosoir', 'parasol', 'banc', 'fontaine', 'fraise', 'panier', 'tonneau', 'table', 'chapeau', 'cerf_volant'] }
+        supports: ['table 520 720 565'],
+        objets: ['tournesol 100 475', 'fleur 300 480', 'panier 300 615', 'nuage 400 165', 'arrosoir 450 615', 'fraise 560 s0',
+          'pomme 620 s0', 'chapeau 680 s0', 'cerf_volant 700 205', 'buisson 800 480', 'tonneau 900 610', 'arbre 945 470'] }
     ]
   },
   {
@@ -116,17 +184,27 @@ const BATIMENTS = [
     couleurs: { facade: '#FFF0C9', toit: '#F5B21B', accent: '#7FB3F5' },
     etages: [
       { nom: 'la classe', mur: '#FFF8E1', sol: '#C99A6E', motif: 'uni', solType: 'parquet', fenetre: 'carree',
-        objets: ['tableau_noir', 'bureau', 'chaise', 'cartable', 'crayon', 'globe', 'livres', 'horloge', 'cloche', 'etagere', 'plante', 'lampe'] },
+        supports: ['table 400 620 480'],
+        objets: ['etagere 90 470', 'chaise 190 610', 'bureau 320 605', 'carte_tresor 370 245', 'globe 440 s0', 'cartable 440 620',
+          'tableau_noir 500 225 1.3', 'livres 510 s0', 'pomme 580 s0', 'pouf 760 610', 'plante 930 475', 'horloge 930 255'] },
       { nom: 'la bibliothèque', mur: '#F3E7DA', sol: '#9C6B45', motif: 'rayures', solType: 'tapis', fenetre: 'arche',
-        objets: ['fauteuil', 'canape', 'coussin', 'pouf', 'lampadaire', 'parchemin', 'carte_tresor', 'boussole', 'tableau', 'vase', 'commode', 'sablier'] },
+        supports: ['table 440 620 580'],
+        objets: ['etagere 100 470 1.1', 'fauteuil 280 570', 'lampadaire 390 470', 'livres 475 s0', 'carte_tresor 500 230', 'lampe 545 s0',
+          'coussin 540 620', 'parchemin 600 s0', 'canape 720 500 1.1', 'pouf 880 615', 'commode 925 475', 'tableau 930 250'] },
       { nom: 'la cantine', mur: '#E6F6FF', sol: '#C9DCEB', motif: 'carreaux', solType: 'damier', fenetre: 'carree',
-        objets: ['table', 'four', 'frigo', 'marmite', 'pomme', 'fraise', 'fromage', 'pain', 'tarte', 'glace', 'tasse', 'panier'] },
+        supports: ['comptoir 330 690', 'table 300 620 620'],
+        objets: ['frigo 100 470', 'chaise 200 615', 'tasse 360 s1', 'marmite 365 s0', 'pain 440 s0', 'pomme 440 s1',
+          'horloge 500 210', 'fromage 515 s0', 'tarte 590 s0', 'glace 665 s0', 'panier 800 615', 'four 880 475 1.1'] },
       { nom: 'la salle de musique', mur: '#F4E6FF', sol: '#B88FD0', motif: 'vagues', solType: 'parquet', fenetre: 'ronde',
-        objets: ['piano', 'guitare', 'tambour', 'trompette', 'violon', 'micro', 'radio', 'television', 'masque', 'coeur', 'etoile', 'chapeau'] },
+        supports: ['table 820 970 480'],
+        objets: ['piano 140 480 1.2', 'chaise 300 615', 'guitare 340 480', 'masque 380 235', 'violon 500 230', 'tambour 500 615',
+          'etoile 620 225', 'micro 700 480', 'pouf 780 615', 'radio 855 s0', 'trompette 930 s0', 'cloche 930 250'] },
       { nom: 'le gymnase', mur: '#FFE9DC', sol: '#E3A86B', motif: 'rayures', solType: 'parquet', fenetre: 'carree',
-        objets: ['ballon', 'quilles', 'velo', 'trottinette', 'echelle', 'seau', 'caisse', 'coffre', 'valise', 'drapeau', 'toupie', 'cubes'] },
+        objets: ['echelle 90 470 1.2', 'cubes 230 615', 'coffre 320 475', 'etoile 380 230', 'ballon 400 615', 'banc 490 470',
+          'horloge 500 210', 'quilles 600 605', 'ballons 620 225', 'trottinette 680 480', 'velo 800 610', 'drapeau 925 480'] },
       { nom: 'la cour de récré', mur: '#D3EDFF', sol: '#A8DDA0', motif: 'uni', solType: 'herbe', fenetre: 'ciel',
-        objets: ['toboggan', 'arbre', 'fleur', 'banc', 'cerf_volant', 'ballons', 'nichoir', 'soleil', 'nuage', 'arrosoir', 'buisson', 'fontaine'] }
+        objets: ['arbre 100 470 1.3', 'trottinette 200 615', 'toboggan 320 490 1.4', 'nuage 380 160', 'ballon 460 615', 'ballons 540 215',
+          'velo 610 610', 'cerf_volant 640 175', 'banc 700 480', 'fleur 860 480', 'fontaine 820 615', 'buisson 945 615'] }
     ]
   }
 ];

@@ -811,10 +811,11 @@ header h1 {
   height: auto;
 }
 
-.scene-obj .scene-table {
-  width: 84%;
-  height: auto;
-  margin-top: -6%;
+.scene-support {
+  position: absolute;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
 }
 
 .scene-deco .sticker-emoji {

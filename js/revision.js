@@ -300,7 +300,14 @@ function demarrer(listId, mode, ids) {
   const list = Storage.getActiveLists().find(l => l.id === listId);
   if (!list || !Storage.isCardList(list)) return;
   const paquets = paquetsDe(list, ids);
-  if (!paquets.length) return;
+  if (!paquets.length) {
+    // Maison pas encore meublée : rien n'est rangé
+    if (list.lieu.kind === 'maison') {
+      showFeedback('Pose d\'abord des meubles dans ta maison 🏡', 'error');
+      Maisons.amenager(list.lieu.id);
+    }
+    return;
+  }
 
   Object.assign(S, { list, mode, paquets, points: 0, total: 0, aRevoir: [], partiel: !!ids, niveauDepart: niveau(list), becameNinja: false, revele: false });
   AppState.sessionLists = [list];

@@ -108,9 +108,107 @@ const Storage = {
     if (JSON.stringify(list.lieu) === JSON.stringify(lieu)) return true;
     list.lieu = lieu;
     list.places = {};
+    delete list.positions; // les places de l'ancien lieu ne veulent rien dire ici
     Monde.rangerListe(list);
     this.saveLists(lists);
     return true;
+  },
+
+  // ── Maisons construites par l'enfant (« Créer ta maison », js/maisons.js) ──
+  // maisons = [{ id, nom, modele, objets: [{ id, forme, etage, x, y }], nextId }]
+  // Les objets sont des meubles de son inventaire : posés, ils portent les
+  // éléments de la liste qui habite la maison (une liste par maison).
+
+  getMaisons() {
+    try {
+      const maisons = JSON.parse(localStorage.getItem('maisons') || '[]');
+      return Array.isArray(maisons) ? maisons : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  saveMaisons(maisons) {
+    localStorage.setItem('maisons', JSON.stringify(maisons));
+  },
+
+  getMaison(id) {
+    return this.getMaisons().find(m => m.id === id) || null;
+  },
+
+  addMaison(nom, modele) {
+    const maisons = this.getMaisons();
+    const maison = { id: Date.now(), nom, modele, objets: [], nextId: 1 };
+    maisons.push(maison);
+    this.saveMaisons(maisons);
+    return maison;
+  },
+
+  renameMaison(id, nom) {
+    const maisons = this.getMaisons();
+    const m = maisons.find(x => x.id === id);
+    if (!m) return;
+    m.nom = nom;
+    this.saveMaisons(maisons);
+  },
+
+  // La liste qui habite la maison (ou null)
+  listeDeMaison(id) {
+    return this.getLists().find(l => l.lieu && l.lieu.kind === 'maison' && l.lieu.id === id) || null;
+  },
+
+  // Seulement une maison vide d'habitants ; ses meubles et ses déco reviennent dans l'inventaire
+  deleteMaison(id) {
+    if (this.listeDeMaison(id)) return false;
+    this.saveMaisons(this.getMaisons().filter(m => m.id !== id));
+    this.freeDecoOf(`maison:${id}:`);
+    return true;
+  },
+
+  // Meubles posés dans les maisons (ils ne sont plus libres dans l'inventaire)
+  countMeublesMaisons(forme) {
+    return this.getMaisons().reduce((n, m) => n + m.objets.filter(o => o.forme === forme).length, 0);
+  },
+
+  // Pose un meuble dans une maison : 'ok', ou la raison du refus
+  ajouterObjetMaison(id, forme, etage, x, y) {
+    const maisons = this.getMaisons();
+    const m = maisons.find(x2 => x2.id === id);
+    if (!m) return 'maison';
+    if (this.getFreeMeubleCount(forme) <= 0) return 'stock';
+    if (m.objets.filter(o => o.etage === etage).length >= OBJETS_PAR_ETAGE) return 'plein';
+    m.objets.push({ id: m.nextId++, forme, etage, x: Math.round(x), y: Math.round(y) });
+    this.saveMaisons(maisons);
+    this.rangerMaison(id);
+    Defis.track('maison');
+    return 'ok';
+  },
+
+  deplacerObjetMaison(id, objetId, x, y) {
+    const maisons = this.getMaisons();
+    const o = (maisons.find(m => m.id === id) || { objets: [] }).objets.find(x2 => x2.id === objetId);
+    if (!o) return;
+    o.x = Math.round(x);
+    o.y = Math.round(y);
+    this.saveMaisons(maisons);
+  },
+
+  // Retire un meuble : il revient dans l'inventaire, et ce qu'il portait
+  // est rangé sur un autre objet
+  retirerObjetMaison(id, objetId) {
+    const maisons = this.getMaisons();
+    const m = maisons.find(x => x.id === id);
+    if (!m) return;
+    m.objets = m.objets.filter(o => o.id !== objetId);
+    this.saveMaisons(maisons);
+    this.rangerMaison(id);
+  },
+
+  // Range à nouveau la liste qui habite la maison (objets ajoutés ou retirés)
+  rangerMaison(id) {
+    const lists = this.getLists();
+    const list = lists.find(l => l.lieu && l.lieu.kind === 'maison' && l.lieu.id === id);
+    if (list && Monde.rangerListe(list)) this.saveLists(lists);
   },
 
   // Met à jour une liste existante
@@ -494,7 +592,7 @@ const Storage = {
   },
 
   getFreeMeubleCount(forme, eco = this.getEconomy()) {
-    return (eco.meubles[forme] || 0) - this.countPlaced(eco, 'meuble', forme);
+    return (eco.meubles[forme] || 0) - this.countPlaced(eco, 'meuble', forme) - this.countMeublesMaisons(forme);
   },
 
   // Tous les meubles libres : [{forme, count}]
@@ -954,7 +1052,13 @@ function renderPieceSession(containerId, onChoisir, pied = '') {
   const fait = (it) => AppState.faits[it.index] !== undefined;
   const reste = (salle) => salle.items.filter(it => !fait(it)).length;
   const salles = sallesDuPaquet();
-  if (salles.length === 0) return;
+  if (salles.length === 0) {
+    // Maison pas encore meublée : rien n'est rangé
+    const list = (AppState.currentLevelWords[0] || {}).list;
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🏡</div>Ta maison n'a pas encore de meubles : pose-en pour y ranger ta liste.
+      ${list && list.lieu.kind === 'maison' ? `<div class="mt-20"><button class="btn btn-primary" onclick="Maisons.amenager(${list.lieu.id})">🛠️ Aménager ma maison</button></div>` : ''}</div>`;
+    return;
+  }
   const salle = salles.find(x => x.key === AppState.salleCourante) || salles.find(x => reste(x) > 0) || salles[0];
   AppState.salleCourante = salle.key;
 
@@ -980,7 +1084,7 @@ function renderPieceSession(containerId, onChoisir, pied = '') {
   const chips = salles.length > 1
     ? `<div class="etages">${salles.map(x => `
         <button type="button" class="etage-chip${x === salle ? ' selected' : ''}" onclick="changerSalle('${x.key}')" aria-pressed="${x === salle}">
-          <strong>${escapeText(Monde.batiment(x.list.lieu.type).nom)} · étage ${x.etage + 1}</strong>
+          <strong>${escapeText(Monde.lieuModele(x.list.lieu).nom)} · étage ${x.etage + 1}</strong>
           <span>${isMixSession() ? escapeText(x.list.name) + ' · ' : ''}${reste(x) ? `${reste(x)} ${verbe}` : '✓ fini'}</span>
         </button>`).join('')}</div>`
     : `<p class="lieu-place text-center">${escapeText(Monde.lieuTexte(salle.place))}</p>`;
@@ -2271,7 +2375,7 @@ function wordListHTML(list) {
           <button class="btn-icon" onclick="confirmDeleteList(${list.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
         </div>
       </div>
-      <p class="list-meta">${langDirection(list)}${wordCount} mot${wordCount > 1 ? 's' : ''} · ${masteredCount} maîtrisé${masteredCount > 1 ? 's' : ''}${gold ? ' · Liste dorée !' : ''} · ${escapeText(Monde.batiment(list.lieu.type).nom)}</p>
+      <p class="list-meta">${langDirection(list)}${wordCount} mot${wordCount > 1 ? 's' : ''} · ${masteredCount} maîtrisé${masteredCount > 1 ? 's' : ''}${gold ? ' · Liste dorée !' : ''} · ${escapeText(Monde.lieuModele(list.lieu).nom)}</p>
       <div class="list-level">
         <span class="level-badge">Niveau ${level + 1} · ${levelName(level, maxLevel)}${level >= maxLevel ? ' 🥷' : ''}</span>
         <span class="level-stars">${starsPerWord('progressive', level)} ⭐ par mot</span>
@@ -2390,7 +2494,7 @@ function cardListHTML(list) {
           <button class="btn-icon" onclick="confirmDeleteList(${list.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
         </div>
       </div>
-      <p class="list-meta">${contenu || 'Vide'} · ${escapeText(Monde.batiment(list.lieu.type).nom)}</p>
+      <p class="list-meta">${contenu || 'Vide'} · ${escapeText(Monde.lieuModele(list.lieu).nom)}</p>
       <div class="list-level">
         <span class="level-badge">${niveau >= 2 ? 'Ninja 🥷' : `${Revision.nomNiveau(niveau)} · ${Math.ceil(ECONOMIE.seuilPassageNiveau * 100)} % pour monter`}</span>
       </div>
@@ -2414,18 +2518,27 @@ function showNewListScreen() {
 
 // ── Choix du lieu d'une liste (création, édition) ──
 
-function lieuChoisi(type) {
-  return { kind: 'batiment', type };
+// valeur : un bâtiment ('boulangerie') ou une maison ('maison:12')
+function lieuChoisi(valeur) {
+  return Monde.lieuDeValeur(valeur);
 }
 
-function pickNewListLieu(type) {
-  AppState.newListLieu = type;
-  Monde.renderChoixLieu('new-list-lieu', type, 'pickNewListLieu');
+function pickNewListLieu(valeur) {
+  AppState.newListLieu = valeur;
+  Monde.renderChoixLieu('new-list-lieu', valeur, 'pickNewListLieu');
 }
 
-function pickEditListLieu(type) {
-  AppState.editListLieu = type;
-  Monde.renderChoixLieu('edit-list-lieu', type, 'pickEditListLieu');
+function pickEditListLieu(valeur) {
+  AppState.editListLieu = valeur;
+  Monde.renderChoixLieu('edit-list-lieu', valeur, 'pickEditListLieu', AppState.editingListId);
+}
+
+// Liste créée : retour à la ville (son bâtiment y apparaît), ou dans sa
+// maison s'il faut encore des meubles pour y ranger ses éléments
+function apresCreation(lieu) {
+  const list = lieu.kind === 'maison' ? Storage.listeDeMaison(lieu.id) : null;
+  if (list && Monde.objetsManquants(list) > 0) Maisons.amenager(lieu.id);
+  else showScreen('home');
 }
 
 // Type de la liste en cours de création : 'mots', 'langue' ou 'cartes-questions'
@@ -2506,7 +2619,7 @@ function createLangListFromInput() {
   document.getElementById('list-name-input').value = '';
   document.getElementById('new-lang-input').value = '';
   showFeedback(`Liste créée : ${input.pairs.length} mots ! 🎉`, 'success');
-  setTimeout(() => showScreen('home'), 1500); // le nouveau bâtiment apparaît dans la ville
+  setTimeout(() => apresCreation(lieuChoisi(AppState.newListLieu)), 1500);
 }
 
 // Lit la saisie des cartes : une carte par ligne, « question = réponse ».
@@ -2556,7 +2669,7 @@ function createCardListFromInput() {
   Revision.initEditeur('new-', null);
   const n = parsed.items.length;
   showFeedback(`Liste créée : ${n} élément${n > 1 ? 's' : ''} ! 🎉`, 'success');
-  setTimeout(() => showScreen('home'), 1500); // le nouveau bâtiment apparaît dans la ville
+  setTimeout(() => apresCreation(lieuChoisi(AppState.newListLieu)), 1500);
 }
 
 function createListFromManualInput() {
@@ -2589,7 +2702,7 @@ function createListFromManualInput() {
 
   Storage.addList(name, words, lieuChoisi(AppState.newListLieu));
   showFeedback('Liste créée ! 🎉', 'success');
-  setTimeout(() => showScreen('home'), 1500); // le nouveau bâtiment apparaît dans la ville
+  setTimeout(() => apresCreation(lieuChoisi(AppState.newListLieu)), 1500);
 }
 
 function showEditListScreen(listId) {
@@ -2602,7 +2715,7 @@ function showEditListScreen(listId) {
   }
 
   AppState.editingListId = listId;
-  pickEditListLieu(list.lieu.type);
+  pickEditListLieu(Monde.lieuValeur(list.lieu));
 
   document.getElementById('edit-list-name-input').value = list.name;
 

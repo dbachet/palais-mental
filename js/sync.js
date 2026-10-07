@@ -22,7 +22,7 @@
 
 function createSync({ storage, fetchFn, config, now = () => Date.now(), device = '' }) {
   // Données de l'enfant, envoyées dans le compte
-  const SYNC_KEYS = ['wordLists', 'economy', 'kawaiiTeam', 'mixSelection', 'animationSpeed'];
+  const SYNC_KEYS = ['wordLists', 'economy', 'kawaiiTeam', 'maisons', 'mixSelection', 'animationSpeed'];
   // Clés techniques de ce fichier : jamais envoyées, jamais exportées
   const LOCAL_ONLY_KEYS = ['syncSession', 'syncMeta', 'syncBackup'];
 

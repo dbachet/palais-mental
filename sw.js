@@ -6,9 +6,9 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v27'; // v27 : quartiers, lieux dorés, compagnons, bac à sable, meubles par niveau
+const CACHE_NAME = 'mental-palace-v28'; // v28 : Créer ta maison
 // Même ?v= que dans index.html
-const V = '27';
+const V = '28';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -27,6 +27,7 @@ const ASSETS_TO_CACHE = [
   './js/scene.js?v=' + V,
   './js/images.js?v=' + V,
   './js/revision.js?v=' + V,
+  './js/maisons.js?v=' + V,
   './manifest.json',
   './assets/apple-touch-icon.png',
   './assets/icon-192.png'

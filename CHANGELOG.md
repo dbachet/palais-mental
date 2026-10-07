@@ -1,3 +1,22 @@
+## [2026-10-07] - Le monde virtuel, étape 5 : Créer ta maison
+
+### Ajouté
+- **🏡 Mes maisons** (accueil) : construire une maison (6 modèles : cabane, maison de ville, chalet, villa, petit château, maison dans les arbres ; 1 à 3 étages), la renommer, la démolir quand aucune liste ne l'habite
+- **Aménager** : poser les meubles de son inventaire dans chaque étage (12 au plus), les déplacer au doigt, les retirer par un appui long. Sans temps de jeu
+- **Une liste dans sa maison** : la maison se choisit comme lieu, à la création ou à l'édition d'une liste (une liste par maison, « Construire ma maison » directement depuis le choix). Chaque meuble porte un élément ; « Il manque N objets » tant qu'il n'y a pas assez de meubles, et les éléments se répartissent dès qu'un meuble arrive. Une maison encore vide invite à l'aménager avant d'apprendre
+- En jouant (🧸) dans une maison, les meubles du tiroir s'y posent comme objets, et les stickers comme déco
+- Défi du jour « Pose un meuble dans ta maison »
+
+### Changé
+- Changer le lieu d'une liste remet aussi à zéro les objets qu'elle avait déplacés
+
+### Technique
+- Nouveau fichier `js/maisons.js` (`Maisons`) ; `MODELES` dans `data/monde.js` ; clé `maisons`, synchronisée (`SYNC_KEYS`)
+- `list.lieu = { kind: 'maison', id }` ; emplacements « étage:id du meuble ». `Monde.lieuModele`, `lieuValeur`, `lieuDeValeur`, `objetsManquants`, `bandeauManque` ; `Storage.getMaisons`, `addMaison`, `ajouterObjetMaison`, `retirerObjetMaison`… ; `Scene.ouvrirAtelier`
+- Déco d'une maison : scène `maison:<id>:<étage>`. Les meubles posés dans une maison ne sont plus libres dans l'inventaire
+- Le rangement répartit les éléments qui partageaient un objet dès qu'il y a de la place
+- Service worker et `?v=` : `v28`
+
 ## [2026-10-07] - Le monde virtuel, étape 4 : quartiers, lieux dorés, compagnons, bac à sable
 
 ### Ajouté

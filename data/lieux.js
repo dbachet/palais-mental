@@ -123,7 +123,8 @@ const DEFIS = {
     [ // un moment doux
       { id: 'calin',   emoji: '💖', texte: 'Fais un câlin à ton kawaii', cible: 1 },
       { id: 'sticker', emoji: '🏠', texte: 'Colle un sticker dans un lieu', cible: 1 },
-      { id: 'album',   emoji: '📒', texte: 'Va voir ton album', cible: 1 }
+      { id: 'album',   emoji: '📒', texte: 'Va voir ton album', cible: 1 },
+      { id: 'maison',  emoji: '🏡', texte: 'Pose un meuble dans ta maison', cible: 1 }
     ]
   ]
 };

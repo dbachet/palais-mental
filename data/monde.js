@@ -279,6 +279,45 @@ const QUARTIERS = [
     decor: ['arbre', 'vache', 'botte_foin', 'tracteur', 'poule', 'citrouille'] }
 ];
 
+// ── Modèles de maisons (« Créer ta maison », js/maisons.js) ──
+// Une coquille sans objet : c'est l'enfant qui pose ses meubles, et chaque
+// meuble posé porte des éléments de la liste qui habite la maison.
+// 1 à 3 étages, avec le même décor que les bâtiments ; OBJETS_PAR_ETAGE
+// meubles au plus par étage.
+const MODELES = [
+  { id: 'cabane', nom: 'La cabane', couleurs: { facade: '#E2B07E', toit: '#7FCF6E', accent: '#FFDB6E' },
+    etages: [
+      { nom: 'la cabane', mur: '#EED3AE', sol: '#B98556', motif: 'rayures', solType: 'parquet', fenetre: 'carree' }
+    ] },
+  { id: 'ville', nom: 'La maison de ville', couleurs: { facade: '#FFE4EC', toit: '#E8679F', accent: '#9CC7FA' },
+    etages: [
+      { nom: 'le salon', mur: '#FFF0F5', sol: '#C99A6E', motif: 'pois', solType: 'parquet', fenetre: 'carree' },
+      { nom: 'la chambre', mur: '#EAF2FF', sol: '#B7C4EA', motif: 'rayures', solType: 'tapis', fenetre: 'ronde' }
+    ] },
+  { id: 'chalet', nom: 'Le chalet', couleurs: { facade: '#C98F6B', toit: '#6E63A0', accent: '#FFF1D6' },
+    etages: [
+      { nom: 'la grande pièce', mur: '#E9D3B4', sol: '#9C6B45', motif: 'briques', solType: 'parquet', fenetre: 'arche' },
+      { nom: 'la mezzanine', mur: '#F3E7DA', sol: '#C99A6E', motif: 'losanges', solType: 'tapis', fenetre: 'ronde' }
+    ] },
+  { id: 'villa', nom: 'La villa', couleurs: { facade: '#FFF6E3', toit: '#5FD3CE', accent: '#FF9EC7' },
+    etages: [
+      { nom: 'le salon', mur: '#F5FBFF', sol: '#D8CBB4', motif: 'uni', solType: 'carrelage', fenetre: 'arche' },
+      { nom: 'la chambre', mur: '#FFF1F6', sol: '#F2B8C6', motif: 'pois', solType: 'tapis', fenetre: 'carree' },
+      { nom: 'la terrasse', mur: '#CFE8FF', sol: '#A8DDA0', motif: 'uni', solType: 'herbe', fenetre: 'ciel' }
+    ] },
+  { id: 'chateau', nom: 'Le petit château', couleurs: { facade: '#EDE6F7', toit: '#B48CDB', accent: '#FFD466' },
+    etages: [
+      { nom: 'la grande salle', mur: '#E4DCCF', sol: '#A88F74', motif: 'pierre', solType: 'pierre', fenetre: 'vitrail' },
+      { nom: 'la chambre royale', mur: '#FFE4F1', sol: '#E9B6D0', motif: 'losanges', solType: 'tapis', fenetre: 'arche' },
+      { nom: 'la tour', mur: '#DCD3F5', sol: '#5E4E8C', motif: 'etoiles', solType: 'parquet', fenetre: 'ronde' }
+    ] },
+  { id: 'arbre', nom: 'La maison dans les arbres', couleurs: { facade: '#D9A06B', toit: '#9BDB8A', accent: '#FF9EC7' },
+    etages: [
+      { nom: 'la cabane perchée', mur: '#EED3AE', sol: '#B98556', motif: 'rayures', solType: 'parquet', fenetre: 'ronde' },
+      { nom: 'le nid sous le ciel', mur: '#CFE8FF', sol: '#A8DDA0', motif: 'uni', solType: 'herbe', fenetre: 'ciel' }
+    ] }
+];
+
 // La salle de jeux : un bâtiment de la ville sans liste (js/arcade.js)
 const SALLE_JEUX = {
   id: 'salle', nom: 'Salle de jeux', embleme: null,

@@ -27,15 +27,67 @@ function batiment(type) {
   return BATIMENTS.find(b => b.id === type) || BATIMENTS[0];
 }
 
-// Emplacements d'un lieu, dans l'ordre du parcours (étage par étage)
+// Modèle d'une maison construite par l'enfant
+function modele(id) {
+  return MODELES.find(m => m.id === id) || MODELES[0];
+}
+
+// Ce qu'il faut pour dessiner un lieu, bâtiment ou maison :
+// { id, nom, couleurs, etages: [{ nom, mur, sol, motif, solType, fenetre, objets }], maison? }
+function lieuModele(lieu) {
+  if (lieu && lieu.kind === 'maison') {
+    const m = Storage.getMaison(lieu.id);
+    const mod = modele(m ? m.modele : null);
+    return {
+      id: 'm-' + mod.id, nom: m ? m.nom : mod.nom, embleme: null, maison: m, modele: mod,
+      couleurs: mod.couleurs, etages: mod.etages.map(e => ({ ...e, objets: [] }))
+    };
+  }
+  return batiment(lieu && lieu.type);
+}
+
+// Valeur d'un lieu dans les choix (création, édition) : 'boulangerie' ou 'maison:12'
+function lieuValeur(lieu) {
+  return lieu && lieu.kind === 'maison' ? `maison:${lieu.id}` : (lieu ? lieu.type : BATIMENTS[0].id);
+}
+
+function lieuDeValeur(valeur) {
+  const v = String(valeur);
+  return v.startsWith('maison:') ? { kind: 'maison', id: Number(v.slice(7)) } : { kind: 'batiment', type: v };
+}
+
+// Objets d'une maison, dans l'ordre du parcours (étage, puis de gauche à droite)
+function objetsMaison(m) {
+  return (m ? m.objets : []).slice().sort((a, b) => a.etage - b.etage || a.x - b.x || a.id - b.id);
+}
+
+// Emplacements d'un lieu, dans l'ordre du parcours (étage par étage).
+// Bâtiment : "étage:index" ; maison : "étage:id de l'objet".
 function slotsOf(lieu) {
-  if (!lieu || lieu.kind !== 'batiment') return [];
+  if (!lieu) return [];
+  if (lieu.kind === 'maison') return objetsMaison(Storage.getMaison(lieu.id)).map(o => `${o.etage}:${o.id}`);
+  if (lieu.kind !== 'batiment') return [];
   return batiment(lieu.type).etages.flatMap((e, ei) => e.objets.map((_, i) => `${ei}:${i}`));
 }
 
-// Objet d'un emplacement : { batiment, etage, etageNom, index, forme, couleur, nom }
+// Objet d'un emplacement : { batiment, etage, etageNom, index, slotId, forme, couleur, nom, x, y, z, echelle }
+// (batiment : le bâtiment, ou ce qui dessine la maison, voir lieuModele)
 function slotInfo(lieu, slotId) {
   if (!lieu || !slotId) return null;
+  if (lieu.kind === 'maison') {
+    const m = Storage.getMaison(lieu.id);
+    const [ei, oid] = slotId.split(':').map(Number);
+    const objets = objetsMaison(m);
+    const o = objets.find(x => x.id === oid && x.etage === ei);
+    const info = o && Objets.info(o.forme);
+    if (!info) return null;
+    const lm = lieuModele(lieu);
+    const etage = lm.etages[ei];
+    return {
+      batiment: lm, etage: ei, etageNom: etage ? etage.nom : '', index: objets.indexOf(o), slotId,
+      forme: o.forme, couleur: null, nom: info.nom, x: o.x, y: o.y, z: o.y, echelle: 1, objetId: o.id
+    };
+  }
   const b = batiment(lieu.type);
   const [ei, i] = slotId.split(':').map(Number);
   const etage = b.etages[ei];
@@ -133,7 +185,12 @@ function hasard(seed) {
 // Mots : un objet libre au hasard dans le premier étage qui a de la place.
 function rangerListe(list) {
   const slots = slotsOf(list.lieu);
-  if (slots.length === 0) return false;
+  if (slots.length === 0) {
+    // Maison encore vide : rien n'est rangé tant qu'elle n'a pas de meuble
+    const avait = Object.keys(list.places || {}).length > 0;
+    list.places = {};
+    return avait;
+  }
   const valides = new Set(slots);
   const keys = elementKeys(list);
   const avant = list.places || {};
@@ -168,6 +225,22 @@ function rangerListe(list) {
     places[k] = slot;
     pris.add(slot);
   });
+
+  // Des objets se libèrent (meubles ajoutés dans une maison) : les éléments
+  // qui partageaient un objet vont chacun sur le sien
+  const libres = slots.filter(libre);
+  if (libres.length) {
+    const vus = new Set();
+    keys.forEach(k => {
+      if (!vus.has(places[k])) {
+        vus.add(places[k]);
+        return;
+      }
+      if (!libres.length) return;
+      places[k] = libres.shift();
+      vus.add(places[k]);
+    });
+  }
 
   const change = JSON.stringify(places) !== JSON.stringify(avant);
   list.places = places;
@@ -290,7 +363,10 @@ function migrer() {
 
   let change = false;
   lists.forEach((list, i) => {
-    if (!list.lieu || (list.lieu.kind === 'batiment' && !BATIMENTS.some(b => b.id === list.lieu.type))) {
+    const perdu = !list.lieu
+      || (list.lieu.kind === 'batiment' && !BATIMENTS.some(b => b.id === list.lieu.type))
+      || (list.lieu.kind === 'maison' && !Storage.getMaison(list.lieu.id));
+    if (perdu) {
       const depart = BATIMENTS.filter(b => !b.quartier);
       list.lieu = { kind: 'batiment', type: depart[i % depart.length].id };
       change = true;
@@ -355,7 +431,12 @@ function facade(b, etages, x, y) {
   let s = '';
 
   // Toit selon le bâtiment (derrière la façade quand il dépasse)
-  if (b.id === 'chateau') {
+  if (b.id === 'm-arbre') {
+    // Le tronc et le feuillage autour de la cabane
+    s += `<rect x="${x - 16}" y="${y - 6}" width="32" height="10" fill="#A86F3F"/>`;
+    s += `<circle cx="${g - 4}" cy="${top + 10}" r="34" fill="#9BDB8A" ${trait}/><circle cx="${g + w + 4}" cy="${top + 18}" r="30" fill="#9BDB8A" ${trait}/><circle cx="${x}" cy="${top - 30}" r="44" fill="#7FCF6E" ${trait}/>`;
+  }
+  if (b.id === 'chateau' || b.id === 'm-chateau') {
     [g - 14, g + w - 22].forEach(tx => {
       s += `<rect x="${tx}" y="${top - 26}" width="36" height="${h + 26}" rx="4" fill="${c.facade}" ${trait}/>`;
       s += `<path d="M${tx - 6} ${top - 26} L${tx + 18} ${top - 70} L${tx + 42} ${top - 26} Z" fill="${c.toit}" ${trait}/>`;
@@ -365,6 +446,25 @@ function facade(b, etages, x, y) {
 
   s += `<rect x="${g}" y="${top}" width="${w}" height="${h}" rx="6" fill="${c.facade}" ${trait}/>`;
 
+  if (b.id === 'm-cabane' || b.id === 'm-ville' || b.id === 'm-arbre') {
+    s += `<path d="M${g - 12} ${top + 2} L${x} ${top - 50} L${g + w + 12} ${top + 2} Z" fill="${c.toit}" ${trait}/>`;
+  }
+  if (b.id === 'm-ville') {
+    s += `<rect x="${g + w - 46}" y="${top - 46}" width="20" height="30" fill="${c.accent}" ${trait}/>`;
+  }
+  if (b.id === 'm-cabane') {
+    for (let k = 1; k < 6; k++) s += `<path d="M${g} ${top + k * (h / 6)} H${g + w}" stroke="${ink}" stroke-width="1.5" opacity=".25"/>`;
+  }
+  if (b.id === 'm-chalet') {
+    s += `<path d="M${g - 26} ${top + 10} L${x} ${top - 40} L${g + w + 26} ${top + 10} Z" fill="${c.toit}" ${trait}/>`;
+    s += `<path d="M${g - 4} ${y - 70} H${g + w + 4}" stroke="${ink}" stroke-width="3"/>` + Array.from({ length: 9 }, (_, k) => `<path d="M${g + k * 21} ${y - 70} v-14" stroke="${ink}" stroke-width="2.5"/>`).join('');
+  }
+  if (b.id === 'm-villa') {
+    s += `<rect x="${g - 6}" y="${top - 6}" width="${w + 12}" height="10" rx="4" fill="${c.toit}" ${trait}/>` + Array.from({ length: 8 }, (_, k) => `<path d="M${g + 4 + k * 23} ${top - 6} v-16" stroke="#fff" stroke-width="4"/>`).join('') + `<path d="M${g - 4} ${top - 22} H${g + w + 4}" stroke="#fff" stroke-width="4"/>`;
+  }
+  if (b.id === 'm-chateau') {
+    for (let k = 0; k < 6; k++) s += `<rect x="${g + 6 + k * 28}" y="${top - 14}" width="18" height="16" fill="${c.facade}" ${trait}/>`;
+  }
   if (b.id === 'boulangerie' || b.id === 'ecole') {
     s += `<path d="M${g - 12} ${top + 2} L${x} ${top - 46} L${g + w + 12} ${top + 2} Z" fill="${c.toit}" ${trait}/>`;
   }
@@ -525,7 +625,7 @@ function carteSVG(lists) {
     const col = list.parcelle % COLONNES, row = Math.floor(list.parcelle / COLONNES);
     const cx = col * CELLULE.w + CELLULE.w / 2, base = row * CELLULE.h + 236;
     const ninja = Storage.isListNinja(list);
-    const b = ninja ? { ...batiment(list.lieu.type), couleurs: DORE } : batiment(list.lieu.type);
+    const b = ninja ? { ...lieuModele(list.lieu), couleurs: DORE } : lieuModele(list.lieu);
     const etages = Math.max(1, etagesUtilises(list).length);
     const pct = Math.round(maitrise(list) * 100);
     const comp = compagnonDe(list);
@@ -591,35 +691,60 @@ function renderCarte() {
 }
 
 // Feuille d'un lieu : sa liste et ses modes de jeu
+// Éléments d'une liste qui n'ont pas encore leur propre objet (maison pas assez meublée)
+function objetsManquants(list) {
+  if (!list.lieu || list.lieu.kind !== 'maison') return 0;
+  return Math.max(0, elementKeys(list).length - slotsOf(list.lieu).length);
+}
+
+// Bandeau d'une maison qui manque de meubles
+function bandeauManque(list) {
+  const n = objetsManquants(list);
+  if (!n) return '';
+  const vide = slotsOf(list.lieu).length === 0;
+  return `<div class="maison-manque">
+    <span>🏡 ${vide ? 'Ta maison est encore vide : pose des meubles pour y ranger ta liste.' : `Il manque ${n} objet${n > 1 ? 's' : ''} : en attendant, certains objets portent plusieurs éléments.`}</span>
+    <button class="btn btn-secondary btn-small" onclick="closeSheet(); Maisons.amenager(${list.lieu.id})">Ajouter des meubles</button>
+  </div>`;
+}
+
+function iconeLieu(b, taille) {
+  if (b.embleme) return Objets.draw(b.embleme, { taille });
+  return `<svg viewBox="-110 -232 220 240" width="${taille}" height="${taille}" aria-hidden="true">${facade(b, Math.min(2, b.etages.length), 0, 0)}</svg>`;
+}
+
 function ouvrirLieu(listId) {
   const list = Storage.getActiveLists().find(l => l.id === listId);
   if (!list) return;
-  const b = batiment(list.lieu.type);
+  const b = lieuModele(list.lieu);
   const etages = etagesUtilises(list);
   const n = etages.length;
   showSheet(`
     <div class="lieu-sheet-head">
-      <span class="lieu-sheet-emoji">${Objets.draw(b.embleme, { taille: 56 })}</span>
+      <span class="lieu-sheet-emoji">${iconeLieu(b, 56)}</span>
       <div>
         <div class="lieu-sheet-type">${escape(b.nom)} · ${n} étage${n > 1 ? 's' : ''}</div>
         <div class="lieu-sheet-etages">${etages.map(e => escape(capitalizeFirst(b.etages[e].nom))).join(' · ')}</div>
       </div>
     </div>
+    ${bandeauManque(list)}
     ${Storage.isCardList(list) ? cardListHTML(list) : wordListHTML(list)}
     <div class="sheet-actions">
       <button class="btn btn-ghost" onclick="closeSheet()">Fermer</button>
+      ${b.maison ? `<button class="btn btn-ghost" onclick="closeSheet(); Maisons.amenager(${b.maison.id})">🛠️ Aménager</button>` : ''}
       <button class="btn btn-secondary" onclick="closeSheet(); Scene.ouvrirLibre(${list.id})">🧸 Jouer dans ce lieu</button>
     </div>
   `);
 }
 
 // ── Choix du lieu (création et édition d'une liste) ──
-// containerId : où dessiner les choix ; selected : id du bâtiment choisi
-function renderChoixLieu(containerId, selected, onPick) {
+// containerId : où dessiner les choix ; selected : valeur choisie (lieuValeur) ;
+// listId : la liste éditée (sa maison reste choisissable)
+function renderChoixLieu(containerId, selected, onPick, listId) {
   const box = document.getElementById(containerId);
   if (!box) return;
   const ouverts = quartiersOuverts();
-  box.innerHTML = BATIMENTS.map(b => {
+  const batiments = BATIMENTS.map(b => {
     const ouvert = batimentOuvert(b, ouverts) || b.id === selected;
     const q = quartierDe(b);
     return `
@@ -628,6 +753,23 @@ function renderChoixLieu(containerId, selected, onPick) {
       <span>${escape(b.nom)}${ouvert ? '' : `<small>🔒 ${q.seuil} ⭐</small>`}</span>
     </button>`;
   }).join('');
+  // Ses maisons : une liste par maison
+  const maisons = Storage.getMaisons().map(m => {
+    const valeur = `maison:${m.id}`;
+    const habitant = Storage.listeDeMaison(m.id);
+    const prise = habitant && habitant.id !== listId;
+    const b = lieuModele({ kind: 'maison', id: m.id });
+    return `
+    <button type="button" class="lieu-choix${valeur === selected ? ' selected' : ''}${prise ? ' verrouille' : ''}" onclick="${prise ? `showFeedback('Cette maison est déjà prise par « ${escape(habitant.name).replace(/'/g, '’')} »', 'error')` : `${onPick}('${valeur}')`}" aria-pressed="${valeur === selected}">
+      <svg viewBox="-110 -232 220 240" width="92" height="100" aria-hidden="true">${facade(b, Math.min(2, b.etages.length), 0, 0)}</svg>
+      <span>${escape(m.nom)}<small>${prise ? 'déjà prise' : `${m.objets.length} meuble${m.objets.length > 1 ? 's' : ''}`}</small></span>
+    </button>`;
+  }).join('');
+  box.innerHTML = batiments + maisons + `
+    <button type="button" class="lieu-choix lieu-choix-nouveau" onclick="Maisons.creer((id) => ${onPick}('maison:' + id))">
+      <span class="lieu-choix-plus">🏡</span>
+      <span>Construire ma maison</span>
+    </button>`;
 }
 
 // Texte court d'un emplacement : « Boulangerie · étage 1 (le fournil) »
@@ -639,6 +781,7 @@ return {
   batiment, slotsOf, slotInfo, supportsDe, elementKeys, placeOf, etagesUtilises,
   rangerListe, batimentPropose, objetDe, dessinObjet, parcelleLibre, donnerParcelles, migrer,
   renderCarte, ouvrirLieu, renderChoixLieu, lieuTexte, maitrise, estMaitrise, facade,
-  quartiersOuverts, batimentOuvert, lieuVerrouille, ouvrirQuartier, compagnonDe
+  quartiersOuverts, batimentOuvert, lieuVerrouille, ouvrirQuartier, compagnonDe,
+  modele, lieuModele, lieuValeur, lieuDeValeur, objetsManquants, bandeauManque, iconeLieu
 };
 })();

@@ -759,6 +759,53 @@ header h1 {
   color: var(--encre);
 }
 
+/* Construire une maison, depuis le choix du lieu */
+.lieu-choix-nouveau {
+  border-style: dashed;
+  justify-content: center;
+}
+
+.lieu-choix-plus { font-size: 2.6rem; line-height: 1.2; }
+
+/* ─── Mes maisons (js/maisons.js) ─── */
+.maison-card {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.maison-dessin { flex: none; line-height: 0; }
+.maison-infos { flex: 1; min-width: 0; }
+.maison-infos h3 { margin: 0 0 4px; }
+
+.maison-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Une maison qui manque de meubles pour sa liste */
+.maison-manque {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 12px 14px;
+  margin: 10px 0;
+  border-radius: var(--r-m);
+  background: var(--or-pale);
+  border: 2px solid #F6E2A6;
+  font-weight: 700;
+  color: var(--encre);
+}
+
+@media (max-width: 520px) {
+  .maison-card { flex-direction: column; text-align: center; }
+  .maison-actions { justify-content: center; }
+}
+
 /* Bâtiment d'un quartier pas encore ouvert */
 .lieu-choix.verrouille svg { filter: grayscale(1); opacity: 0.5; }
 .lieu-choix.verrouille { color: var(--encre-3); }

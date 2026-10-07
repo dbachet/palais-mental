@@ -22,7 +22,7 @@
 
   <!-- Styles. Le ?v= force les navigateurs sans service worker (http://IP:port)
        à recharger les fichiers : l'augmenter à chaque version, ici et dans sw.js. -->
-  <link rel="stylesheet" href="css/style.css?v=27">
+  <link rel="stylesheet" href="css/style.css?v=28">
 </head>
 <body>
   <div id="app">
@@ -75,6 +75,9 @@
           </button>
           <button class="btn btn-tile" onclick="showStrugglingWordsScreen()">
             <span class="tile-icon">💪</span>Mots à travailler
+          </button>
+          <button class="btn btn-tile" onclick="Maisons.afficher()">
+            <span class="tile-icon">🏡</span>Mes maisons
           </button>
           <button class="btn btn-tile" onclick="showNewListScreen()">
             <span class="tile-icon">➕</span>Nouvelle liste
@@ -532,10 +535,24 @@
         <div id="lieu-scene"></div>
         <div class="lieu-outils">
           <button class="btn btn-primary" id="lieu-btn-tiroir" onclick="Scene.basculerTiroir()" aria-expanded="false">🎒 Décorer</button>
-          <button class="btn btn-ghost" onclick="Scene.demanderRemettre()">↩️ Remettre les objets</button>
+          <button class="btn btn-ghost" id="lieu-btn-remettre" onclick="Scene.demanderRemettre()">↩️ Remettre les objets</button>
         </div>
+        <div id="lieu-manque"></div>
         <div class="tiroir hidden" id="lieu-tiroir"></div>
-        <p class="hint text-center">Fais glisser les objets ⭐ où tu veux : tes mots les suivent. Appuie longtemps sur une déco pour la retirer.</p>
+        <p class="hint text-center" id="lieu-aide">Fais glisser les objets ⭐ où tu veux : tes mots les suivent. Appuie longtemps sur une déco pour la retirer.</p>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN MES MAISONS (js/maisons.js)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="maisons-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1>🏡 Mes maisons</h1>
+      </header>
+      <div class="screen-body" id="maisons-content">
+        <!-- Rempli par Maisons.afficher() -->
       </div>
     </div>
 
@@ -662,19 +679,20 @@
   </div>
 
   <!-- Scripts -->
-  <script src="data/lieux.js?v=27"></script>
-  <script src="data/monde.js?v=27"></script>
-  <script src="js/objets.js?v=27"></script>
-  <script src="js/kawaii.js?v=27"></script>
-  <script src="js/config.js?v=27"></script>
-  <script src="js/sync.js?v=27"></script>
-  <script src="js/app.js?v=27"></script>
-  <script src="js/monde.js?v=27"></script>
-  <script src="js/scene.js?v=27"></script>
-  <script src="js/images.js?v=27"></script>
-  <script src="js/revision.js?v=27"></script>
-  <script src="js/recompenses.js?v=27"></script>
-  <script src="js/jeux-cartes.js?v=27"></script>
-  <script src="js/arcade.js?v=27"></script>
+  <script src="data/lieux.js?v=28"></script>
+  <script src="data/monde.js?v=28"></script>
+  <script src="js/objets.js?v=28"></script>
+  <script src="js/kawaii.js?v=28"></script>
+  <script src="js/config.js?v=28"></script>
+  <script src="js/sync.js?v=28"></script>
+  <script src="js/app.js?v=28"></script>
+  <script src="js/monde.js?v=28"></script>
+  <script src="js/scene.js?v=28"></script>
+  <script src="js/images.js?v=28"></script>
+  <script src="js/revision.js?v=28"></script>
+  <script src="js/maisons.js?v=28"></script>
+  <script src="js/recompenses.js?v=28"></script>
+  <script src="js/jeux-cartes.js?v=28"></script>
+  <script src="js/arcade.js?v=28"></script>
 </body>
 </html>

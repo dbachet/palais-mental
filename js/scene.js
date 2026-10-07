@@ -26,8 +26,9 @@ const W = 1000, H = 640, SOL = 430;
 const TAILLE = { sol: 150, petit: 72, mur: 100 };
 let uid = 0;
 
+// Les déco d'un bâtiment suivent sa liste ; celles d'une maison restent à la maison
 function sceneId(list, etage) {
-  return `bat:${list.id}:${etage}`;
+  return list.lieu && list.lieu.kind === 'maison' ? `maison:${list.lieu.id}:${etage}` : `bat:${list.id}:${etage}`;
 }
 
 // Objets d'un étage : [{ slotId, info, keys, pos, taille, vide, maitrise }]
@@ -38,14 +39,14 @@ function objetsEtage(list, etage) {
   Object.entries(list.places || {}).forEach(([key, slot]) => {
     (parSlot[slot] = parSlot[slot] || []).push(key);
   });
-  const e = Monde.batiment(list.lieu.type).etages[etage];
-  return (e ? e.objets : []).map((_, i) => {
-    const slotId = `${etage}:${i}`;
+  const maison = list.lieu.kind === 'maison';
+  return Monde.slotsOf(list.lieu).filter(slotId => Number(slotId.split(':')[0]) === etage).map(slotId => {
     const info = Monde.slotInfo(list.lieu, slotId);
     if (!info) return null;
     const k = (Objets.info(info.forme) || {}).k || 'sol';
-    // Place de départ : celle choisie pour la pièce (data/monde.js)
-    const pos = (list.positions || {})[slotId] || { x: info.x, y: info.y, z: info.z };
+    // Bâtiment : la place de départ choisie pour la pièce (data/monde.js), ou
+    // celle où elle l'a mis. Maison : là où elle a posé le meuble.
+    const pos = (!maison && (list.positions || {})[slotId]) || { x: info.x, y: info.y, z: info.z };
     const keys = parSlot[slotId] || [];
     return {
       slotId, info, k, keys, pos, taille: TAILLE[k] * info.echelle, vide: !keys.length,
@@ -173,10 +174,11 @@ function placeStyle(x, y, largeur, z) {
 // ── Dessin d'une scène ──
 // opts : { list, etage, mode: 'calme' | 'libre',
 //          session: { slotId: { etat: 'a-faire' | 'vu' | 'reussi' | 'rate', fini } },
-//          onChoisir(slotId) }   (session et onChoisir : mode calme)
+//          onChoisir(slotId),   (session et onChoisir : mode calme)
+//          atelier }            (aménager une maison : le kawaii principal seul, immobile)
 function render(host, opts) {
   const { list, etage, mode } = opts;
-  const b = Monde.batiment(list.lieu.type);
+  const b = Monde.lieuModele(list.lieu);
   const e = b.etages[etage];
   const objets = objetsEtage(list, etage);
   const deco = Storage.getDeco(sceneId(list, etage));
@@ -210,7 +212,9 @@ function render(host, opts) {
   const mood = Kawaii.period() === 'nuit' ? 'soir' : undefined;
   const membres = [];
   if (team.main) membres.push({ k: 'main', config: team.main });
-  if (mode === 'libre') {
+  if (opts.atelier) {
+    // l'équipe attend dehors pendant qu'on aménage
+  } else if (mode === 'libre') {
     team.companions.forEach((c, i) => { if (c) membres.push({ k: String(i), config: c }); });
   } else {
     const comp = Monde.compagnonDe(list);
@@ -221,7 +225,7 @@ function render(host, opts) {
     const depart = m.k === 'main' ? { x: 60, y: 620 } : (m.k === 'compagnon' ? { x: 945, y: 625 } : { x: 160 + i * 90, y: 628 });
     const p = placesK[m.k] || depart;
     const taille = m.k === 'main' ? 120 : 96;
-    return `<div class="scene-kawaii${m.k === 'main' ? '' : ' scene-compagnon'}"${mode === 'libre' ? ` data-drag data-k="${m.k}"` : ''} style="${placeStyle(p.x, p.y, taille)}">${Kawaii.draw(m.config, taille, { alive: true, mood })}</div>`;
+    return `<div class="scene-kawaii${m.k === 'main' ? '' : ' scene-compagnon'}"${mode === 'libre' && !opts.atelier ? ` data-drag data-k="${m.k}"` : ''} style="${placeStyle(p.x, p.y, taille)}">${Kawaii.draw(m.config, taille, { alive: true, mood })}</div>`;
   }).join('');
 
   host.innerHTML = `
@@ -288,10 +292,20 @@ function versScene(el, e) {
 // ═══════════════════════════════════════════════════════════════
 
 // kawaii : { scène: { k: { x, y } } } où elle a mis ses kawaii (le temps de la visite)
-const Libre = { listId: null, etage: 0, onglet: 'meubles', armed: null, tiroir: false, kawaii: {} };
+// maisonId : le lieu est une maison (ses meubles portent les éléments) ;
+// atelier : on aménage la maison (js/maisons.js), sans temps de jeu
+const Libre = { listId: null, maisonId: null, atelier: false, etage: 0, onglet: 'meubles', armed: null, tiroir: false, kawaii: {} };
 
+// La liste du lieu ; une maison encore inhabitée a une liste « vide » pour le dessin
 function listeLibre() {
-  return Storage.getActiveLists().find(l => l.id === Libre.listId) || null;
+  const list = Libre.listId ? Storage.getActiveLists().find(l => l.id === Libre.listId) : null;
+  if (list || !Libre.maisonId) return list || null;
+  return { id: `maison${Libre.maisonId}`, name: '', lieu: { kind: 'maison', id: Libre.maisonId }, places: {}, words: [], progress: {} };
+}
+
+function etagesLibres(list) {
+  if (list.lieu.kind === 'maison') return Monde.lieuModele(list.lieu).etages.map((_, i) => i);
+  return Monde.etagesUtilises(list);
 }
 
 // Entrer dans un lieu. opts : { etage, onglet: 'meubles' | 'stickers', tiroir }
@@ -302,8 +316,10 @@ function ouvrirLibre(listId, opts = {}) {
     TempsJeu.proposerAchat(() => ouvrirLibre(listId, opts));
     return;
   }
-  const etages = Monde.etagesUtilises(list);
+  const etages = etagesLibres(list);
   Libre.listId = listId;
+  Libre.maisonId = list.lieu.kind === 'maison' ? list.lieu.id : null;
+  Libre.atelier = false;
   Libre.etage = etages.includes(opts.etage) ? opts.etage : (etages[0] || 0);
   Libre.onglet = opts.onglet || 'meubles';
   Libre.tiroir = !!opts.tiroir;
@@ -314,17 +330,41 @@ function ouvrirLibre(listId, opts = {}) {
   renderLibre();
 }
 
+// Aménager une maison : poser, déplacer, retirer ses meubles (pas de temps de jeu)
+function ouvrirAtelier(maisonId, etage = 0) {
+  if (!Storage.getMaison(maisonId)) return;
+  const habitant = Storage.listeDeMaison(maisonId);
+  Libre.listId = habitant && !Storage.isArchived(habitant) ? habitant.id : null;
+  Libre.maisonId = maisonId;
+  Libre.atelier = true;
+  Libre.etage = etage;
+  Libre.onglet = 'meubles';
+  Libre.tiroir = true;
+  Libre.armed = null;
+  Libre.kawaii = {};
+  showScreen('lieu');
+  renderLibre();
+}
+
 function renderLibre() {
   const list = listeLibre();
   if (!list) return;
-  const b = Monde.batiment(list.lieu.type);
-  const etages = Monde.etagesUtilises(list);
-  document.getElementById('lieu-titre').textContent = `${b.nom} · ${list.name}`;
+  const b = Monde.lieuModele(list.lieu);
+  const etages = etagesLibres(list);
+  if (!etages.includes(Libre.etage)) Libre.etage = etages[0] || 0;
+  document.getElementById('lieu-titre').textContent = Libre.atelier ? `🛠️ ${b.nom}` : `${b.nom}${list.name ? ` · ${list.name}` : ''}`;
+  document.querySelector('#lieu-screen .temps-jeu').classList.toggle('hidden', Libre.atelier);
+  document.getElementById('lieu-btn-tiroir').textContent = Libre.atelier ? '🛋️ Mes meubles' : '🎒 Décorer';
+  document.getElementById('lieu-btn-remettre').classList.toggle('hidden', !!Libre.maisonId);
+  document.getElementById('lieu-aide').textContent = Libre.maisonId
+    ? 'Choisis un meuble puis tape dans la pièce pour le poser. Fais-le glisser pour le déplacer, appuie longtemps pour le retirer. Chaque meuble ⭐ porte un élément de ta liste.'
+    : 'Fais glisser les objets ⭐ où tu veux : tes mots les suivent. Appuie longtemps sur une déco pour la retirer.';
+  document.getElementById('lieu-manque').innerHTML = Libre.listId ? Monde.bandeauManque(list) : '';
   document.getElementById('lieu-etages').innerHTML = etages.map(e => `
     <button type="button" class="etage-chip${e === Libre.etage ? ' selected' : ''}" onclick="Scene.allerEtage(${e})" aria-pressed="${e === Libre.etage}">
       <strong>Étage ${e + 1}</strong><span>${escapeText(b.etages[e].nom)}</span>
     </button>`).join('');
-  const el = render(document.getElementById('lieu-scene'), { list, etage: Libre.etage, mode: 'libre' });
+  const el = render(document.getElementById('lieu-scene'), { list, etage: Libre.etage, mode: 'libre', atelier: Libre.atelier });
   el.classList.toggle('armed', !!Libre.armed);
   el.querySelector('.scene-armed-hint').classList.toggle('hidden', !Libre.armed);
   el.addEventListener('pointerdown', onDown);
@@ -345,7 +385,14 @@ function renderTiroir() {
   if (!box) return;
   box.classList.toggle('hidden', !Libre.tiroir);
   if (!Libre.tiroir) return;
+  if (Libre.atelier) Libre.onglet = 'meubles';
   const n = Storage.getDeco(sceneId(listeLibre(), Libre.etage)).length;
+  // Dans une maison, les meubles posés sont ses objets (12 par étage)
+  const maison = Libre.maisonId ? Storage.getMaison(Libre.maisonId) : null;
+  const nMeubles = maison ? maison.objets.filter(o => o.etage === Libre.etage).length : 0;
+  const compte = maison && Libre.onglet === 'meubles'
+    ? `${nMeubles}/${OBJETS_PAR_ETAGE} meubles dans cet étage`
+    : `${n}/${ECONOMIE.maxDecoParScene} dans cet étage`;
   const items = Libre.onglet === 'meubles'
     ? Storage.getFreeMeubles().map(({ forme, count }) => `
         <button type="button" class="tiroir-item${Libre.armed && Libre.armed.meuble === forme ? ' selected' : ''}" onclick="Scene.armer({ meuble: '${forme}' })">
@@ -361,8 +408,8 @@ function renderTiroir() {
   box.innerHTML = `
     <div class="tiroir-onglets" role="tablist">
       <button type="button" role="tab" class="tiroir-onglet${Libre.onglet === 'meubles' ? ' selected' : ''}" aria-selected="${Libre.onglet === 'meubles'}" onclick="Scene.onglet('meubles')">🛋️ Meubles</button>
-      <button type="button" role="tab" class="tiroir-onglet${Libre.onglet === 'stickers' ? ' selected' : ''}" aria-selected="${Libre.onglet === 'stickers'}" onclick="Scene.onglet('stickers')">🎒 Stickers</button>
-      <span class="tiroir-compte">${n}/${ECONOMIE.maxDecoParScene} dans cet étage</span>
+      ${Libre.atelier ? '' : `<button type="button" role="tab" class="tiroir-onglet${Libre.onglet === 'stickers' ? ' selected' : ''}" aria-selected="${Libre.onglet === 'stickers'}" onclick="Scene.onglet('stickers')">🎒 Stickers</button>`}
+      <span class="tiroir-compte">${compte}</span>
     </div>
     ${items ? `<div class="tiroir-grille">${items}</div>` : `<p class="hint text-center">${vide}</p>`}`;
 }
@@ -394,7 +441,12 @@ function onDown(e) {
     e.preventDefault();
     const p = versScene(el, e);
     const list = listeLibre();
-    if (Storage.placeDeco(sceneId(list, Libre.etage), Libre.armed, p.x, p.y)) {
+    if (Libre.maisonId && Libre.armed.meuble) {
+      // Un meuble dans une maison devient un de ses objets
+      const r = Storage.ajouterObjetMaison(Libre.maisonId, Libre.armed.meuble, Libre.etage, p.x, p.y);
+      if (r === 'ok') playStarSound();
+      else showFeedback(r === 'plein' ? `Pas plus de ${OBJETS_PAR_ETAGE} meubles par étage` : 'Plus de ce meuble dans ton inventaire', 'error');
+    } else if (Storage.placeDeco(sceneId(list, Libre.etage), Libre.armed, p.x, p.y)) {
       playStarSound();
       if (Libre.armed.sticker) Defis.track('sticker');
     } else {
@@ -414,14 +466,16 @@ function glisser(e, sceneEl, item) {
   let moved = false;
   const isDeco = item.classList.contains('scene-deco');
   const isKawaii = item.classList.contains('scene-kawaii');
+  const isMeubleMaison = !!Libre.maisonId && item.classList.contains('scene-obj');
   try { item.setPointerCapture(e.pointerId); } catch (err) {}
   item.classList.add('dragging');
   // Appui long : retirer une déco, habiller un kawaii
-  const appuiLong = (isDeco || isKawaii) ? setTimeout(() => {
+  const appuiLong = (isDeco || isKawaii || isMeubleMaison) ? setTimeout(() => {
     if (moved) return;
     fin();
     if (isDeco) demanderRetrait(Number(item.dataset.index));
-    else habiller(item.dataset.k);
+    else if (isKawaii) habiller(item.dataset.k);
+    else demanderRetraitMeuble(Number(item.dataset.slot.split(':')[1]));
   }, 600) : null;
   const move = (ev) => {
     if (!moved && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 8) return;
@@ -445,6 +499,7 @@ function glisser(e, sceneEl, item) {
     const id = sceneId(list, Libre.etage);
     if (isDeco) Storage.moveDeco(id, Number(item.dataset.index), p.x, p.y);
     else if (isKawaii) (Libre.kawaii[id] = Libre.kawaii[id] || {})[item.dataset.k] = { x: p.x, y: p.y };
+    else if (isMeubleMaison) Storage.deplacerObjetMaison(Libre.maisonId, Number(item.dataset.slot.split(':')[1]), p.x, p.y);
     else deplacerObjet(list.id, item.dataset.slot, p);
   };
   const fin = () => {
@@ -549,6 +604,29 @@ function demanderRetrait(index) {
   `);
 }
 
+// Retirer un meuble de sa maison : ce qu'il portait va sur un autre objet
+function demanderRetraitMeuble(objetId) {
+  const m = Storage.getMaison(Libre.maisonId);
+  const o = m && m.objets.find(x => x.id === objetId);
+  if (!o) return;
+  const list = listeLibre();
+  const porte = Object.values(list.places || {}).filter(s2 => s2 === `${o.etage}:${o.id}`).length;
+  showSheet(`
+    <div class="sheet-art">${Objets.draw(o.forme, { taille: 110 })}</div>
+    <h3>${escapeText(capitalizeFirst(Objets.info(o.forme).nom))}</h3>
+    <p class="text-center">Le retirer ? Il retourne dans ton inventaire.${porte ? ` Ce qu'il porte ira sur un autre objet de ta maison.` : ''}</p>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" onclick="closeSheet()">Garder</button>
+      <button class="btn btn-secondary" onclick="closeSheet(); Scene.retirerMeuble(${objetId})">Retirer</button>
+    </div>
+  `);
+}
+
+function retirerMeuble(objetId) {
+  Storage.retirerObjetMaison(Libre.maisonId, objetId);
+  renderLibre();
+}
+
 function retirer(index) {
   Storage.removeDeco(sceneId(listeLibre(), Libre.etage), index);
   renderLibre();
@@ -556,7 +634,8 @@ function retirer(index) {
 
 function quitter() {
   TempsJeu.arreter();
-  showScreen('home');
+  if (Libre.atelier) Maisons.afficher();
+  else showScreen('home');
 }
 
 function finDuTemps() {
@@ -590,9 +669,9 @@ function choisirLieu(onglet = 'stickers') {
     <h3>Dans quel lieu ?</h3>
     <div class="lieu-pick-list">
       ${lists.map(l => {
-        const b = Monde.batiment(l.lieu.type);
+        const b = Monde.lieuModele(l.lieu);
         return `<button type="button" class="lieu-pick" onclick="closeSheet(); Scene.ouvrirLibre(${l.id}, { onglet: '${onglet}', tiroir: true })">
-          ${Objets.draw(b.embleme, { taille: 44 })}<span><strong>${escapeText(l.name)}</strong><small>${escapeText(b.nom)}</small></span>
+          ${Monde.iconeLieu(b, 44)}<span><strong>${escapeText(l.name)}</strong><small>${escapeText(b.nom)}</small></span>
         </button>`;
       }).join('')}
     </div>
@@ -603,6 +682,7 @@ function choisirLieu(onglet = 'stickers') {
 return {
   render, objetsEtage, sceneId,
   ouvrirLibre, allerEtage, basculerTiroir, onglet, armer, retirer,
-  remettreEnPlace, demanderRemettre, quitter, choisirLieu, habiller, porter
+  remettreEnPlace, demanderRemettre, quitter, choisirLieu, habiller, porter,
+  ouvrirAtelier, retirerMeuble
 };
 })();

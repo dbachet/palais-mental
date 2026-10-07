@@ -54,6 +54,7 @@ palais-mental/
 │   ├── recompenses.js  # Défis du jour, album de stickers, temps de jeu du jour
 │   ├── revision.js     # Listes de révision : lecture du texte, éditeur, Apprendre et Se rappeler
 │   ├── images.js       # Images des leçons (IndexedDB, réduites à 1600 px)
+│   ├── maisons.js      # Créer ta maison : Mes maisons, construire, aménager
 │   ├── jeux-cartes.js  # QCM, paires et réponse à écrire (questions de révision, mots de langue)
 │   ├── arcade.js       # Salle de jeux : serpent, blocs (tetris), bonbons (match-3)
 │   ├── config.js       # Adresse et clé publique Supabase (vide = app 100 % locale)
@@ -61,7 +62,7 @@ palais-mental/
 │   └── kawaii.js       # Moteur de dessin des personnages kawaii (SVG, sans image)
 └── data/
     ├── lieux.js        # Économie, temps, révision, images, langues, catalogue de stickers
-    └── monde.js        # BATIMENTS : étages, décor et objets de chaque bâtiment ; QUARTIERS
+    └── monde.js        # BATIMENTS : étages, décor et objets de chaque bâtiment ; QUARTIERS ; MODELES de maisons
 ```
 
 ## 🐾 Kawaii : principal et compagnons
@@ -157,6 +158,10 @@ L'accueil est la carte d'une petite ville. **Une liste = un lieu**, **un éléme
 - **Liste Ninja** : son lieu devient doré et scintille sur la carte, et un compagnon de l'équipe s'y installe (le 1er compagnon dans la 1re liste Ninja, etc.). On le voit à côté du bâtiment et dans ses étages.
 - **Bac à sable** : en mode libre, toute l'équipe kawaii est dans la pièce. On la déplace au doigt ; un appui long sur un kawaii ouvre son habillage (chapeaux, lunettes, tenues et couleurs qu'elle possède déjà ; les achats se font à l'atelier).
 
+- **Créer ta maison** (🏡 Mes maisons, ou « Construire ma maison » dans le choix du lieu) : elle choisit un modèle (cabane, maison de ville, chalet, villa, petit château, maison dans les arbres ; 1 à 3 étages) et lui donne un nom, puis l'**aménage** avec les meubles de son inventaire : choisir un meuble, taper dans la pièce, le faire glisser, appui long pour le retirer. 12 meubles au plus par étage. Aménager ne consomme pas de temps de jeu ; les stickers et l'équipe s'y ajoutent en jouant (🧸), comme ailleurs.
+  - Une maison accueille une liste à la fois (les maisons prises sont grisées dans le choix du lieu). Chaque meuble posé porte un élément, dans le même ordre stable que les bâtiments. S'il manque des meubles, un bandeau dit « Il manque N objets » avec « Ajouter des meubles », et en attendant certains meubles portent plusieurs éléments ; dès qu'un meuble arrive, ils se répartissent. Retirer un meuble range ce qu'il portait sur un autre.
+  - Une maison ne se démolit que si aucune liste ne l'habite ; ses meubles et ses stickers reviennent dans l'inventaire.
+
 Ajouter un bâtiment = ajouter une entrée dans `BATIMENTS` (`data/monde.js`) : 6 étages, chacun avec son décor, ses supports (comptoir, étagère, table, socle) et 12 objets de `js/objets.js` composés à la main, chacun à sa place de départ, sans réutiliser une forme dans le même étage. Ajouter un objet = ajouter une forme dans `FORMES` (`js/objets.js`).
 
 Le hasard du rangement est tiré de l'id de la liste : deux appareils qui rangent la même liste obtiennent les mêmes objets.
@@ -206,11 +211,12 @@ Toutes les données sont stockées en **localStorage** :
 - `wordLists` : Listes, niveaux, progression, éléments de révision (`cards`) et numéros de leurs images (`images`), lieu (`lieu`), rangement des éléments sur les objets (`places`), place des objets dans l'étage si elle les a déplacés (`positions`) et place sur la carte (`parcelle`)
 - `economy` : Étoiles, stickers et meubles possédés (`inventory`, `meubles`), déco posées (`placed` : par étage, avec leur position), garde-robe, cadeaux de l'album récupérés, défis du jour, jours de jeu, jeux débloqués et records, temps de jeu du jour (`tempsJeu`), parcelle de la salle de jeux (`salleJeux`), quartiers déjà fêtés (`quartiersVus`)
 - `kawaiiTeam` : Kawaii principal et compagnons
+- `maisons` : maisons construites, avec leurs meubles posés (`objets` : forme, étage, position)
 - `sauvegardeAvantMonde` : copie, faite une seule fois, des données d'avant la ville (reste sur l'appareil)
 
 Les **images des leçons** sont dans IndexedDB (base `mp-images`), pas dans le localStorage. Elles sont incluses dans le fichier de sauvegarde (format 2), mais ne passent pas en ligne : sur un autre appareil, la leçon s'affiche sans son image.
 
-Avec un compte (espace parents), ces clés, plus `mixSelection` et `animationSpeed`, sont recopiées en ligne et suivent l'enfant d'un appareil à l'autre : voir [EN-LIGNE.md](EN-LIGNE.md). Pour qu'une nouvelle clé suive aussi, l'ajouter à `SYNC_KEYS` dans `js/sync.js`.
+Avec un compte (espace parents), ces clés (sauf `sauvegardeAvantMonde`), plus `mixSelection` et `animationSpeed`, sont recopiées en ligne et suivent l'enfant d'un appareil à l'autre : voir [EN-LIGNE.md](EN-LIGNE.md). Pour qu'une nouvelle clé suive aussi, l'ajouter à `SYNC_KEYS` dans `js/sync.js`.
 
 ⚠️ **Attention** : sans compte, effacer les données du navigateur supprime tout le progrès ! (Espace parents → sauvegarde dans un fichier.)
 

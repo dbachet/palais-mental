@@ -60,6 +60,8 @@ const Defis = {
       }
       case 'calin':
         return !!Storage.getTeam().main;
+      case 'maison':
+        return Storage.getMaisons().length > 0 && Storage.getFreeMeubles().length > 0;
       case 'sticker':
         // Il faut un sticker dans le sac, un lieu où le coller et du temps de jeu
         return Storage.getFreeStickers().length > 0 && Storage.getActiveLists().length > 0 && TempsJeu.peutJouer();
@@ -213,6 +215,7 @@ const Defis = {
     if (id === 'travail') showStrugglingWordsScreen();
     else if (id === 'sticker') collerStickers();
     else if (id === 'album') showAlbumScreen();
+    else if (id === 'maison') Maisons.afficher();
     else if (id === 'calin') {
       const main = document.querySelector('#team-card .team-main');
       if (main) main.scrollIntoView({ behavior: 'smooth', block: 'center' });

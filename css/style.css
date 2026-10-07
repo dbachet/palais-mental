@@ -851,12 +851,39 @@ header h1 {
   50% { transform: scale(1.03, 0.98); }
 }
 
-/* Mode calme : l'objet du moment brille, le reste se fait discret */
-.scene-calme .scene-obj { cursor: default; }
-.scene-calme .scene-obj:not(.obj-cible) { pointer-events: none; }
+/* Mode calme : elle choisit un objet du paquet ; le reste se fait discret */
+.scene-calme .scene-obj { cursor: default; pointer-events: none; }
+.scene-calme .obj-session { cursor: pointer; pointer-events: auto; }
+.scene-calme .obj-fini { pointer-events: none; opacity: 0.55; }
+.scene-calme .obj-hors { opacity: 0.3; }
 .scene-calme .scene-deco { opacity: 0.25; pointer-events: none; }
 
-.scene-calme .obj-cible { cursor: pointer; }
+.obj-session:not(.obj-fini):active > svg.objet { transform: scale(0.95); }
+
+/* Déjà vu, réussi, à revoir */
+.obj-badge {
+  position: absolute;
+  top: 0;
+  right: 6%;
+  width: 3.2cqw;
+  height: 3.2cqw;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: max(13px, 1.8cqw);
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(70, 40, 80, 0.25);
+}
+
+.badge-vu,
+.badge-reussi { background: var(--vert); }
+.badge-rate { background: var(--or); }
 
 .scene-calme .obj-cible > svg.objet {
   filter: drop-shadow(0 0 6px #FFF3A8) drop-shadow(0 0 14px #FFD466);
@@ -875,7 +902,7 @@ header h1 {
 
 /* Le kawaii marche par petits bonds */
 .scene-kawaii {
-  transition: left 1.2s var(--doux), top 1.2s var(--doux);
+  transition: left 0.85s var(--doux), top 0.85s var(--doux);
   pointer-events: auto;
 }
 

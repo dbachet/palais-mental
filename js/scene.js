@@ -7,8 +7,9 @@
 //
 // Deux modes :
 // - 'calme' (Apprendre, S'entraîner) : la pièce, les objets d'apprentissage
-//   et le kawaii, qui marche vers l'objet du moment. Les déco sont très
-//   pâles et ne se touchent pas.
+//   et le kawaii. L'enfant choisit elle-même l'objet à aller voir : le kawaii
+//   y marche, puis l'app montre le mot (la pièce disparaît). Les objets hors
+//   du paquet sont estompés ; les déco sont très pâles et ne se touchent pas.
 // - 'libre' (🧸 Jouer) : elle se promène d'étage en étage, déplace les
 //   objets d'apprentissage (le mot suit son objet) et son kawaii, pose et
 //   retire des déco (meubles et stickers gagnés). Le temps de jeu du jour
@@ -139,7 +140,9 @@ function placeStyle(x, y, largeur) {
 }
 
 // ── Dessin d'une scène ──
-// opts : { list, etage, mode: 'calme' | 'libre', cible: slotId, onCible() }
+// opts : { list, etage, mode: 'calme' | 'libre',
+//          session: { slotId: { etat: 'a-faire' | 'vu' | 'reussi' | 'rate', fini } },
+//          onChoisir(slotId) }   (session et onChoisir : mode calme)
 function render(host, opts) {
   const { list, etage, mode } = opts;
   const b = Monde.batiment(list.lieu.type);
@@ -147,14 +150,19 @@ function render(host, opts) {
   const objets = objetsEtage(list, etage);
   const deco = Storage.getDeco(sceneId(list, etage));
 
+  const BADGES = { vu: '✓', reussi: '✓', rate: '↺' };
   const objHTML = objets.map(o => {
     const taille = TAILLE[o.k];
-    const cible = o.slotId === opts.cible;
-    return `<button type="button" class="scene-obj obj-${o.k}${cible ? ' obj-cible' : ''}${o.maitrise ? ' obj-maitrise' : ''}" data-slot="${o.slotId}"
-        style="${placeStyle(o.pos.x, o.pos.y, taille)}" aria-label="${escapeText(o.info.nom)}"${mode === 'calme' && !cible ? ' tabindex="-1"' : ''}>
+    const st = mode === 'calme' && opts.session ? opts.session[o.slotId] : null;
+    let cls = '';
+    if (mode === 'calme') cls = st ? ` obj-session obj-${st.etat}${st.fini ? ' obj-fini' : ''}` : ' obj-hors';
+    const actif = mode === 'libre' || (st && !st.fini);
+    return `<button type="button" class="scene-obj obj-${o.k}${cls}${o.maitrise ? ' obj-maitrise' : ''}" data-slot="${o.slotId}"
+        style="${placeStyle(o.pos.x, o.pos.y, taille)}" aria-label="${escapeText(o.info.nom)}"${actif ? '' : ' tabindex="-1" disabled'}>
         ${Objets.draw(o.info.forme, { couleur: o.info.couleur, taille: 100, gris: !o.maitrise })}
         ${o.k === 'petit' ? TABLE : ''}
         ${mode === 'libre' ? '<span class="obj-pastille" aria-hidden="true">⭐</span>' : ''}
+        ${st && BADGES[st.etat] ? `<span class="obj-badge badge-${st.etat}" aria-hidden="true">${BADGES[st.etat]}</span>` : ''}
       </button>`;
   }).join('');
 
@@ -175,19 +183,28 @@ function render(host, opts) {
     </div>`;
 
   const el = host.querySelector('.scene');
-  if (mode === 'calme') {
-    const cible = el.querySelector('.obj-cible');
-    if (cible && opts.onCible) cible.addEventListener('click', opts.onCible);
-    const o = objets.find(x => x.slotId === opts.cible);
-    if (o) marcherVers(el, o);
+  if (mode === 'calme' && opts.onChoisir) {
+    // Elle choisit l'objet : le kawaii y marche, puis on montre le mot
+    let parti = false;
+    el.addEventListener('click', (e) => {
+      const btn = e.target.closest('.obj-session:not(.obj-fini)');
+      if (!btn || parti) return;
+      parti = true;
+      btn.classList.add('obj-cible');
+      const o = objets.find(x => x.slotId === btn.dataset.slot);
+      marcherVers(el, o, () => opts.onChoisir(btn.dataset.slot));
+    });
   }
   return el;
 }
 
-// Le kawaii marche jusqu'à l'objet (à sa gauche), puis le regarde
-function marcherVers(el, o) {
+// Le kawaii marche jusqu'à l'objet (à sa gauche), le regarde, puis onArrive()
+function marcherVers(el, o, onArrive) {
   const k = el.querySelector('.scene-kawaii');
-  if (!k) return;
+  if (!k || !o) {
+    if (onArrive) onArrive();
+    return;
+  }
   const x = Math.max(60, o.pos.x - (o.k === 'sol' ? 110 : 80));
   const y = o.k === 'mur' ? 600 : Math.max(o.pos.y + 8, 560);
   // Petit délai : la scène est d'abord dessinée, puis le kawaii part
@@ -196,15 +213,16 @@ function marcherVers(el, o) {
     k.style.left = pct(x, W);
     k.style.top = pct(y, H);
     k.style.zIndex = Math.round(y);
+    const obj = el.querySelector(`[data-slot="${o.slotId}"]`);
+    if (obj) {
+      const r = obj.getBoundingClientRect();
+      Kawaii.lookAt(k, r.left + r.width / 2, r.top + r.height / 2, 3000);
+    }
     setTimeout(() => {
       k.classList.remove('marche');
-      const obj = el.querySelector('.obj-cible');
-      if (obj) {
-        const r = obj.getBoundingClientRect();
-        Kawaii.lookAt(k, r.left + r.width / 2, r.top + r.height / 2, 8000);
-      }
-    }, 1300);
-  }, 120);
+      if (onArrive) onArrive();
+    }, 900);
+  }, 60);
 }
 
 // ── Point de l'écran → unités de la scène ──

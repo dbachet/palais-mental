@@ -22,7 +22,7 @@
 
   <!-- Styles. Le ?v= force les navigateurs sans service worker (http://IP:port)
        à recharger les fichiers : l'augmenter à chaque version, ici et dans sw.js. -->
-  <link rel="stylesheet" href="css/style.css?v=21">
+  <link rel="stylesheet" href="css/style.css?v=22">
 </head>
 <body>
   <div id="app">
@@ -264,18 +264,10 @@
       </header>
 
       <div class="screen-body">
-        <!-- Affichage du lieu -->
+        <!-- La pièce : elle y choisit l'objet à aller voir -->
         <div id="lieu-display"></div>
 
-        <!-- Bouton "J'y suis" - affiché en premier -->
-        <div id="ready-button-container" class="text-center mt-20">
-          <button class="btn btn-success btn-big" onclick="showWordToTrace()">
-            👀 Voir le mot
-          </button>
-          <p class="hint">Tape sur l'objet qui brille pour voir le mot</p>
-        </div>
-
-        <!-- Mot animé (affiché après "J'y suis") -->
+        <!-- Mot animé (affiché quand elle a choisi un objet ; la pièce est alors cachée) -->
         <div class="word-animation-container hidden" id="word-animation">
           <div id="translation-prompt" class="translation-prompt hidden"></div>
           <div id="animated-word" class="animated-word"></div>
@@ -311,7 +303,7 @@
         <!-- Bouton Suivant (affiché après animation complète) -->
         <div id="next-button-container" class="text-center mt-20 hidden">
           <button class="btn btn-primary btn-big" onclick="nextWordInApprentissage()">
-            Suivant →
+            ← Retour à la pièce
           </button>
         </div>
 
@@ -352,16 +344,8 @@
         </div>
         <div class="score-display" id="score-display">0 / 0</div>
 
-        <!-- Affichage du lieu -->
+        <!-- La pièce : elle y choisit l'objet dont elle écrit le mot -->
         <div id="interrogation-lieu-display"></div>
-
-        <!-- Bouton "J'y suis" - affiché en premier -->
-        <div id="interrogation-ready-button" class="text-center mt-20">
-          <button class="btn btn-success btn-big" onclick="showInterrogationQuestion()">
-            ✏️ J'écris le mot
-          </button>
-          <p class="hint">Rappelle-toi le mot rangé sur l'objet qui brille, puis tape dessus</p>
-        </div>
 
         <!-- Zone de question (cachée au début) -->
         <div id="interrogation-question-zone" class="hidden">
@@ -697,17 +681,17 @@
   </div>
 
   <!-- Scripts -->
-  <script src="data/lieux.js?v=21"></script>
-  <script src="data/monde.js?v=21"></script>
-  <script src="js/objets.js?v=21"></script>
-  <script src="js/kawaii.js?v=21"></script>
-  <script src="js/config.js?v=21"></script>
-  <script src="js/sync.js?v=21"></script>
-  <script src="js/app.js?v=21"></script>
-  <script src="js/monde.js?v=21"></script>
-  <script src="js/scene.js?v=21"></script>
-  <script src="js/recompenses.js?v=21"></script>
-  <script src="js/jeux-cartes.js?v=21"></script>
-  <script src="js/arcade.js?v=21"></script>
+  <script src="data/lieux.js?v=22"></script>
+  <script src="data/monde.js?v=22"></script>
+  <script src="js/objets.js?v=22"></script>
+  <script src="js/kawaii.js?v=22"></script>
+  <script src="js/config.js?v=22"></script>
+  <script src="js/sync.js?v=22"></script>
+  <script src="js/app.js?v=22"></script>
+  <script src="js/monde.js?v=22"></script>
+  <script src="js/scene.js?v=22"></script>
+  <script src="js/recompenses.js?v=22"></script>
+  <script src="js/jeux-cartes.js?v=22"></script>
+  <script src="js/arcade.js?v=22"></script>
 </body>
 </html>

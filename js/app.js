@@ -10,7 +10,9 @@ const AppState = {
   currentScreen: 'home',
   currentList: null,
   currentLevel: 0,
-  currentWordIndex: 0,
+  currentWordIndex: 0, // mot choisi dans le paquet (index dans currentLevelWords)
+  faits: {}, // paquet en cours : { index: true (vu, ou réussi) | false (raté) }
+  salleCourante: null, // pièce affichée pendant la session : "idListe:étage"
   currentMode: null, // 'apprentissage' ou 'interrogation'
   score: 0,
   totalQuestions: 0,
@@ -842,6 +844,8 @@ function startApprentissageOnLists(listIds) {
   AppState.currentMode = 'apprentissage';
   AppState.currentLevel = 0;
   AppState.currentWordIndex = 0;
+  AppState.faits = {};
+  AppState.salleCourante = null;
 
   AppState.allApprentissageLevels = splitIntoLevels(items);
   AppState.currentLevelWords = AppState.allApprentissageLevels[AppState.currentLevel];
@@ -849,37 +853,39 @@ function startApprentissageOnLists(listIds) {
   showApprentissageScreen();
 }
 
+// La pièce : elle choisit l'objet à aller voir, autant de fois qu'elle veut
 function showApprentissageScreen() {
   showScreen('apprentissage');
+  const n = AppState.currentLevelWords.length;
+  const vus = Object.keys(AppState.faits).length;
 
-  setCurrentItem(AppState.currentLevelWords[AppState.currentWordIndex]);
-  const location = AppState.currentLocation;
-
-  // Met à jour la progression
   const progress = document.getElementById('apprentissage-progress');
-  if (progress) {
-    progress.textContent = `Mot ${AppState.currentWordIndex + 1}/${AppState.currentLevelWords.length}`;
-  }
+  if (progress) progress.textContent = `Vus ${vus}/${n}`;
 
-  // Affiche l'étage ; un appui sur l'objet (ou sur le bouton) montre le mot
-  displayLocation(location, 'lieu-display', () => {
-    if (!document.getElementById('ready-button-container').classList.contains('hidden')) showWordToTrace();
-  });
   document.getElementById('translation-prompt').classList.add('hidden');
-
-  // Cache l'animation du mot, les contrôles et le bouton suivant
   document.getElementById('word-animation').classList.add('hidden');
   document.getElementById('playback-controls').classList.add('hidden');
   document.getElementById('next-button-container').classList.add('hidden');
+  document.getElementById('lieu-display').classList.remove('hidden');
 
-  // Affiche le bouton "J'y suis"
-  document.getElementById('ready-button-container').classList.remove('hidden');
+  renderPieceSession('lieu-display', choisirApprentissage, vus === n
+    ? `<div class="text-center mt-20"><button class="btn btn-primary btn-big" onclick="finishApprentissageLevel()">✅ J'ai tout vu</button>
+       <p class="hint">Tu peux encore retourner voir les objets.</p></div>`
+    : '<p class="hint text-center">Choisis un objet et tape dessus pour voir le mot qui y est rangé.</p>');
+}
+
+// Elle a choisi un objet : la pièce disparaît, le mot s'anime
+function choisirApprentissage(index) {
+  AppState.currentWordIndex = index;
+  AppState.faits[index] = true;
+  setCurrentItem(AppState.currentLevelWords[index]);
+  document.getElementById('lieu-display').classList.add('hidden');
+  const progress = document.getElementById('apprentissage-progress');
+  if (progress) progress.textContent = `Vus ${Object.keys(AppState.faits).length}/${AppState.currentLevelWords.length}`;
+  showWordToTrace();
 }
 
 async function showWordToTrace() {
-  // Cache le bouton "J'y suis"
-  document.getElementById('ready-button-container').classList.add('hidden');
-
   // Vide le container du mot pour éviter de voir l'ancien mot
   const animatedWord = document.getElementById('animated-word');
   if (animatedWord) {
@@ -977,24 +983,77 @@ function accessoryArt(acc, size) {
   return Kawaii.draw({ ...base, [acc.type]: acc.value }, size);
 }
 
-// Lieu du mot en cours : l'étage en mode calme, le kawaii marche jusqu'à
-// l'objet, qui brille ; un appui sur l'objet fait la suite (onCible).
-// Sous la scène : le nom de l'objet et son étage.
-function displayLocation(location, containerId = 'lieu-display', onCible) {
-  const container = document.getElementById(containerId);
-  if (!container || !location) return;
-  container.innerHTML = `
-    <div class="lieu-display">
-      <div class="lieu-scene"></div>
-      <div class="lieu-legende">
-        <span class="lieu-room">${escapeText(capitalizeFirst(location.nom))}</span>
-        <span class="lieu-place">${escapeText(Monde.lieuTexte(location))}</span>
-      </div>
-    </div>
-  `;
-  Scene.render(container.querySelector('.lieu-scene'), {
-    list: AppState.currentList, etage: location.etage, mode: 'calme', cible: location.slotId, onCible
+// ── La pièce pendant une session ──
+// Les mots du paquet sont rangés dans une ou plusieurs pièces (un étage d'un
+// lieu). On en montre une à la fois, avec des boutons pour changer de pièce.
+// Elle choisit l'objet ; en entraînement, un objet déjà fait ne se touche plus.
+
+function sallesDuPaquet() {
+  const salles = [];
+  AppState.currentLevelWords.forEach((item, index) => {
+    const place = Monde.placeOf(item.list, item.word);
+    if (!place) return;
+    const key = `${item.list.id}:${place.etage}`;
+    let salle = salles.find(x => x.key === key);
+    if (!salle) salles.push(salle = { key, list: item.list, etage: place.etage, place, items: [] });
+    salle.items.push({ index, slotId: place.slotId });
   });
+  return salles;
+}
+
+function renderPieceSession(containerId, onChoisir, pied = '') {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const interro = AppState.currentMode === 'interrogation';
+  const fait = (it) => AppState.faits[it.index] !== undefined;
+  const reste = (salle) => salle.items.filter(it => !fait(it)).length;
+  const salles = sallesDuPaquet();
+  if (salles.length === 0) return;
+  const salle = salles.find(x => x.key === AppState.salleCourante) || salles.find(x => reste(x) > 0) || salles[0];
+  AppState.salleCourante = salle.key;
+
+  // État de chaque objet de la pièce
+  const session = {};
+  salle.items.forEach(it => {
+    const st = session[it.slotId] || (session[it.slotId] = { indices: [] });
+    st.indices.push(it.index);
+  });
+  Object.values(session).forEach(st => {
+    const res = st.indices.map(i => AppState.faits[i]);
+    const tousFaits = res.every(r => r !== undefined);
+    if (interro) {
+      st.etat = !tousFaits ? 'a-faire' : (res.every(r => r === true) ? 'reussi' : 'rate');
+      st.fini = tousFaits;
+    } else {
+      st.etat = tousFaits ? 'vu' : 'a-faire';
+      st.fini = false;
+    }
+  });
+
+  const verbe = interro ? 'à faire' : 'à voir';
+  const chips = salles.length > 1
+    ? `<div class="etages">${salles.map(x => `
+        <button type="button" class="etage-chip${x === salle ? ' selected' : ''}" onclick="changerSalle('${x.key}')" aria-pressed="${x === salle}">
+          <strong>${escapeText(Monde.batiment(x.list.lieu.type).nom)} · étage ${x.etage + 1}</strong>
+          <span>${isMixSession() ? escapeText(x.list.name) + ' · ' : ''}${reste(x) ? `${reste(x)} ${verbe}` : '✓ fini'}</span>
+        </button>`).join('')}</div>`
+    : `<p class="lieu-place text-center">${escapeText(Monde.lieuTexte(salle.place))}</p>`;
+
+  container.innerHTML = `<div class="lieu-display">${chips}<div class="lieu-scene"></div>${pied}</div>`;
+  Scene.render(container.querySelector('.lieu-scene'), {
+    list: salle.list, etage: salle.etage, mode: 'calme', session,
+    onChoisir: (slotId) => {
+      const indices = session[slotId].indices;
+      const index = indices.find(i => AppState.faits[i] === undefined);
+      onChoisir(index !== undefined ? index : indices[0]);
+    }
+  });
+}
+
+function changerSalle(key) {
+  AppState.salleCourante = key;
+  if (AppState.currentMode === 'interrogation') showInterrogationScreen();
+  else showApprentissageScreen();
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -1116,18 +1175,10 @@ function updateSpeed(value) {
   }
 }
 
+// Retour à la pièce pour choisir un autre objet
 function nextWordInApprentissage() {
-  // Arrête l'animation si active
   stopWordAnimation();
-
-  AppState.currentWordIndex++;
-
-  // Vérifie si on a fini ce niveau
-  if (AppState.currentWordIndex >= AppState.currentLevelWords.length) {
-    finishApprentissageLevel();
-  } else {
-    showApprentissageScreen();
-  }
+  showApprentissageScreen();
 }
 
 function finishApprentissageLevel() {
@@ -1137,9 +1188,11 @@ function finishApprentissageLevel() {
   if (AppState.currentLevel < levels.length - 1) {
     AppState.currentLevel++;
     AppState.currentWordIndex = 0;
+    AppState.faits = {};
+    AppState.salleCourante = null;
     AppState.currentLevelWords = levels[AppState.currentLevel];
 
-    showFeedback('Niveau terminé ! 🎉', 'success');
+    showFeedback('Paquet terminé ! 🎉', 'success');
     setTimeout(() => showApprentissageScreen(), 2000);
   } else {
     // Sauvegarde les mots appris pour l'interrogation
@@ -1258,6 +1311,8 @@ function startInterrogationOnItems(sessionWords) {
   AppState.currentMode = 'interrogation';
   AppState.currentLevel = 0;
   AppState.currentWordIndex = 0;
+  AppState.faits = {};
+  AppState.salleCourante = null;
   AppState.score = 0;
   AppState.totalQuestions = 0;
   AppState.sessionStars = 0;
@@ -1306,39 +1361,29 @@ function shuffleArray(array) {
   return array;
 }
 
+// La pièce : elle choisit l'objet dont elle va écrire le mot
 function showInterrogationScreen() {
-  console.log('showInterrogationScreen appelé');
-  console.log(`Index mot: ${AppState.currentWordIndex}, total: ${AppState.currentLevelWords.length}`);
-
   showScreen('interrogation');
-  renderSessionProgress('session-progress', AppState.currentLevelWords.length, AppState.currentWordIndex);
-
-  setCurrentItem(AppState.currentLevelWords[AppState.currentWordIndex]);
-  const word = AppState.currentWord;
-  const location = AppState.currentLocation;
-  console.log(`Mot à afficher: "${word}"`, location);
+  const n = AppState.currentLevelWords.length;
+  const faits = Object.keys(AppState.faits).length;
+  renderSessionProgress('session-progress', n, faits);
+  const progress = document.getElementById('interrogation-progress');
+  if (progress) progress.textContent = `Fait ${faits}/${n}`;
 
   AppState.userInput = '';
-
-  // Met à jour la progression (affiche le progrès dans le niveau actuel)
-  const progress = document.getElementById('interrogation-progress');
-  if (progress) {
-    progress.textContent = `Mot ${AppState.currentWordIndex + 1}/${AppState.currentLevelWords.length}`;
-  }
-
-  // Calcule le pattern de difficulté selon le niveau
-  createWordPattern(word);
-  console.log(`Pattern créé: "${AppState.wordPattern}"`);
-
-  displayLocation(location, 'interrogation-lieu-display', () => {
-    if (!document.getElementById('interrogation-ready-button').classList.contains('hidden')) showInterrogationQuestion();
-  });
-
-  // Affiche uniquement le lieu et le bouton "J'y suis"
-  document.getElementById('interrogation-ready-button').classList.remove('hidden');
   document.getElementById('interrogation-question-zone').classList.add('hidden');
+  document.getElementById('interrogation-lieu-display').classList.remove('hidden');
+  renderPieceSession('interrogation-lieu-display', choisirInterrogation,
+    '<p class="hint text-center">Choisis un objet, et écris le mot qui y est rangé.</p>');
+}
 
-  // Affiche l'indice de difficulté (pour préparer l'affichage)
+// Elle a choisi un objet : la pièce disparaît, la question s'affiche
+function choisirInterrogation(index) {
+  AppState.currentWordIndex = index;
+  setCurrentItem(AppState.currentLevelWords[index]);
+  AppState.userInput = '';
+  createWordPattern(AppState.currentWord);
+
   const difficultyHint = document.getElementById('difficulty-hint');
   if (difficultyHint) {
     const perWord = starsPerWord(AppState.interrogationMode, AppState.listLevel);
@@ -1360,13 +1405,11 @@ function showInterrogationScreen() {
       : 'Complète le mot';
   }
 
-  console.log('showInterrogationScreen terminé');
+  document.getElementById('interrogation-lieu-display').classList.add('hidden');
+  showInterrogationQuestion();
 }
 
 function showInterrogationQuestion() {
-  // Cache le bouton "J'y suis"
-  document.getElementById('interrogation-ready-button').classList.add('hidden');
-
   // Affiche la zone de question
   document.getElementById('interrogation-question-zone').classList.remove('hidden');
 
@@ -1706,6 +1749,8 @@ function validateAnswer() {
   const stat = AppState.sessionByList[listId] || (AppState.sessionByList[listId] = { correct: 0, total: 0 });
   stat.total++;
   if (correct) stat.correct++;
+  // L'objet est fait : il ne se touchera plus dans ce paquet
+  AppState.faits[AppState.currentWordIndex] = correct;
 
   // Mot « à travailler » : déjà interrogé, et pas encore à 80 % de réussite
   const before = (AppState.currentList.progress || {})[AppState.currentWord];
@@ -1789,24 +1834,14 @@ function enableInterrogationInputs() {
   }
 }
 
+// Retour à la pièce, ou fin du paquet quand tous les objets sont faits
 function nextWordInInterrogation() {
-  console.log('nextWordInInterrogation appelé');
-  console.log(`Index actuel: ${AppState.currentWordIndex}, total mots niveau: ${AppState.currentLevelWords.length}`);
-
-  // Nettoie le feedback
   const feedbackContainer = document.getElementById('feedback-container');
-  if (feedbackContainer) {
-    feedbackContainer.innerHTML = '';
-  }
+  if (feedbackContainer) feedbackContainer.innerHTML = '';
 
-  AppState.currentWordIndex++;
-  console.log(`Nouvel index: ${AppState.currentWordIndex}`);
-
-  if (AppState.currentWordIndex >= AppState.currentLevelWords.length) {
-    console.log('Fin du niveau, appel finishInterrogationLevel');
+  if (Object.keys(AppState.faits).length >= AppState.currentLevelWords.length) {
     finishInterrogationLevel();
   } else {
-    console.log('Mot suivant, appel showInterrogationScreen');
     showInterrogationScreen();
   }
 }
@@ -1833,6 +1868,8 @@ function finishInterrogationLevel() {
     if (hasNextLevel) {
       AppState.currentLevel++;
       AppState.currentWordIndex = 0;
+      AppState.faits = {};
+      AppState.salleCourante = null;
       AppState.currentLevelWords = AppState.allInterrogationLevels[AppState.currentLevel];
       AppState.score = 0;
       AppState.totalQuestions = 0;

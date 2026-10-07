@@ -2,7 +2,7 @@
 
 ### Ajouté
 - **Les étages** : chaque étage est une pièce dessinée par le code (murs, papier peint, fenêtres, sol selon le thème de l'étage ; ciel et rambarde sur les toits) avec ses objets d'apprentissage, en deux rangées et au mur
-- **Apprendre et S'entraîner dans l'étage (mode calme)** : le kawaii marche jusqu'à l'objet du moment, qui brille ; on tape dessus pour voir le mot ou pour l'écrire (le bouton reste là aussi). Animation lettre par lettre, mélodie, dictée, cases, timer et niveaux inchangés. Les déco sont très pâles et ne se touchent pas
+- **Apprendre et S'entraîner dans l'étage (mode calme)** : **elle choisit l'objet** à aller voir parmi ceux du paquet ; son kawaii y marche, puis la pièce disparaît pour laisser le mot seul (pas d'objet ni de nom à l'écran, pour rester concentrée). « ← Retour à la pièce » pour choisir le suivant. En Apprendre, on revoit un objet autant qu'on veut (✓ déjà vu, « J'ai tout vu ») ; en S'entraîner, un objet fait est marqué (✓ réussi, ↺ à revoir) et ne se touche plus. Plusieurs étages ou lieux dans le paquet : des boutons pour passer de l'un à l'autre. Animation lettre par lettre, mélodie, dictée, cases, timer et niveaux inchangés. Les objets hors du paquet et les déco sont estompés
 - **🧸 Jouer dans un lieu (mode libre)**, depuis la fiche d'un bâtiment : on passe d'étage en étage, on déplace au doigt les objets d'apprentissage (pastille ⭐ ; le mot suit son objet), son kawaii et ses déco. « ↩️ Remettre les objets » rend leur place de départ aux objets de l'étage
 - **Décorer** : le tiroir « 🎒 Décorer » montre les meubles et les stickers de l'inventaire ; on en choisit un, on tape dans la pièce pour le poser, un appui long le retire. 20 déco au plus par étage
 - **Meubles** : les formes dessinées servent aussi de meubles de déco. Kit de 12 meubles offert, meubles dans les coffres (environ un sur trois) et rayon « 🛋️ Meubles » à la boutique (4 à 8 ⭐)
@@ -19,7 +19,7 @@
 - `list.positions` ; `economy.placed` par étage (`bat:<liste>:<étage>`, `{ sticker | meuble, x, y }`) ; `economy.meubles`, `economy.kitDepart`, `economy.tempsJeu`, `economy.salleJeux`, `economy.version = 3`. Supprimer une liste remet ses déco dans l'inventaire
 - Réglages : `TEMPS_JEU`, `ECONOMIE.maxDecoParScene`, `chanceMeubleCoffre`, `prixMeubles`, `kitDepart` ; `ARCADE.prixJeton` retiré
 - `js/kawaii.js` : pas de caresse sur un kawaii qu'on fait glisser (`data-drag`)
-- Service worker et `?v=` : `v21`
+- Service worker et `?v=` : `v22`
 
 ## [2026-10-07] - Le monde virtuel, étape 1 : la ville et ses bâtiments
 

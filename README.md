@@ -95,7 +95,7 @@ Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre), `A
 - **Gestion des listes** : créer, éditer, supprimer des listes de mots ; barre de maîtrise et badge « liste dorée » quand tous les mots sont acquis
 - **La ville** (accueil) : chaque liste est un bâtiment de la carte (voir plus bas)
 - **Mode apprentissage** : « Apprendre » avec animation rythmique
-  - L'objet où le mot est rangé, puis « Voir le mot »
+  - Elle choisit l'objet dans la pièce, puis le mot s'affiche seul
   - Animation lettre par lettre avec agrandissement et changement de couleur
   - Son synchronisé à chaque lettre, bouton Rejouer, curseur de vitesse (sauvegardé)
 - **Mode interrogation** : « S'entraîner » avec dictée et clavier virtuel
@@ -141,7 +141,7 @@ L'accueil est la carte d'une petite ville. **Une liste = un lieu**, **un éléme
 - Le **rangement est stable** : un élément garde son objet. En modifiant la liste, seuls les nouveaux éléments sont rangés. Mots : au hasard dans le premier étage qui a de la place. Cartes questions : dans l'ordre de la liste, pour qu'une question reste voisine de celles qui l'entourent.
 - Les objets sont **dessinés par le code** (`js/objets.js`, une centaine de formes) : silhouette grise tant que l'élément n'est pas maîtrisé, en couleur avec un petit visage ensuite. Les emojis et les stickers ne servent que de décor.
 - Un appui sur un bâtiment ouvre sa liste et ses modes de jeu ; le **+** crée une nouvelle liste. La **salle de jeux** a aussi son bâtiment.
-- **Apprendre et S'entraîner** se passent dans l'étage, en **mode calme** : la pièce, les objets d'apprentissage et le kawaii, qui marche jusqu'à l'objet du moment. L'objet brille ; on tape dessus pour voir le mot (ou pour l'écrire). Les déco sont très pâles et ne se touchent pas.
+- **Apprendre et S'entraîner** se passent dans l'étage, en **mode calme** : la pièce, les objets du paquet en cours (10 mots) et le kawaii. **L'enfant choisit elle-même l'objet** : le kawaii y marche, puis la pièce disparaît et on ne voit plus que le mot (qui s'anime, ou à écrire) ; « ← Retour à la pièce » pour en choisir un autre. En Apprendre, on peut revoir un objet autant qu'on veut (✓ = déjà vu ; « J'ai tout vu » quand tout est vu). En S'entraîner, un objet fait est marqué (✓ ou ↺) et ne se touche plus ; le paquet se termine quand tous sont faits. Si le paquet est rangé dans plusieurs étages (ou lieux, dans un mélange), des boutons permettent de passer de l'un à l'autre. Les objets hors du paquet et les déco sont estompés.
 - **🧸 Jouer dans ce lieu** (fiche d'un bâtiment), en **mode libre** : on passe d'étage en étage, on déplace les objets d'apprentissage (marqués ⭐ ; le mot suit son objet), son kawaii et ses déco, et on pose meubles et stickers depuis le tiroir « 🎒 Décorer ». « Remettre les objets » rend leur place de départ aux objets de l'étage. Ce mode consomme le temps de jeu du jour.
 
 Ajouter un bâtiment = ajouter une entrée dans `BATIMENTS` (`data/monde.js`) : 6 étages, chacun avec son décor et 12 formes de `js/objets.js`, sans réutiliser une forme dans le même bâtiment. Ajouter un objet = ajouter une forme dans `FORMES` (`js/objets.js`).

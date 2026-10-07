@@ -56,6 +56,14 @@ const AppState = {
 // UTILITAIRES LOCALSTORAGE
 // ───────────────────────────────────────────────────────────────
 
+// Élément d'une liste de révision, à partir de ce qui est saisi ({ q, a } ou
+// { kind: 'lecon', titre, texte, image }) et de ce qu'il garde (id, box)
+function elementDe(it, garde) {
+  const base = { id: garde.id, box: garde.box || 0 };
+  if (it.kind === 'lecon') return { ...base, kind: 'lecon', titre: it.titre || '', texte: it.texte || '', image: it.image || null };
+  return { ...base, q: it.q, a: it.a };
+}
+
 const Storage = {
   // Récupère toutes les listes de mots
   getLists() {
@@ -135,19 +143,21 @@ const Storage = {
     return list;
   },
 
-  // ── Listes « cartes questions » ──
+  // ── Listes de révision (questions et leçons) ──
   // Même tiroir que les listes de mots (wordLists), avec type: 'cartes-questions'.
   // Une liste sans type est une liste de mots. words/progress restent vides
-  // pour que le reste de l'app (mots à travailler) les ignore. Chaque carte
-  // est rangée sur un objet du lieu, dans l'ordre (places, clé = id de la carte).
-  // Carte : { id, q, a, box } — box 0 = jamais vue, 1 = à revoir, 2 = ça vient, 3 = connue.
-  // La progression est attachée à l'id : on peut corriger une question sans la perdre.
+  // pour que le reste de l'app les ignore. Chaque élément est rangé sur un
+  // objet du lieu, dans l'ordre du texte (places, clé = id de l'élément).
+  // Question : { id, q, a, box } ; leçon : { id, kind: 'lecon', titre, texte,
+  // image, box } ; images = { n: id } (js/images.js). Voir js/revision.js.
+  // box 0 = jamais vu, 1 = à retravailler, 2 = ça vient, 3 = maîtrisé.
+  // La progression est attachée à l'id : corriger un élément ne la fait pas perdre.
 
   isCardList(list) {
     return list.type === 'cartes-questions';
   },
 
-  addCardList(name, pairs, lieu) {
+  addCardList(name, items, lieu, images) {
     const lists = this.getLists();
     const newList = {
       id: Date.now(),
@@ -158,8 +168,9 @@ const Storage = {
       lieu: lieu || { kind: 'batiment', type: Monde.batimentPropose() },
       places: {},
       progress: {},
-      cards: pairs.map((p, i) => ({ id: i + 1, q: p.q, a: p.a, box: 0 })),
-      nextCardId: pairs.length + 1,
+      cards: items.map((it, i) => elementDe(it, { id: i + 1, box: 0 })),
+      images: images || {},
+      nextCardId: items.length + 1,
       ninja: false
     };
     this.installerDansLaVille(newList, lists);
@@ -168,10 +179,11 @@ const Storage = {
     return newList;
   },
 
-  // Remplace les cartes par celles saisies, en gardant la boîte des cartes
-  // reconnues : même question, sinon même réponse, sinon même ligne
-  // (quand le nombre de lignes n'a pas changé).
-  updateCardList(listId, name, pairs) {
+  // Remplace les éléments par ceux saisis, en gardant l'id (donc l'objet) et
+  // la boîte de ceux qu'on reconnaît : même question (ou même titre, texte ou
+  // image pour une leçon), sinon même réponse, sinon même place dans le texte
+  // (quand le nombre d'éléments n'a pas changé).
+  updateCardList(listId, name, items, images) {
     const lists = this.getLists();
     const list = lists.find(l => l.id === listId);
     if (!list) return null;
@@ -183,25 +195,39 @@ const Storage = {
       if (card) taken.add(card.id);
       return card;
     };
-    const matches = pairs.map(p => claim(c => c.q === p.q));
-    pairs.forEach((p, i) => { if (!matches[i]) matches[i] = claim(c => c.a === p.a); });
-    if (pairs.length === old.length) {
-      pairs.forEach((p, i) => { if (!matches[i]) matches[i] = claim(c => c === old[i]); });
+    const matches = items.map(it => claim(c => Revision.memeCle(c, it)));
+    items.forEach((it, i) => { if (!matches[i]) matches[i] = claim(c => Revision.memeSecondeCle(c, it)); });
+    if (items.length === old.length) {
+      items.forEach((it, i) => {
+        if (!matches[i]) matches[i] = claim(c => c === old[i] && (c.kind === 'lecon') === (it.kind === 'lecon'));
+      });
     }
 
     let nextId = list.nextCardId || old.reduce((max, c) => Math.max(max, c.id), 0) + 1;
-    list.cards = pairs.map((p, i) => {
+    list.cards = items.map((it, i) => {
       const card = matches[i];
-      return card ? { ...card, q: p.q, a: p.a } : { id: nextId++, q: p.q, a: p.a, box: 0 };
+      return card ? elementDe(it, card) : elementDe(it, { id: nextId++, box: 0 });
     });
     list.nextCardId = nextId;
+    list.images = images || {};
     list.name = name;
     Monde.rangerListe(list);
     this.saveLists(lists);
+    Images.nettoyer();
     return list;
   },
 
-  // Range une carte dans une boîte. Toutes les cartes en boîte 3 = liste Ninja,
+  // Niveau d'une liste de révision : 0, 1, puis 2 = Ninja (ne redescend jamais)
+  setRevisionLevel(listId, level) {
+    const lists = this.getLists();
+    const list = lists.find(l => l.id === listId);
+    if (!list) return;
+    list.level = Math.min(level, 1);
+    if (level >= 2) list.ninja = true;
+    this.saveLists(lists);
+  },
+
+  // Range un élément dans une boîte. Tous les éléments en boîte 3 = liste Ninja,
   // et ça ne redescend jamais. Retourne true si la liste vient de devenir Ninja.
   setCardBox(listId, cardId, box) {
     const lists = this.getLists();
@@ -286,6 +312,7 @@ const Storage = {
     const filtered = lists.filter(l => l.id !== listId);
     this.saveLists(filtered);
     this.freeDecoOf(`bat:${listId}:`);
+    Images.nettoyer();
     return filtered.length < lists.length; // true si suppression réussie
   },
 
@@ -686,7 +713,7 @@ function sessionItems(lists) {
   return lists.flatMap(list => list.words.map(word => ({ word, list })));
 }
 
-// Listes de mots (pas les cartes questions) correspondant aux ids, dans l'ordre de « Mes listes »
+// Listes de mots (pas les listes de révision) correspondant aux ids, dans l'ordre de « Mes listes »
 function wordListsByIds(listIds) {
   return Storage.getActiveLists().filter(l => listIds.includes(l.id) && !Storage.isCardList(l));
 }
@@ -960,7 +987,8 @@ function renderPieceSession(containerId, onChoisir, pied = '') {
 
 function changerSalle(key) {
   AppState.salleCourante = key;
-  if (AppState.currentMode === 'interrogation') showInterrogationScreen();
+  if (AppState.currentScreen === 'revision') Revision.piece();
+  else if (AppState.currentMode === 'interrogation') showInterrogationScreen();
   else showApprentissageScreen();
 }
 
@@ -2126,7 +2154,7 @@ function refreshListsDisplay() {
     return;
   }
 
-  // Sections toujours visibles : mots à réécrire, mots de langue, cartes questions
+  // Sections toujours visibles : mots à réécrire, mots de langue, révision
   const spellLists = lists.filter(l => !Storage.isCardList(l) && !Storage.isLangList(l));
   const langLists = lists.filter(l => Storage.isLangList(l));
   const cardLists = lists.filter(l => Storage.isCardList(l));
@@ -2144,7 +2172,7 @@ function refreshListsDisplay() {
   spellLists.forEach(list => { html += wordListHTML(list); });
   if (titled && langLists.length) html += '<h2 class="lists-section">🌍 Mots de langue</h2>';
   langLists.forEach(list => { html += wordListHTML(list); });
-  if (titled && cardLists.length) html += '<h2 class="lists-section">🃏 Cartes questions</h2>';
+  if (titled && cardLists.length) html += '<h2 class="lists-section">📚 Révision</h2>';
   cardLists.forEach(list => { html += cardListHTML(list); });
 
   container.innerHTML = html + archivesButton;
@@ -2163,7 +2191,7 @@ function archivesHTML(archived) {
     <div class="mix-entry">
       <button class="btn btn-secondary" onclick="toggleArchives(false)">← Retour à mes listes</button>
     </div>
-    <p class="intro">Les listes archivées gardent leur lieu, leur niveau et leurs cartes. Ressors-en une quand tu veux la retravailler.</p>
+    <p class="intro">Les listes archivées gardent leur lieu, leur niveau et leur progression. Ressors-en une quand tu veux la retravailler.</p>
   `;
   if (archived.length === 0) {
     return html + '<div class="empty-state"><div class="empty-icon">📦</div>Aucune liste archivée.</div>';
@@ -2335,6 +2363,10 @@ function cardListHTML(list) {
   const count = (box) => cards.filter(c => c.box === box).length;
   const known = count(3);
   const pct = cards.length ? Math.round((known / cards.length) * 100) : 0;
+  const nq = cards.filter(c => c.kind !== 'lecon').length;
+  const nl = cards.length - nq;
+  const niveau = Revision.niveau(list);
+  const contenu = [nq ? `${nq} question${nq > 1 ? 's' : ''}` : '', nl ? `${nl} leçon${nl > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
 
   return `
     <div class="card">
@@ -2346,16 +2378,15 @@ function cardListHTML(list) {
           <button class="btn-icon" onclick="confirmDeleteList(${list.id})" title="Supprimer" aria-label="Supprimer">🗑️</button>
         </div>
       </div>
-      <p class="list-meta">${cards.length} carte${cards.length > 1 ? 's' : ''} · ${known} connue${known > 1 ? 's' : ''} · ${escapeText(Monde.batiment(list.lieu.type).nom)}</p>
+      <p class="list-meta">${contenu || 'Vide'} · ${escapeText(Monde.batiment(list.lieu.type).nom)}</p>
       <div class="list-level">
-        <span class="level-badge">${list.ninja ? 'Ninja 🥷' : 'Toutes les cartes connues = Ninja 🥷'}</span>
-        <span class="level-stars">jusqu'à ${CARTES.etoilesEcrire} ⭐ par réponse</span>
+        <span class="level-badge">${niveau >= 2 ? 'Ninja 🥷' : `${Revision.nomNiveau(niveau)} · ${Math.ceil(ECONOMIE.seuilPassageNiveau * 100)} % pour monter`}</span>
       </div>
       <div class="card-boxes">
-        <span class="card-box">🆕 ${count(0)} nouvelle${count(0) > 1 ? 's' : ''}</span>
-        <span class="card-box box-1">🔁 ${count(1)} à revoir</span>
+        <span class="card-box">🆕 ${count(0)} nouveau${count(0) > 1 ? 'x' : ''}</span>
+        <span class="card-box box-1">🔁 ${count(1)} à retravailler</span>
         <span class="card-box box-2">🙂 ${count(2)} ça vient</span>
-        <span class="card-box box-3">✅ ${known} connue${known > 1 ? 's' : ''}</span>
+        <span class="card-box box-3">✅ ${known} maîtrisé${known > 1 ? 's' : ''}</span>
       </div>
       <div class="list-mastery"><div class="list-mastery-fill" style="width:${pct}%"></div></div>
       ${JeuxCartes.actionsHTML(list)}
@@ -2398,6 +2429,7 @@ function setNewListType(type) {
   document.getElementById('new-list-cartes').classList.toggle('hidden', !cartes);
   document.getElementById('scan-card').classList.toggle('hidden', cartes || langue);
   if (langue && !document.getElementById('new-lang-from').options.length) fillLangSelects('new-', 'fr', 'en');
+  if (cartes && !document.getElementById('new-cards-input').value.trim()) Revision.initEditeur('new-', null);
 }
 
 // ── Listes de langue : choix des langues et saisie « mot = traduction » ──
@@ -2490,25 +2522,11 @@ function parseCards(text) {
 function checkCards(parsed, errorsId) {
   const box = document.getElementById(errorsId);
   const errors = parsed.errors.length > 0 ? parsed.errors
-    : (parsed.pairs.length === 0 ? ['Aucune carte détectée'] : []);
+    : ((parsed.items || parsed.pairs).length === 0 ? ['Rien de détecté'] : []);
   box.innerHTML = errors.map(e => `<div>⚠️ ${escapeText(e)}</div>`).join('');
   box.classList.toggle('hidden', errors.length === 0);
   if (errors.length > 0) showFeedback('Des lignes sont à corriger', 'error');
   return errors.length === 0;
-}
-
-// Consigne à coller dans une IA pour fabriquer une liste de cartes
-function copyCardsPrompt() {
-  const prompt = `Crée 30 questions-réponses pour un enfant de primaire sur le thème : [THÈME].
-Format strict : une par ligne, « question = réponse », sans numéro, sans puce, sans ligne vide.
-Réponses très courtes (quelques mots). Jamais de « = » dans la question ni dans la réponse
-(si c'est indispensable, sépare alors la question et la réponse par « | » à la place).`;
-  const done = () => showFeedback('Consigne copiée ! Colle-la dans ton IA 📋', 'success');
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(prompt).then(done).catch(() => window.prompt('Copie cette consigne :', prompt));
-  } else {
-    window.prompt('Copie cette consigne :', prompt);
-  }
 }
 
 function createCardListFromInput() {
@@ -2517,13 +2535,15 @@ function createCardListFromInput() {
     alert('Il faut un nom pour la liste');
     return;
   }
-  const parsed = parseCards(document.getElementById('cards-input').value);
-  if (!checkCards(parsed, 'cards-errors')) return;
+  const parsed = Revision.lireSaisie('new-');
+  if (!checkCards(parsed, 'new-cards-errors')) return;
 
-  Storage.addCardList(name, parsed.pairs, lieuChoisi(AppState.newListLieu));
+  Storage.addCardList(name, parsed.items, lieuChoisi(AppState.newListLieu), parsed.images);
   document.getElementById('list-name-input').value = '';
-  document.getElementById('cards-input').value = '';
-  showFeedback(`Liste créée : ${parsed.pairs.length} cartes ! 🎉`, 'success');
+  document.getElementById('new-cards-input').value = '';
+  Revision.initEditeur('new-', null);
+  const n = parsed.items.length;
+  showFeedback(`Liste créée : ${n} élément${n > 1 ? 's' : ''} ! 🎉`, 'success');
   setTimeout(() => showScreen('home'), 1500); // le nouveau bâtiment apparaît dans la ville
 }
 
@@ -2590,10 +2610,8 @@ function showEditListScreen(listId) {
       })
       .join('\n');
   } else if (cartes) {
-    // Le « | » sert de séparateur dès qu'un = traîne dans le texte
-    document.getElementById('edit-cards-input').value = (list.cards || [])
-      .map(c => (c.q + c.a).includes('=') ? `${c.q} | ${c.a}` : `${c.q} = ${c.a}`)
-      .join('\n');
+    document.getElementById('edit-cards-input').value = Revision.texteDe(list.cards);
+    Revision.initEditeur('edit-', list);
   } else {
     document.getElementById('edit-words-input').value = list.words.join('\n');
   }
@@ -2607,10 +2625,10 @@ function saveEditedCardList(listId) {
     alert('Il faut un nom pour la liste');
     return;
   }
-  const parsed = parseCards(document.getElementById('edit-cards-input').value);
+  const parsed = Revision.lireSaisie('edit-');
   if (!checkCards(parsed, 'edit-cards-errors')) return;
 
-  Storage.updateCardList(listId, name, parsed.pairs);
+  Storage.updateCardList(listId, name, parsed.items, parsed.images);
   Storage.setLieu(listId, lieuChoisi(AppState.editListLieu));
   showFeedback('Liste modifiée ! ✅', 'success');
   AppState.editingListId = null;
@@ -2779,6 +2797,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Le monde : chaque liste a son lieu et chaque élément son objet
   // (installe aussi les listes d'avant le monde virtuel, voir js/monde.js)
   Monde.migrer();
+  Images.nettoyer(); // images de leçon qu'aucune liste n'utilise plus
 
   // Charge la préférence son depuis localStorage
   const savedSound = localStorage.getItem('soundEnabled');
@@ -3204,7 +3223,7 @@ function countGoldLists(lists) {
 }
 
 // Liste dorée : chaque mot a été interrogé et réussi à 80 % ou plus
-// (cartes questions : toutes les cartes dans la boîte 3)
+// (révision : tous les éléments maîtrisés, boîte 3)
 function isListGold(list) {
   if (Storage.isCardList(list)) {
     return (list.cards || []).length > 0 && list.cards.every(c => c.box >= 3);
@@ -3836,6 +3855,32 @@ function showStrugglingWordsScreen() {
   let total = 0;
 
   lists.forEach(list => {
+    if (Storage.isCardList(list)) {
+      const aRetravailler = (list.cards || []).filter(c => c.box === 1);
+      if (!aRetravailler.length) return;
+      total += aRetravailler.length;
+      html += `<div class="card"><div class="list-card-head"><h3>${escapeText(list.name)}</h3></div>`;
+      aRetravailler.forEach(c => {
+        const loc = Monde.placeOf(list, String(c.id));
+        const texte = c.kind === 'lecon' ? `📖 ${c.titre || c.texte.split(/\s+/).slice(0, 8).join(' ') || 'Image'}` : c.q;
+        html += `
+          <div class="word-item">
+            <div>
+              <strong>${escapeText(texte)}</strong>
+              ${loc ? `<span class="word-place">${escapeText(capitalizeFirst(loc.nom))} · ${escapeText(Monde.lieuTexte(loc))}</span>` : ''}
+            </div>
+          </div>`;
+      });
+      const n = aRetravailler.length;
+      html += `
+          <div class="list-actions mt-20">
+            <button class="btn btn-primary" onclick="Revision.demarrer(${list.id}, 'rappel', [${aRetravailler.map(c => c.id).join(',')}])">
+              🧠 Me rappeler ces ${n} élément${n > 1 ? 's' : ''}
+            </button>
+          </div>
+        </div>`;
+      return;
+    }
     const struggling = list.words
       .filter(word => {
         const p = list.progress[word];
@@ -3878,11 +3923,11 @@ function showStrugglingWordsScreen() {
     html = `
       <div class="empty-state">
         <div class="empty-icon">🌟</div>
-        Aucun mot difficile pour le moment.<br>Continue comme ça !
+        Rien à retravailler pour le moment.<br>Continue comme ça !
       </div>
     `;
   } else {
-    html = '<p class="intro">Ces mots méritent encore un peu d\'entraînement. Tu vas y arriver ! 💪</p>' + html;
+    html = '<p class="intro">Ces mots et ces leçons méritent encore un peu d\'entraînement. Tu vas y arriver ! 💪</p>' + html;
   }
 
   container.innerHTML = html;
@@ -3907,26 +3952,9 @@ function startScan() {
   alert('Le scanner arrive bientôt. En attendant, saisis la liste à la main.');
 }
 
-// ───────────────────────────────────────────────────────────────
-// CARTES QUESTIONS : cartes à retourner, rangées en boîtes
-// ───────────────────────────────────────────────────────────────
-// On lit la question, on répond à voix haute, on retourne la carte, puis
-// on dit soi-même « Je savais » ou « À revoir ». Seule ou avec un parent,
-// c'est le même écran : seul change celui qui appuie.
-
-const CartesGame = {
-  listId: null,
-  cards: {},      // id → carte (copie de travail)
-  queue: [],      // ids des cartes à venir, la première est à l'écran
-  total: 0,       // cartes tirées pour la session
-  done: 0,        // cartes terminées
-  returns: {},    // id → nombre de retours dans la session
-  toReview: [],   // ids des cartes ratées au moins une fois
-  becameNinja: false
-};
-
-// Tirage pondéré : les cartes à revoir et les nouvelles sortent en premier,
-// les cartes connues reviennent de temps en temps.
+// Tirage pondéré des questions pour les jeux (js/jeux-cartes.js) : celles
+// à retravailler et les nouvelles sortent en premier, les maîtrisées
+// reviennent de temps en temps.
 function drawCards(cards) {
   return cards
     .map(card => ({ card, key: Math.random() * (CARTES.poidsTirage[card.box] || 1) }))
@@ -3935,192 +3963,12 @@ function drawCards(cards) {
     .map(x => x.card);
 }
 
-function startCartes(listId) {
-  const list = Storage.getLists().find(l => l.id === listId);
-  if (!list || !(list.cards || []).length) return;
-
-  const drawn = shuffleArray(drawCards(list.cards));
-  CartesGame.listId = listId;
-  CartesGame.cards = {};
-  drawn.forEach(c => { CartesGame.cards[c.id] = { ...c }; });
-  CartesGame.queue = drawn.map(c => c.id);
-  CartesGame.total = drawn.length;
-  CartesGame.done = 0;
-  CartesGame.returns = {};
-  CartesGame.toReview = [];
-  CartesGame.becameNinja = false;
-  AppState.currentList = list;
-  AppState.sessionReplay = () => startCartes(listId);
-
-  showScreen('cartes');
-  document.getElementById('cartes-list-name').textContent = list.name;
-  showCarte();
-}
-
-function currentCarte() {
-  return CartesGame.cards[CartesGame.queue[0]];
-}
-
-// Taille du texte selon sa longueur, pour que tout tienne sur la carte
+// Taille du texte selon sa longueur, pour que tout tienne
 function carteTextClass(text) {
   if (text.length > 120) return 'xs';
   if (text.length > 60) return 's';
   if (text.length > 25) return 'm';
   return '';
-}
-
-function showCarte() {
-  const card = currentCarte();
-  const flip = document.getElementById('flip-card');
-  const again = (CartesGame.returns[card.id] || 0) > 0;
-
-  // Revient côté question sans animation : sinon on verrait passer la réponse suivante
-  flip.classList.add('no-anim');
-  flip.classList.remove('flipped');
-  const q = document.getElementById('carte-question');
-  const a = document.getElementById('carte-answer');
-  q.textContent = card.q;
-  q.className = `carte-text ${carteTextClass(card.q)}`;
-  a.textContent = card.a;
-  a.className = `carte-text ${carteTextClass(card.a)}`;
-  void flip.offsetWidth;
-  flip.classList.remove('no-anim');
-
-  renderSessionProgress('cartes-session-progress', CartesGame.total, CartesGame.done);
-  document.getElementById('cartes-progress').textContent =
-    again ? '🔁 On la revoit' : `Carte ${Math.min(CartesGame.done + 1, CartesGame.total)}/${CartesGame.total}`;
-  document.getElementById('cartes-flip-zone').classList.remove('hidden');
-  document.getElementById('cartes-verdict-zone').classList.add('hidden');
-}
-
-function flipCarte() {
-  const flip = document.getElementById('flip-card');
-  flip.classList.toggle('flipped');
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-  // Une fois la réponse vue, on peut la valider (et re-regarder la question)
-  document.getElementById('cartes-flip-zone').classList.add('hidden');
-  document.getElementById('cartes-verdict-zone').classList.remove('hidden');
-}
-
-// Lit à voix haute le côté visible de la carte
-function speakCarte() {
-  const card = currentCarte();
-  if (!card || !AppState.soundEnabled) return;
-  const flipped = document.getElementById('flip-card').classList.contains('flipped');
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-  speakWord(flipped ? card.a : card.q);
-}
-
-function answerCarte(known) {
-  const card = currentCarte();
-  if (!card) return;
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-  const failedBefore = CartesGame.toReview.includes(card.id);
-
-  if (known) {
-    // Ratée plus tôt dans la session : elle reste « à revoir » jusqu'à la prochaine fois
-    const box = failedBefore ? 1 : (card.box === 0 ? 2 : Math.min(3, card.box + 1));
-    const slotsBefore = Storage.getCompanionSlots();
-    if (Storage.setCardBox(CartesGame.listId, card.id, box)) {
-      CartesGame.becameNinja = true;
-      if (Storage.getCompanionSlots() > slotsBefore) AppState.newCompanionUnlocked = true;
-    }
-    card.box = box;
-    CartesGame.queue.shift();
-    CartesGame.done++;
-  } else {
-    Storage.setCardBox(CartesGame.listId, card.id, 1);
-    card.box = 1;
-    if (!failedBefore) CartesGame.toReview.push(card.id);
-    CartesGame.queue.shift();
-    // La carte revient un peu plus loin dans la session
-    const returns = CartesGame.returns[card.id] || 0;
-    if (returns < CARTES.retoursMaxParCarte) {
-      CartesGame.returns[card.id] = returns + 1;
-      CartesGame.queue.splice(Math.min(3, CartesGame.queue.length), 0, card.id);
-    } else {
-      CartesGame.done++;
-    }
-  }
-
-  if (CartesGame.queue.length === 0) finishCartes();
-  else showCarte();
-}
-
-function finishCartes() {
-  // La récompense est pour la session terminée, pas pour les bonnes réponses
-  Storage.addStars(CARTES.etoilesSession);
-  playStarSound();
-  if (CartesGame.becameNinja) Storage.grantChest('rare');
-  Defis.track('session');
-  Defis.track('jeu');
-  openPendingChests(showCartesResults);
-}
-
-function showCartesResults() {
-  showScreen('results');
-  const container = document.getElementById('results-content');
-  if (!container) return;
-
-  const review = CartesGame.toReview.map(id => CartesGame.cards[id]);
-  const knownCount = CartesGame.total - review.length;
-  const freeStickers = Storage.getFreeStickers().reduce((sum, x) => sum + x.count, 0);
-
-  let html = `
-    <div class="result-hero">
-      <div class="result-icon">${review.length === 0 ? '🏆' : '👏'}</div>
-      <h2>Session terminée !</h2>
-      <p class="result-score">${knownCount} / ${CartesGame.total}</p>
-      <p class="result-sub">carte${knownCount > 1 ? 's' : ''} connue${knownCount > 1 ? 's' : ''} du premier coup</p>
-      <div class="stars-earned">+${CARTES.etoilesSession} ⭐ gagnées</div>
-    </div>
-  `;
-
-  if (CartesGame.becameNinja) {
-    html += `
-      <div class="level-up">
-        ${celebrationArt('🥷')}
-        <div class="level-up-title">Liste Ninja !</div>
-        <div class="level-up-sub">Tu connais toutes les cartes de cette liste</div>
-      </div>
-    `;
-  }
-  html += Defis.celebrationHTML();
-
-  if (review.length > 0) {
-    html += `<div class="error-card"><h3>À revoir (${review.length})</h3>`;
-    review.forEach(card => {
-      html += `
-        <div class="error-item">
-          <div class="error-word">${escapeText(card.q)}</div>
-          <div class="error-detail">Réponse : <span class="error-expected">${escapeText(card.a)}</span></div>
-        </div>
-      `;
-    });
-    html += '<p class="hint">Ces cartes reviendront en premier la prochaine fois.</p></div>';
-  } else {
-    html += '<div class="success-card">✅ Toutes les cartes connues !</div>';
-  }
-
-  if (AppState.newCompanionUnlocked) {
-    AppState.newCompanionUnlocked = false;
-    html += `
-      <div class="level-up">
-        ${celebrationArt('🐾')}
-        <div class="level-up-title">Nouveau compagnon débloqué !</div>
-        <div class="level-up-sub">Va choisir ton kawaii de compagnie</div>
-        <div class="team-actions"><button class="btn btn-secondary" onclick="showKawaiiScreen()">🎨 Choisir mon compagnon</button></div>
-      </div>
-    `;
-  }
-
-  html += `
-    <div class="result-actions">
-      <button class="btn btn-primary btn-big" onclick="replaySession()">🃏 Encore une session</button>
-      ${freeStickers > 0 ? `<button class="btn btn-secondary" onclick="collerStickers()">🏙️ Coller mes ${freeStickers} sticker${freeStickers > 1 ? 's' : ''}</button>` : ''}
-    </div>
-  `;
-  container.innerHTML = html;
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -4167,9 +4015,14 @@ function showParentsScreen() {
   document.getElementById('parents-summary').textContent =
     `${lists.length} liste${lists.length > 1 ? 's' : ''} · ${Storage.getEconomy().stars} ⭐ · ` +
     (last ? `dernière sauvegarde le ${new Date(last).toLocaleDateString('fr-FR')}` : 'jamais sauvegardé');
+  // Les images sont lues d'avance : sur iPad, la feuille de partage doit
+  // s'ouvrir tout de suite après l'appui sur « Sauvegarder »
+  imagesSauvegarde = Images.exporter();
 }
 
-function exportData() {
+let imagesSauvegarde = null;
+
+async function exportData() {
   localStorage.setItem('lastExportAt', new Date().toISOString());
   const data = {};
   for (let i = 0; i < localStorage.length; i++) {
@@ -4178,7 +4031,9 @@ function exportData() {
     if (Sync.LOCAL_ONLY_KEYS.includes(key)) continue;
     data[key] = localStorage.getItem(key);
   }
-  const json = JSON.stringify({ app: 'mental-palace', format: 1, exportedAt: new Date().toISOString(), data }, null, 1);
+  // Les images des leçons (IndexedDB) voyagent dans le même fichier
+  const images = await (imagesSauvegarde || Images.exporter());
+  const json = JSON.stringify({ app: 'mental-palace', format: 2, exportedAt: new Date().toISOString(), data, images }, null, 1);
   const name = `mental-palace-${new Date().toISOString().slice(0, 10)}.json`;
   const file = new File([json], name, { type: 'application/json' });
 
@@ -4209,7 +4064,7 @@ function importData(input) {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     let payload;
     try {
       payload = JSON.parse(reader.result);
@@ -4241,6 +4096,14 @@ function importData(input) {
     Object.entries(payload.data).forEach(([key, value]) => {
       if (typeof value === 'string' && !Sync.LOCAL_ONLY_KEYS.includes(key)) localStorage.setItem(key, value);
     });
+    // Images des leçons (fichiers de format 2)
+    if (payload.images) {
+      try {
+        await Images.importer(payload.images);
+      } catch (e) {
+        alert('Les images des leçons n\'ont pas pu être restaurées.');
+      }
+    }
     window.location.reload();
   };
   reader.readAsText(file);

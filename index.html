@@ -22,7 +22,7 @@
 
   <!-- Styles. Le ?v= force les navigateurs sans service worker (http://IP:port)
        à recharger les fichiers : l'augmenter à chaque version, ici et dans sw.js. -->
-  <link rel="stylesheet" href="css/style.css?v=25">
+  <link rel="stylesheet" href="css/style.css?v=26">
 </head>
 <body>
   <div id="app">
@@ -139,7 +139,7 @@
               <span class="type-icon">🌍</span>Mots de langue
             </button>
             <button class="type-btn" id="type-btn-cartes" onclick="setNewListType('cartes-questions')">
-              <span class="type-icon">🃏</span>Cartes questions
+              <span class="type-icon">📚</span>Révision
             </button>
           </div>
 
@@ -170,16 +170,19 @@
           </div>
 
           <div id="new-list-cartes" class="hidden">
-            <label class="field-label" for="cards-input">Cartes : une par ligne, question = réponse</label>
-            <textarea id="cards-input" class="field" placeholder="Quelle est la capitale de l'Italie ? = Rome&#10;Combien de côtés a un hexagone ? = 6&#10;2 + 2 = ? | 4" rows="10" autocapitalize="sentences"></textarea>
-            <p class="hint">Un seul « = » par ligne. S'il en faut un dans le texte, sépare avec « | ».</p>
-            <div id="cards-errors" class="cards-errors hidden"></div>
-            <button class="btn btn-ghost btn-block mt-10" onclick="copyCardsPrompt()">📋 Copier la consigne pour une IA</button>
+            <label class="field-label" for="new-cards-input">Questions et leçons, séparées par une ligne vide</label>
+            <textarea id="new-cards-input" class="field" placeholder="# Le cycle de l'eau&#10;L'eau s'évapore, forme des nuages, puis retombe en pluie.&#10;&#10;Capitale de l'Italie ? = Rome&#10;Combien de côtés a un hexagone ? = 6" rows="12" autocapitalize="sentences" oninput="Revision.apercu('new-')"></textarea>
+            <p class="hint">« # Titre » commence une leçon. Un bloc dont chaque ligne est « question = réponse » donne des questions : uniquement des faits à réponse unique et courte. Un autre texte devient une leçon. S'il faut un « = » dans le texte, sépare avec « | ».</p>
+            <div id="new-cards-errors" class="cards-errors hidden"></div>
+            <div id="new-revision-apercu" class="revision-apercu"></div>
+            <button class="btn btn-ghost btn-block mt-10" onclick="Revision.choisirImage('new-', -1)">🖼️ Ajouter un bloc image</button>
+            <button class="btn btn-ghost btn-block mt-10" onclick="Revision.copierConsigne()">📋 Copier la consigne pour une IA</button>
+            <input type="file" id="new-revision-file" class="hidden" accept="image/*" onchange="Revision.imageChoisie(this, 'new-')">
           </div>
 
           <p class="field-label mt-20">Son lieu dans la ville</p>
           <div class="lieu-choix-grid" id="new-list-lieu"></div>
-          <p class="hint">Chaque mot ou question sera rangé sur un objet de ce lieu.</p>
+          <p class="hint">Chaque mot, question ou leçon sera rangé sur un objet de ce lieu.</p>
 
           <button class="btn btn-success btn-block mt-20" onclick="createListFromManualInput()">
             ✅ Créer la liste
@@ -233,10 +236,13 @@
           </div>
 
           <div id="edit-list-cartes" class="hidden">
-            <label class="field-label" for="edit-cards-input">Cartes : une par ligne, question = réponse</label>
-            <textarea id="edit-cards-input" class="field" rows="12" autocapitalize="sentences"></textarea>
-            <p class="hint">Corriger une carte ne lui fait pas perdre sa boîte. Un seul « = » par ligne, sinon sépare avec « | ».</p>
+            <label class="field-label" for="edit-cards-input">Questions et leçons, séparées par une ligne vide</label>
+            <textarea id="edit-cards-input" class="field" rows="14" autocapitalize="sentences" oninput="Revision.apercu('edit-')"></textarea>
+            <p class="hint">Corriger un élément ne lui fait perdre ni son objet ni sa progression. « # Titre » commence une leçon ; « question = réponse » donne une question (sinon sépare avec « | »).</p>
             <div id="edit-cards-errors" class="cards-errors hidden"></div>
+            <div id="edit-revision-apercu" class="revision-apercu"></div>
+            <button class="btn btn-ghost btn-block mt-10" onclick="Revision.choisirImage('edit-', -1)">🖼️ Ajouter un bloc image</button>
+            <input type="file" id="edit-revision-file" class="hidden" accept="image/*" onchange="Revision.imageChoisie(this, 'edit-')">
           </div>
 
           <p class="field-label mt-20">Son lieu dans la ville</p>
@@ -438,51 +444,26 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
-         ÉCRAN CARTES QUESTIONS (cartes à retourner)
+         ÉCRAN RÉVISION (Apprendre, Se rappeler : js/revision.js)
          ══════════════════════════════════════════════════════════ -->
-    <div id="cartes-screen" class="screen">
+    <div id="revision-screen" class="screen">
       <header>
-        <button class="back-btn" onclick="showListsScreen()" aria-label="Retour">←</button>
-        <h1>🃏 Cartes questions</h1>
-        <span class="progress-chip" id="cartes-progress">Carte 1/10</span>
+        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
+        <h1 id="revision-titre">📖 Apprendre</h1>
+        <span class="progress-chip" id="revision-chip">Vus 0/0</span>
       </header>
 
       <div class="screen-body">
-        <p class="intro" id="cartes-list-name"></p>
-        <div class="session-progress mb-20" id="cartes-session-progress" aria-label="Avancement de la session"></div>
-
-        <!-- La carte : question devant, réponse derrière. Un appui la retourne. -->
-        <div class="flip-scene">
-          <div class="flip-card" id="flip-card" onclick="flipCarte()" role="button" aria-label="Retourner la carte">
-            <div class="flip-face flip-front">
-              <span class="flip-label">❓ Question</span>
-              <div id="carte-question" class="carte-text"></div>
-            </div>
-            <div class="flip-face flip-back">
-              <span class="flip-label">💡 Réponse</span>
-              <div id="carte-answer" class="carte-text"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="text-center">
-          <button class="btn btn-listen" onclick="speakCarte()" aria-label="Écouter la carte">🔊 Écouter</button>
-        </div>
-
-        <!-- Avant : retourner. Après : dire si on savait. -->
-        <div id="cartes-flip-zone" class="text-center mt-20">
-          <button class="btn btn-primary btn-big" onclick="flipCarte()">🔄 Retourner la carte</button>
-          <p class="hint">Dis ta réponse à voix haute, puis retourne la carte</p>
-        </div>
-        <div id="cartes-verdict-zone" class="cartes-verdict hidden">
-          <button class="btn btn-verdict verdict-review" onclick="answerCarte(false)">🔁 À revoir</button>
-          <button class="btn btn-verdict verdict-known" onclick="answerCarte(true)">✅ Je savais</button>
-        </div>
+        <p class="intro" id="revision-liste"></p>
+        <!-- La pièce : elle choisit l'objet -->
+        <div id="revision-piece"></div>
+        <!-- Puis l'élément rangé sur l'objet, seul à l'écran -->
+        <div id="revision-contenu" class="revision-contenu hidden"></div>
       </div>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
-         ÉCRAN JEUX DES CARTES QUESTIONS (QCM, paires, réponse à écrire)
+         ÉCRAN JEUX DES QUESTIONS (QCM, paires, réponse à écrire)
          ══════════════════════════════════════════════════════════ -->
     <div id="jeu-screen" class="screen">
       <header>
@@ -524,7 +505,7 @@
         <div class="card">
           <h2>Sauvegarde</h2>
           <p class="hint" id="parents-summary"></p>
-          <p>Toutes les données (listes, progression, étoiles, stickers, kawaii) sont rangées dans un seul fichier. Garde-le dans Fichiers, iCloud ou envoie-le-toi par mail.</p>
+          <p>Toutes les données (listes, images des leçons, progression, étoiles, stickers, kawaii) sont rangées dans un seul fichier. Garde-le dans Fichiers, iCloud ou envoie-le-toi par mail.</p>
           <button class="btn btn-primary btn-block mt-20" onclick="exportData()">💾 Sauvegarder dans un fichier</button>
         </div>
 
@@ -681,17 +662,19 @@
   </div>
 
   <!-- Scripts -->
-  <script src="data/lieux.js?v=25"></script>
-  <script src="data/monde.js?v=25"></script>
-  <script src="js/objets.js?v=25"></script>
-  <script src="js/kawaii.js?v=25"></script>
-  <script src="js/config.js?v=25"></script>
-  <script src="js/sync.js?v=25"></script>
-  <script src="js/app.js?v=25"></script>
-  <script src="js/monde.js?v=25"></script>
-  <script src="js/scene.js?v=25"></script>
-  <script src="js/recompenses.js?v=25"></script>
-  <script src="js/jeux-cartes.js?v=25"></script>
-  <script src="js/arcade.js?v=25"></script>
+  <script src="data/lieux.js?v=26"></script>
+  <script src="data/monde.js?v=26"></script>
+  <script src="js/objets.js?v=26"></script>
+  <script src="js/kawaii.js?v=26"></script>
+  <script src="js/config.js?v=26"></script>
+  <script src="js/sync.js?v=26"></script>
+  <script src="js/app.js?v=26"></script>
+  <script src="js/monde.js?v=26"></script>
+  <script src="js/scene.js?v=26"></script>
+  <script src="js/images.js?v=26"></script>
+  <script src="js/revision.js?v=26"></script>
+  <script src="js/recompenses.js?v=26"></script>
+  <script src="js/jeux-cartes.js?v=26"></script>
+  <script src="js/arcade.js?v=26"></script>
 </body>
 </html>

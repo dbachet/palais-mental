@@ -52,13 +52,15 @@ palais-mental/
 │   ├── scene.js        # Les étages : décor, objets, déco, kawaii ; mode calme et mode libre (🧸 Jouer)
 │   ├── objets.js       # Objets des lieux dessinés par le code (SVG, sans image)
 │   ├── recompenses.js  # Défis du jour, album de stickers, temps de jeu du jour
-│   ├── jeux-cartes.js  # QCM, paires et réponse à écrire (cartes questions, mots de langue)
+│   ├── revision.js     # Listes de révision : lecture du texte, éditeur, Apprendre et Se rappeler
+│   ├── images.js       # Images des leçons (IndexedDB, réduites à 1600 px)
+│   ├── jeux-cartes.js  # QCM, paires et réponse à écrire (questions de révision, mots de langue)
 │   ├── arcade.js       # Salle de jeux : serpent, blocs (tetris), bonbons (match-3)
 │   ├── config.js       # Adresse et clé publique Supabase (vide = app 100 % locale)
 │   ├── sync.js         # Compte et enregistrement en ligne (fusion, hors-ligne)
 │   └── kawaii.js       # Moteur de dessin des personnages kawaii (SVG, sans image)
 └── data/
-    ├── lieux.js        # Économie, temps, cartes, langues, catalogue de stickers
+    ├── lieux.js        # Économie, temps, révision, images, langues, catalogue de stickers
     └── monde.js        # BATIMENTS : étages, décor et objets de chaque bâtiment
 ```
 
@@ -113,15 +115,20 @@ Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre), `A
   - Même jeu que les mots à réécrire (objets, niveaux, Ninja, mélange) : on voit et on entend le mot de départ, on écrit la traduction en cases de lettres
   - À la visite, le mot de départ est dit dans sa langue puis la traduction dans la sienne. En interrogation, seul le mot de départ est dit
   - Langues et voix : `LANGUES` dans `data/lieux.js`
-- **Cartes questions** : listes de questions/réponses (`question = réponse`, une par ligne), jouées en cartes à retourner
-  - 10 cartes par session, « Je savais » / « À revoir », seule ou avec un parent
-  - Boîtes 1-2-3 : les cartes à revoir reviennent en premier ; toutes en boîte 3 = liste **Ninja**
-  - On gagne des étoiles pour la session terminée, pas pour les bonnes réponses (réglages : `CARTES` dans `data/lieux.js`)
-  - Trois jeux corrigés par l'app, où chaque bonne réponse du premier coup rapporte des étoiles : **QCM** (mauvaises réponses tirées des autres cartes), **Paires** (relier question et réponse), **Écrire la réponse** (réponses courtes ; accents et majuscules ne comptent pas). Un jeu n'est proposé que si la liste s'y prête
-  - Le QCM ne monte pas une carte plus haut que « ça vient » et les paires ne changent aucune boîte : on devient Ninja en retournant les cartes ou en écrivant
+- **Révision** : des questions et des leçons dans une même liste, dans l'ordre du texte. Le texte se découpe en blocs séparés par une ligne vide :
+  - `# Titre` commence une **leçon** (le titre, puis son texte)
+  - un bloc dont chaque ligne est `question = réponse` (ou `question | réponse`) donne une **question** par ligne : uniquement des faits à réponse unique et courte
+  - tout autre bloc est une leçon sans titre ; `[📷 n]` place une **image** (dans une leçon, ou seule dans son bloc). « 📷 » dans l'aperçu ajoute ou change l'image d'une leçon, « 🖼️ Ajouter un bloc image » en ajoute une seule
+  - Corriger le texte garde l'objet, la progression et l'image de chaque élément reconnu
+  - **📖 Apprendre** : dans la pièce, elle choisit un objet ; la question et sa réponse, ou la leçon entière (image en grand d'un appui, « 🔊 Lire » phrase par phrase), s'affichent seules. Un paquet par étage
+  - **🧠 Se rappeler** : elle choisit un objet. Question : « Voir la réponse », puis « Je savais » ou « À revoir ». Leçon : un indice selon le niveau (niveau 1 : le titre et les 5 premiers mots ; niveau 2 : le titre ; Ninja : rien), puis « Voir le cours », puis « Presque rien », « Une partie » ou « L'essentiel » (0, ½ ou 1 point). 80 % des points font monter d'un niveau, sans jamais redescendre ; tout maîtrisé = Ninja aussi
+  - Boîtes : maîtrisé petit à petit ; moins que tout = **à retravailler** (dans « Mots à travailler », avec « Me rappeler ces éléments »)
+  - On gagne des étoiles pour la session terminée, pas pour les bonnes réponses (réglages : `CARTES` et `REVISION` dans `data/lieux.js`)
+  - Trois jeux corrigés par l'app, sur les questions seulement, où chaque bonne réponse du premier coup rapporte des étoiles : **QCM** (mauvaises réponses tirées des autres questions), **Paires** (relier question et réponse), **Écrire la réponse** (réponses courtes ; accents et majuscules ne comptent pas). Un jeu n'est proposé que si la liste s'y prête
+  - Le QCM ne monte pas une question plus haut que « ça vient » et les paires ne changent aucune boîte
   - QCM et paires existent aussi pour les mots de langue, comme échauffement (sans effet sur le niveau)
-- **Espace parents** : sauvegarde de toutes les données dans un fichier, et restauration (entrée protégée par un calcul)
-- **Mots à travailler** : liste des mots en difficulté par liste, avec bouton pour s'entraîner dessus uniquement
+- **Espace parents** : sauvegarde de toutes les données dans un fichier, images des leçons comprises, et restauration (entrée protégée par un calcul)
+- **Mots à travailler** : les mots en difficulté et les éléments de révision à retravailler, par liste, avec un bouton pour s'entraîner dessus uniquement
 - **Design** : tokens de couleur, une action héro par écran, contrastes renforcés pour la lecture, mouvement calme pendant la tâche
 - **Responsive** : optimisé pour iPad, fonctionne sur téléphone
 - **PWA** : ajout à l'écran d'accueil iOS, mode offline
@@ -134,17 +141,17 @@ Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre), `A
 
 ## 🏙️ La ville : lieux, étages et objets
 
-L'accueil est la carte d'une petite ville. **Une liste = un lieu**, **un élément de la liste (mot, question) = un objet** de ce lieu.
+L'accueil est la carte d'une petite ville. **Une liste = un lieu**, **un élément de la liste (mot, question, leçon) = un objet** de ce lieu.
 
 - À la création d'une liste, on choisit son bâtiment parmi six : boulangerie, salon de coiffure, château, musée, labo, école. On peut en changer plus tard (édition de la liste) : tous les éléments sont alors rangés sur de nouveaux objets.
 - Chaque bâtiment a **6 étages de 12 objets** (72 emplacements). Un étage n'est ouvert que si la liste en a besoin : les 12 premiers éléments vont au premier étage, etc. Au-delà de 72, plusieurs éléments partagent un objet.
-- Le **rangement est stable** : un élément garde son objet. En modifiant la liste, seuls les nouveaux éléments sont rangés. Mots : au hasard dans le premier étage qui a de la place. Cartes questions : dans l'ordre de la liste, pour qu'une question reste voisine de celles qui l'entourent.
+- Le **rangement est stable** : un élément garde son objet. En modifiant la liste, seuls les nouveaux éléments sont rangés. Mots : au hasard dans le premier étage qui a de la place. Révision : dans l'ordre du texte, pour qu'un élément reste voisin de ceux qui l'entourent.
 - Les objets sont **dessinés par le code** (`js/objets.js`, une centaine de formes) : silhouette grise tant que l'élément n'est pas maîtrisé, en couleur avec un petit visage ensuite (sur la carte et en mode libre). Pendant Apprendre et S'entraîner, seuls les objets qu'elle peut toucher sont en couleur ; le reste de la pièce est gris pâle. Les emojis et les stickers ne servent que de décor.
 - Un appui sur un bâtiment ouvre sa liste et ses modes de jeu ; le **+** crée une nouvelle liste. La **salle de jeux** a aussi son bâtiment.
 - **Apprendre et S'entraîner** se passent dans l'étage, en **mode calme** : la pièce, les objets du paquet en cours (10 mots) et le kawaii. **L'enfant choisit elle-même l'objet** : le kawaii y marche, puis la pièce disparaît et on ne voit plus que le mot (qui s'anime, ou à écrire) ; « ← Retour à la pièce » pour en choisir un autre. En Apprendre, on peut revoir un objet autant qu'on veut (✓ = déjà vu ; « J'ai tout vu » quand tout est vu). En S'entraîner, un objet fait est marqué (✓ ou ↺) et ne se touche plus ; le paquet se termine quand tous sont faits. Si le paquet est rangé dans plusieurs étages (ou lieux, dans un mélange), des boutons permettent de passer de l'un à l'autre. Les objets hors du paquet et les déco sont estompés.
 - **🧸 Jouer dans ce lieu** (fiche d'un bâtiment), en **mode libre** : on passe d'étage en étage, on déplace les objets d'apprentissage (marqués ⭐ ; le mot suit son objet), son kawaii et ses déco, et on pose meubles et stickers depuis le tiroir « 🎒 Décorer ». « Remettre les objets » rend leur place de départ aux objets de l'étage. Ce mode consomme le temps de jeu du jour.
 
-Ajouter un bâtiment = ajouter une entrée dans `BATIMENTS` (`data/monde.js`) : 6 étages, chacun avec son décor et 12 formes de `js/objets.js`, sans réutiliser une forme dans le même bâtiment. Ajouter un objet = ajouter une forme dans `FORMES` (`js/objets.js`).
+Ajouter un bâtiment = ajouter une entrée dans `BATIMENTS` (`data/monde.js`) : 6 étages, chacun avec son décor, ses supports (comptoir, étagère, table, socle) et 12 objets de `js/objets.js` composés à la main, chacun à sa place de départ, sans réutiliser une forme dans le même étage. Ajouter un objet = ajouter une forme dans `FORMES` (`js/objets.js`).
 
 Le hasard du rangement est tiré de l'id de la liste : deux appareils qui rangent la même liste obtiennent les mêmes objets.
 
@@ -190,10 +197,12 @@ Chaque mot est associé à un **objet précis** d'un lieu de la ville. L'enfant 
 
 Toutes les données sont stockées en **localStorage** :
 
-- `wordLists` : Listes, niveaux, progression, lieu (`lieu`), rangement des éléments sur les objets (`places`), place des objets dans l'étage si elle les a déplacés (`positions`) et place sur la carte (`parcelle`)
+- `wordLists` : Listes, niveaux, progression, éléments de révision (`cards`) et numéros de leurs images (`images`), lieu (`lieu`), rangement des éléments sur les objets (`places`), place des objets dans l'étage si elle les a déplacés (`positions`) et place sur la carte (`parcelle`)
 - `economy` : Étoiles, stickers et meubles possédés (`inventory`, `meubles`), déco posées (`placed` : par étage, avec leur position), garde-robe, cadeaux de l'album récupérés, défis du jour, jours de jeu, jeux débloqués et records, temps de jeu du jour (`tempsJeu`), parcelle de la salle de jeux (`salleJeux`)
 - `kawaiiTeam` : Kawaii principal et compagnons
 - `sauvegardeAvantMonde` : copie, faite une seule fois, des données d'avant la ville (reste sur l'appareil)
+
+Les **images des leçons** sont dans IndexedDB (base `mp-images`), pas dans le localStorage. Elles sont incluses dans le fichier de sauvegarde (format 2), mais ne passent pas en ligne : sur un autre appareil, la leçon s'affiche sans son image.
 
 Avec un compte (espace parents), ces clés, plus `mixSelection` et `animationSpeed`, sont recopiées en ligne et suivent l'enfant d'un appareil à l'autre : voir [EN-LIGNE.md](EN-LIGNE.md). Pour qu'une nouvelle clé suive aussi, l'ajouter à `SYNC_KEYS` dans `js/sync.js`.
 

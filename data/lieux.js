@@ -118,7 +118,7 @@ const DEFIS = {
       { id: 'session', emoji: '🎯', texte: 'Termine un entraînement', cible: 1 },
       { id: 'visite',  emoji: '🎓', texte: 'Fais une visite d\'un lieu', cible: 1 },
       { id: 'travail', emoji: '🌱', texte: 'Réussis 3 mots à travailler', cible: 3 },
-      { id: 'jeu',     emoji: '🃏', texte: 'Termine un jeu de cartes questions', cible: 1 }
+      { id: 'jeu',     emoji: '🃏', texte: 'Termine un jeu de questions (QCM, paires…)', cible: 1 }
     ],
     [ // un moment doux
       { id: 'calin',   emoji: '💖', texte: 'Fais un câlin à ton kawaii', cible: 1 },
@@ -141,17 +141,17 @@ const TEMPS = {
 };
 
 // ═══════════════════════════════════════════════════════════════
-// CARTES QUESTIONS
+// LISTES DE RÉVISION (questions et leçons)
 // ═══════════════════════════════════════════════════════════════
-// Cartes à retourner, rangées dans 3 boîtes : 1 = à revoir, 2 = ça vient,
-// 3 = connue. L'enfant (ou le parent) valide lui-même : on récompense donc
-// la session terminée, jamais les bonnes réponses.
-// Une liste devient Ninja quand toutes ses cartes sont dans la boîte 3.
+// Chaque élément est rangé dans une boîte : 1 = à retravailler, 2 = ça
+// vient, 3 = maîtrisé. À « Se rappeler », l'enfant dit elle-même ce qu'elle
+// savait : on récompense donc la session terminée, pas les bonnes réponses.
+// Une liste devient Ninja par les niveaux (80 % des points), ou quand tous
+// ses éléments sont maîtrisés.
 
 const CARTES = {
-  parSession: 10,        // cartes tirées par session
-  etoilesSession: 5,     // étoiles pour une session terminée
-  retoursMaxParCarte: 2, // une carte « à revoir » revient au plus N fois dans la session
+  parSession: 10,        // questions tirées par partie (QCM, écrire)
+  etoilesSession: 5,     // étoiles pour une session « Se rappeler » terminée
   // Tirage : plus le poids est petit, plus la carte sort souvent
   poidsTirage: { 1: 1, 0: 1.5, 2: 3, 3: 6 }, // 0 = jamais vue
 
@@ -167,6 +167,18 @@ const CARTES = {
   cartesMinPaires: 3,
   cartesMinEcrire: 3,
   lettresMaxEcrire: 16    // au-delà, la réponse est trop longue pour être écrite
+};
+
+// Listes de révision (js/revision.js) : indices des leçons à « Se rappeler »
+const REVISION = {
+  motsIndice: 5,          // niveau 1 : le titre et les 5 premiers mots
+  motsIndiceSansTitre: 2  // niveau 2, leçon sans titre : ses 2 premiers mots
+};
+
+// Images des leçons (js/images.js)
+const IMAGES = {
+  maxPx: 1600,  // plus grand côté
+  qualite: 0.85 // JPEG
 };
 
 // ═══════════════════════════════════════════════════════════════

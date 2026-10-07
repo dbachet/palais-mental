@@ -2989,64 +2989,6 @@ header h1 {
 .card-box.box-2 { background: var(--violet-pale); border-color: #E1D2F0; }
 .card-box.box-3 { background: var(--vert-pale); border-color: #BDEBD0; }
 
-/* La carte à retourner */
-.flip-scene {
-  perspective: 1400px;
-  max-width: 620px;
-  margin: 0 auto;
-}
-
-.flip-card {
-  position: relative;
-  width: 100%;
-  height: min(46vh, 380px);
-  min-height: 240px;
-  transform-style: preserve-3d;
-  transition: transform 0.55s var(--doux);
-  cursor: pointer;
-}
-
-.flip-card.flipped { transform: rotateY(180deg); }
-.flip-card.no-anim { transition: none; }
-
-.flip-face {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 44px 22px 22px;
-  border-radius: var(--r-xl);
-  box-shadow: var(--ombre-2);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  overflow-x: hidden;
-  overflow-y: auto;
-  text-align: center;
-}
-
-.flip-front {
-  background: var(--surface);
-  border: 4px solid var(--violet);
-}
-
-.flip-back {
-  background: var(--menthe-pale);
-  border: 4px solid var(--menthe-fonce);
-  transform: rotateY(180deg);
-}
-
-.flip-label {
-  position: absolute;
-  top: 14px;
-  left: 0;
-  right: 0;
-  font-size: 0.9rem;
-  font-weight: 900;
-  color: var(--encre-3);
-  letter-spacing: 0.02em;
-}
-
 .carte-text {
   font-size: 2rem;
   font-weight: 900;
@@ -3060,7 +3002,7 @@ header h1 {
 .carte-text.s  { font-size: 1.45rem; font-weight: 800; }
 .carte-text.xs { font-size: 1.2rem; font-weight: 800; }
 
-/* Je savais / À revoir : deux gros boutons côte à côte */
+/* Je savais / À revoir (et « Une partie ») : gros boutons côte à côte */
 .cartes-verdict {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3083,6 +3025,174 @@ header h1 {
   background: var(--or-pale);
   color: var(--encre);
   border: 3px solid var(--or);
+}
+
+.cartes-verdict.verdict-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+.verdict-half {
+  background: var(--violet-pale);
+  color: var(--encre);
+  border: 3px solid var(--violet);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* RÉVISION : saisie, élément seul à l'écran, image en grand (js/revision.js) */
+/* ─────────────────────────────────────────────────────────────── */
+
+.revision-apercu { margin-top: 10px; }
+
+.apercu-bloc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 10px;
+  margin-top: 6px;
+  border-radius: var(--r-s);
+  background: var(--surface-2);
+  border: 1px solid var(--bord);
+}
+
+.apercu-icone { font-size: 1.2rem; }
+
+.apercu-texte {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.95rem;
+  color: var(--encre-2);
+  overflow-wrap: anywhere;
+}
+
+.apercu-image {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--surface);
+  box-shadow: var(--ombre-1);
+}
+
+.image-absente {
+  font-size: 0.85rem;
+  color: var(--encre-3);
+}
+
+.revision-contenu {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.revision-carte {
+  background: var(--surface);
+  border: 4px solid var(--violet);
+  border-radius: var(--r-xl);
+  box-shadow: var(--ombre-2);
+  padding: 26px 22px;
+  text-align: center;
+}
+
+.revision-q {
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--encre);
+  overflow-wrap: anywhere;
+}
+
+.revision-a {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: var(--r-m);
+  background: var(--menthe-pale);
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--encre);
+  overflow-wrap: anywhere;
+}
+
+.revision-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: var(--encre-3);
+  margin-bottom: 4px;
+}
+
+.lecon-titre {
+  font-size: 1.6rem;
+  margin: 0 0 12px;
+  color: var(--violet-fonce);
+}
+
+.lecon-texte {
+  text-align: left;
+  font-size: 1.25rem;
+  line-height: 1.55;
+  color: var(--encre);
+}
+
+.lecon-texte p { margin: 0 0 10px; }
+
+.lecon-image {
+  display: block;
+  max-width: 100%;
+  max-height: 46vh;
+  margin: 6px auto 14px;
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre-1);
+  cursor: zoom-in;
+}
+
+.revision-indice {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--encre-2);
+}
+
+/* Image en grand : un appui l'agrandit encore, on la fait défiler au doigt */
+.image-plein {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(35, 25, 45, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-defile {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  -webkit-overflow-scrolling: touch;
+}
+
+.image-defile img {
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+  cursor: zoom-in;
+}
+
+.image-defile img.grand {
+  max-width: none;
+  max-height: none;
+  width: 220%;
+  cursor: zoom-out;
+}
+
+.image-fermer {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  right: 14px;
+  z-index: 1;
+  background: var(--surface);
+}
+
+@media (max-width: 520px) {
+  .cartes-verdict.verdict-3 { grid-template-columns: 1fr; }
 }
 
 /* Entrée discrète de l'espace parents, en bas de l'accueil */
@@ -4152,22 +4262,6 @@ header h1 {
   box-shadow: none;
   cursor: default;
 }
-
-/* Carte à retourner : le dos reste caché tant qu'elle n'est pas retournée,
-   même si le navigateur montre les faces arrière (vu sur certains WebKit) */
-.flip-card .flip-back,
-.flip-card.flipped .flip-front {
-  visibility: hidden;
-  transition: visibility 0s linear 0.27s;
-}
-
-.flip-card.flipped .flip-back,
-.flip-card .flip-front {
-  visibility: visible;
-  transition: visibility 0s linear 0.27s;
-}
-
-.flip-card.no-anim .flip-face { transition: none; }
 
 @media (max-width: 640px) {
   .qcm-choices { grid-template-columns: 1fr; }

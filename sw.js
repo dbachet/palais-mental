@@ -6,9 +6,9 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v25'; // v25 : plus de notes sur les lettres
+const CACHE_NAME = 'mental-palace-v26'; // v26 : listes de révision (questions, leçons, images)
 // Même ?v= que dans index.html
-const V = '25';
+const V = '26';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -25,6 +25,8 @@ const ASSETS_TO_CACHE = [
   './js/objets.js?v=' + V,
   './js/monde.js?v=' + V,
   './js/scene.js?v=' + V,
+  './js/images.js?v=' + V,
+  './js/revision.js?v=' + V,
   './manifest.json',
   './assets/apple-touch-icon.png',
   './assets/icon-192.png'

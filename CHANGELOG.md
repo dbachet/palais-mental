@@ -1,3 +1,24 @@
+## [2026-10-07] - Le monde virtuel, étape 3 : les listes de révision
+
+### Ajouté
+- **Listes de révision** (à la place des cartes questions) : des questions et des leçons dans une même liste, dans l'ordre du texte. Blocs séparés par une ligne vide : `# Titre` commence une leçon, un bloc de lignes `question = réponse` donne des questions, tout autre bloc est une leçon sans titre, `[📷 n]` place une image. Aperçu des blocs sous la zone de saisie, avec « 📷 » pour ajouter ou changer l'image d'une leçon et « 🖼️ Ajouter un bloc image ». Consigne pour une IA mise à jour
+- **Images des leçons** : réduites à 1600 px (JPEG) et rangées dans IndexedDB. Elles sont incluses dans le fichier de sauvegarde de l'espace parents, mais ne passent pas en ligne
+- **📖 Apprendre** une liste de révision, dans la pièce : elle choisit l'objet ; la question et sa réponse, ou la leçon (image en grand d'un appui, « 🔊 Lire » phrase par phrase), s'affichent seules. Un paquet par étage, « J'ai tout vu », puis proposition de se rappeler
+- **🧠 Se rappeler** : question → « Voir la réponse » → « Je savais » / « À revoir » ; leçon → indice selon le niveau (titre et 5 premiers mots, puis titre seul, puis rien en Ninja) → « Voir le cours » → « Presque rien », « Une partie » ou « L'essentiel ». 80 % des points font monter d'un niveau (niveau 1, niveau 2, Ninja), sans jamais redescendre
+- Les éléments de révision à retravailler apparaissent dans « Mots à travailler », avec « 🧠 Me rappeler ces éléments »
+
+### Changé
+- Corriger le texte d'une liste garde l'objet, la boîte et l'image de chaque élément reconnu (même question, ou même titre, texte ou image pour une leçon)
+- QCM, paires et écrire la réponse ne prennent que les questions. « Retourner les cartes » est remplacé par Apprendre et Se rappeler
+- Défis du jour : la visite compte aussi pour une liste de révision
+
+### Technique
+- Nouveaux fichiers `js/revision.js` (`Revision`) et `js/images.js` (`Images`). Leçon : `{ id, kind: 'lecon', titre, texte, image, box }` ; `list.images = { n: id }` ; `list.level` 0-1 puis `ninja`
+- Réglages `REVISION` et `IMAGES` dans `data/lieux.js` ; `CARTES.retoursMaxParCarte` retiré
+- Fichier de sauvegarde au format 2 (`images`) ; les fichiers de format 1 se restaurent toujours
+- Supprimés : l'écran des cartes à retourner (`CartesGame`, `startCartes`, `showCarte`, `flipCarte`, `answerCarte`, `speakCarte`, `showCartesResults`, `copyCardsPrompt`) et leurs styles
+- Service worker et `?v=` : `v26`
+
 ## [2026-10-07] - Plus de notes sur les lettres
 
 ### Changé

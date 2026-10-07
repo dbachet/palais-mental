@@ -48,9 +48,9 @@ const Defis = {
       case 'session':
         return wordLists.length + cardLists.length > 0;
       case 'visite':
-        return wordLists.length > 0;
+        return wordLists.length + cardLists.length > 0;
       case 'jeu':
-        return cardLists.length > 0;
+        return cardLists.some(l => l.cards.some(c => c.kind !== 'lecon'));
       case 'travail': {
         const hard = wordLists.reduce((n, l) => n + l.words.filter(w => {
           const p = l.progress[w];

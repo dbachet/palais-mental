@@ -183,11 +183,7 @@ Chaque mot est associé à un **objet précis** d'un lieu de la ville. L'enfant 
 
 - **Spatial** : chaque mot a sa place sur un objet, dans un étage, dans un bâtiment
 - **Visuel** : le mot s'affiche en gris, il est lu à voix haute, puis chaque lettre s'anime (agrandissement + couleur rose vif très contrastée)
-- **Auditif** : la voix lit le mot ; pour les langues étrangères seulement, une mélodie unique accompagne les lettres (gamme pentatonique majeure)
-  - Chaque lettre = une note musicale différente
-  - 20 notes sur 4 octaves (C4 à A7)
-  - Sons doux et agréables (pas de bip strident)
-  - Chaque mot a sa propre "chanson" pour faciliter la mémorisation
+- **Auditif** : la voix lit le mot (puis sa traduction pour les langues étrangères) avant que les lettres s'animent, en silence
 - **Rythmique** : Tempo constant et ajustable (0.5s à 2.0s par lettre)
 
 ## 💾 Données
@@ -205,12 +201,8 @@ Avec un compte (espace parents), ces clés, plus `mixSelection` et `animationSpe
 
 ## 🎵 Sons
 
-- **Mélodie unique par mot** (listes de langue seulement) : Système de notes musicales basé sur la gamme pentatonique
-  - Chaque caractère est mappé à une note musicale (C4 à A7)
-  - Gamme pentatonique majeure : Do, Ré, Mi, Sol, La (notes qui sonnent toujours bien)
-  - Sons doux et agréables avec enveloppe ADSR
-  - Chaque mot crée une mélodie différente et mémorisable
-- **Synthèse vocale** : Dictée des mots en mode interrogation (Web Speech API, français)
+- **Synthèse vocale** : lecture des mots en Apprendre et dictée en S'entraîner (Web Speech API, dans la langue de la liste)
+- Petits sons doux dans les jeux et les récompenses (Web Audio)
 
 ## 🚢 Publier une nouvelle version
 

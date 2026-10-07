@@ -1,3 +1,12 @@
+## [2026-10-07] - Plus de notes sur les lettres
+
+### Changé
+- Les notes jouées sur chaque lettre sont retirées partout, y compris pour les langues étrangères : le mot s'affiche en gris, la voix le lit, puis les lettres se colorent en silence
+- Service worker et `?v=` : `v25`
+
+### Technique
+- `playBeep`, `charToFrequency` et `PENTATONIC_SCALE` supprimés (`initAudio` reste pour les sons des jeux et des récompenses)
+
 ## [2026-10-07] - En session, la couleur montre ce qu'on peut toucher
 
 ### Changé

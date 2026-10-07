@@ -637,7 +637,7 @@ function cleanupCurrentScreen() {
 }
 
 // ───────────────────────────────────────────────────────────────
-// AUDIO - Système de notes musicales pour chaque lettre
+// AUDIO - Contexte audio (sons des jeux et des récompenses)
 // ───────────────────────────────────────────────────────────────
 
 async function initAudio() {
@@ -659,93 +659,6 @@ async function initAudio() {
     } catch (e) {
       console.error('Erreur resume AudioContext:', e);
     }
-  }
-}
-
-// Gamme pentatonique majeure sur 2 octaves (limité à ~1400Hz pour rester agréable)
-const PENTATONIC_SCALE = [
-  261.63, // C4 - Do
-  293.66, // D4 - Ré
-  329.63, // E4 - Mi
-  392.00, // G4 - Sol
-  440.00, // A4 - La
-  523.25, // C5 - Do
-  587.33, // D5 - Ré
-  659.25, // E5 - Mi
-  783.99, // G5 - Sol
-  880.00, // A5 - La
-  1046.50, // C6 - Do
-  1174.66, // D6 - Ré
-  1318.51  // E6 - Mi (1318 Hz max)
-];
-
-// Convertit un caractère en fréquence musicale
-function charToFrequency(char) {
-  // Liste de tous les caractères possibles
-  const chars = 'abcdefghijklmnopqrstuvwxyzàâäéèêëïîôùûüÿç\'-_ ';
-
-  // Trouve l'index du caractère (insensible à la casse)
-  const index = chars.indexOf(char.toLowerCase());
-
-  // Si caractère inconnu, utilise une note par défaut
-  if (index === -1) return PENTATONIC_SCALE[0];
-
-  // Map l'index du caractère à une note de la gamme
-  return PENTATONIC_SCALE[index % PENTATONIC_SCALE.length];
-}
-
-// Joue une note musicale pour un caractère
-async function playBeep(char = 'a') {
-  // Vérifie si le son est activé
-  if (!AppState.soundEnabled) {
-    return; // Son désactivé, on ne joue rien
-  }
-
-  // Initialise l'audio si nécessaire
-  if (!AppState.audioContext) {
-    await initAudio();
-  }
-
-  // Vérifie que le contexte audio est prêt
-  if (!AppState.audioContext) {
-    console.warn('AudioContext non disponible');
-    return;
-  }
-
-  // Resume le contexte s'il est suspendu (iOS/Safari)
-  if (AppState.audioContext.state === 'suspended') {
-    await AppState.audioContext.resume();
-  }
-
-  try {
-    const oscillator = AppState.audioContext.createOscillator();
-    const gainNode = AppState.audioContext.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(AppState.audioContext.destination);
-
-    // Obtient la fréquence basée sur le caractère
-    const frequency = charToFrequency(char);
-    oscillator.frequency.value = frequency;
-
-    console.log(`Joue note pour '${char}': ${frequency}Hz`);
-
-    // Son de type 'sine' pour un son doux et musical
-    oscillator.type = 'sine';
-
-    // Enveloppe ADSR pour un son plus agréable
-    const now = AppState.audioContext.currentTime;
-    gainNode.gain.setValueAtTime(0, now);
-    const v = AppState.volume;
-    gainNode.gain.linearRampToValueAtTime(0.3 * v, now + 0.05); // Attack
-    gainNode.gain.linearRampToValueAtTime(0.2 * v, now + 0.1); // Decay
-    gainNode.gain.setValueAtTime(0.2 * v, now + 0.3); // Sustain
-    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4); // Release
-
-    oscillator.start(now);
-    oscillator.stop(now + 0.4);
-  } catch (e) {
-    console.error('Erreur playBeep:', e);
   }
 }
 
@@ -1096,9 +1009,6 @@ function startWordAnimation() {
       }
 
       letterElement.classList.add('active');
-
-      // Une note par lettre, seulement pour les langues étrangères
-      if (Storage.isLangList(AppState.currentList)) playBeep(char);
 
       currentIndex++;
 

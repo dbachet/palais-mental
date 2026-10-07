@@ -6,9 +6,9 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v26'; // v26 : listes de révision (questions, leçons, images)
+const CACHE_NAME = 'mental-palace-v27'; // v27 : quartiers, lieux dorés, compagnons, bac à sable, meubles par niveau
 // Même ?v= que dans index.html
-const V = '26';
+const V = '27';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

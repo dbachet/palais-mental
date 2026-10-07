@@ -22,7 +22,8 @@
 // Décor d'un étage (dessiné par js/monde.js, sans image) :
 //   mur, sol : couleurs ; motif : rayures | pois | losanges | briques | pierre
 //   | etoiles | carreaux | vagues | uni ; solType : parquet | carrelage | tapis
-//   | pierre | herbe | damier ; fenetre : carree | ronde | arche | vitrail | ciel
+//   | pierre | herbe | damier ; fenetre : carree | ronde | arche | vitrail
+//   | aucune ; ciel (toit : ciel et rambarde) ; champ (dehors : ciel et barrière)
 //
 // Ajouter un bâtiment = ajouter une entrée ici (6 étages × 12 objets).
 // Fenêtres à x = 230 et 770 : rien d'accroché au mur entre 150 et 310, ni
@@ -207,6 +208,75 @@ const BATIMENTS = [
           'velo 610 610', 'cerf_volant 640 175', 'banc 700 480', 'fleur 860 480', 'fontaine 820 615', 'buisson 945 615'] }
     ]
   }
+];
+
+// ── Bâtiments des quartiers : débloqués par les étoiles gagnées (QUARTIERS) ──
+BATIMENTS.push(
+  {
+    id: 'theatre', nom: 'Théâtre', embleme: 'masque', quartier: 'spectacles',
+    couleurs: { facade: '#FFE1E6', toit: '#C0394B', accent: '#FFD466' },
+    etages: [
+      { nom: "le hall d'entrée", mur: '#FFF0F3', sol: '#E3C7A6', motif: 'losanges', solType: 'damier', fenetre: 'arche',
+        supports: ['comptoir 600 840'],
+        objets: ['plante 75 470', 'banc 300 480', 'cloche 380 235', 'valise 450 615', 'tableau 500 225', 'parapluie 560 475',
+          'billet 640 s0', 'telephone 720 s0', 'pouf 740 615', 'bocal 800 s0', 'lampadaire 920 475', 'horloge 925 250'] },
+      { nom: 'la scène', mur: '#3E2F5B', sol: '#B98556', motif: 'etoiles', solType: 'parquet', fenetre: 'aucune',
+        supports: ['socle 800 615'],
+        objets: ['etoile 120 230', 'piano 150 480 1.2', 'masque 300 230', 'tambour 330 615', 'guitare 340 480', 'rideau 500 300 2.4',
+          'micro 500 490', 'chaise 640 615', 'violon 700 230', 'vase 800 s0', 'projecteur 870 480', 'ballons 920 230'] },
+      { nom: 'les coulisses', mur: '#E9E2D8', sol: '#9C7A5A', motif: 'briques', solType: 'parquet', fenetre: 'ronde',
+        supports: ['table 760 900 600'],
+        objets: ['echelle 90 475 1.1', 'chaise 200 615', 'caisse 300 480', 'valise 400 615', 'epee 400 230', 'coffre 520 480',
+          'radio 560 615', 'bouclier 600 230', 'armure 690 480', 'baton_magique 790 s0', 'couronne 865 s0', 'lanterne 930 255'] },
+      { nom: 'la loge', mur: '#FFE4EC', sol: '#F0B9CB', motif: 'pois', solType: 'tapis', fenetre: 'ronde',
+        supports: ['comptoir 330 670'],
+        objets: ['robe 100 230', 'mannequin 110 480', 'rouge_levres 370 s0', 'parfum 440 s0', 'miroir 500 290', 'peigne 510 s0',
+          'chaise 500 610', 'vernis 580 s0', 'pinceaux 645 s0', 'canape 800 500 1.1', 'etoile 930 250', 'lampadaire 945 480'] },
+      { nom: 'les costumes', mur: '#E8EEFF', sol: '#B7C4EA', motif: 'rayures', solType: 'tapis', fenetre: 'carree',
+        supports: ['etagere 470 650 280'],
+        objets: ['armoire 90 475 1.1', 'pouf 260 615', 'mannequin 330 490', 'robe 400 230', 'couronne 500 s0', 'chaussure 520 615',
+          'chapeau 560 s0', 'sac_main 620 s0', 'commode 770 480', 'valise 760 615', 'parapluie 940 480', 'masque 930 250'] },
+      { nom: 'la salle de spectacle', mur: '#4A3B6B', sol: '#C0394B', motif: 'etoiles', solType: 'tapis', fenetre: 'aucune',
+        objets: ['projecteur 120 470', 'fauteuil 120 600', 'etoile 250 200', 'pouf 270 615', 'canape 420 610 1.1', 'rideau 500 330 2.2',
+          'chaise 620 610', 'lune 750 200', 'coussin 760 620', 'tambour 860 480', 'banc 900 610', 'ballons 920 250'] }
+    ]
+  },
+  {
+    id: 'ferme', nom: 'Ferme', embleme: 'vache', quartier: 'campagne',
+    couleurs: { facade: '#FBE3C8', toit: '#C0504D', accent: '#9BDB8A' },
+    etages: [
+      { nom: "l'étable", mur: '#E9D3B4', sol: '#E8C77A', motif: 'rayures', solType: 'herbe', fenetre: 'carree',
+        objets: ['botte_foin 110 480', 'brouette 150 610', 'vache 300 525 1.4', 'cloche 380 230', 'seau 470 615', 'lanterne 500 230',
+          'bidon 560 615', 'echelle 640 475', 'mouton 770 530 1.1', 'panier 870 615', 'tonneau 930 480', 'nichoir 930 250'] },
+      { nom: 'le poulailler', mur: '#FFF1D6', sol: '#E8C77A', motif: 'pois', solType: 'herbe', fenetre: 'ronde',
+        supports: ['etagere 380 620 290'],
+        objets: ['lanterne 70 250', 'cage 110 480', 'canard 250 615', 'tonneau 320 480', 'oeufs 410 s0', 'brouette 450 610',
+          'poule 490 s0', 'panier 570 s0', 'echelle 650 475', 'arrosoir 700 615', 'botte_foin 860 480', 'nichoir 930 250'] },
+      { nom: 'la grange', mur: '#D9A982', sol: '#B98556', motif: 'briques', solType: 'parquet', fenetre: 'arche',
+        objets: ['velo 110 480', 'tracteur 300 520 1.3', 'cloche 385 230', 'arrosoir 450 615', 'echelle 500 475 1.2', 'lanterne 500 210',
+          'citrouille 560 615', 'epouvantail 640 480', 'caisse 760 480', 'seau 830 615', 'tonneau 920 480', 'nichoir 930 250'] },
+      { nom: 'la cuisine de la ferme', mur: '#FFF8E1', sol: '#C98F6B', motif: 'carreaux', solType: 'carrelage', fenetre: 'carree',
+        supports: ['comptoir 330 700', 'table 300 600 620'],
+        objets: ['four 110 475 1.2', 'chaise 220 615', 'pain 370 s0', 'tarte 380 s1', 'fromage 445 s0', 'tasse 470 s1',
+          'horloge 500 205', 'bidon 520 s0', 'theiere 550 s1', 'oeufs 595 s0', 'pomme 665 s0', 'frigo 900 470'] },
+      { nom: 'le potager', mur: '#CFE8FF', sol: '#9BC97A', motif: 'uni', solType: 'herbe', fenetre: 'champ',
+        objets: ['tournesol 100 470', 'carotte 180 615', 'citrouille 300 615 1.3', 'nuage 300 160', 'fraise 420 615', 'epouvantail 500 480 1.1',
+          'arrosoir 560 615', 'panier 660 615', 'arbre 700 470 1.1', 'brouette 800 610', 'buisson 880 480', 'lapin 920 615'] },
+      { nom: 'le verger', mur: '#CFE8FF', sol: '#A8DDA0', motif: 'uni', solType: 'herbe', fenetre: 'champ',
+        objets: ['arbre 100 470 1.3', 'champignon 170 615', 'panier 260 615', 'fontaine 300 480', 'pomme 340 615', 'fleur 420 470',
+          'nuage 450 150', 'canard 520 615', 'banc 540 480', 'cerf_volant 650 180', 'cochon 700 560 1.1', 'mouton 870 520'] }
+    ]
+  }
+);
+
+// Quartiers : en gagnant des étoiles (total depuis le début, economy.totalEarned),
+// la ville s'agrandit d'un quartier, avec de nouveaux bâtiments à choisir.
+// decor : formes de js/objets.js dessinées sur son morceau de carte.
+const QUARTIERS = [
+  { id: 'spectacles', nom: 'Le quartier des spectacles', seuil: 150, sol: '#F6D6E4',
+    decor: ['projecteur', 'ballons', 'rideau', 'etoile', 'micro', 'billet'] },
+  { id: 'campagne', nom: 'La campagne', seuil: 400, sol: '#BFE5A8',
+    decor: ['arbre', 'vache', 'botte_foin', 'tracteur', 'poule', 'citrouille'] }
 ];
 
 // La salle de jeux : un bâtiment de la ville sans liste (js/arcade.js)

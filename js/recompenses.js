@@ -391,6 +391,30 @@ function showAlbumScreen(keepScroll) {
     `;
   });
 
+  // ── Collection de meubles : ceux pas encore trouvés en silhouette ──
+  const formes = Objets.ids();
+  const trouves = formes.filter(f => eco.meubles[f] > 0).length;
+  html += `
+    <div class="album-page meubles${trouves === formes.length ? ' complete' : ''}">
+      <div class="category-title">
+        🛋️ Mes meubles
+        <span class="price-tag">${trouves}/${formes.length}</span>
+      </div>
+      <p class="hint">Un meuble de plus à chaque niveau gagné, dans les coffres et à la boutique.</p>
+      <div class="album-grid">
+        ${formes.map(f => {
+          const n = eco.meubles[f] || 0;
+          return `
+            <div class="album-cell meuble${n ? ' found' : ''}">
+              ${n > 1 ? `<span class="item-owned">×${n}</span>` : ''}
+              <span class="album-art">${Objets.draw(f, { taille: 64, gris: !n, visage: false })}</span>
+              <span class="album-name">${n ? escapeText(capitalizeFirst(Objets.info(f).nom)) : '?'}</span>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+
   content.innerHTML = html;
   if (keepScroll) window.scrollTo(0, y);
 }

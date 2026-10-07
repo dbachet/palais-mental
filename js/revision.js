@@ -532,6 +532,7 @@ function finRappel() {
         ${celebrationArt(apres >= 2 ? '🥷' : '🚀')}
         <div class="level-up-title">${apres >= 2 ? 'Liste Ninja !' : `${nomNiveau(apres)} atteint !`}</div>
         <div class="level-up-sub">${apres >= 2 ? 'Les leçons sans aucun indice' : 'Les leçons avec leur titre seul'}</div>
+        ${meubleGagneHTML(Storage.gagnerMeubleNiveau())}
       </div>`;
   } else if (!S.partiel) {
     niveauHTML = avant >= 2

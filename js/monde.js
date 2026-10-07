@@ -174,11 +174,74 @@ function rangerListe(list) {
   return change;
 }
 
-// Bâtiment proposé pour une nouvelle liste : le moins utilisé
+// ── Quartiers : la ville s'agrandit avec les étoiles gagnées ──
+
+function quartiersOuverts(eco = Storage.getEconomy()) {
+  return QUARTIERS.filter(q => (eco.totalEarned || 0) >= q.seuil);
+}
+
+function batimentOuvert(b, ouverts = quartiersOuverts()) {
+  return !b.quartier || ouverts.some(q => q.id === b.quartier);
+}
+
+function quartierDe(b) {
+  return QUARTIERS.find(q => q.id === b.quartier) || null;
+}
+
+// Bâtiment proposé pour une nouvelle liste : le moins utilisé parmi ceux ouverts
 function batimentPropose(lists = Storage.getActiveLists()) {
   const compte = id => lists.filter(l => l.lieu && l.lieu.type === id).length;
-  return BATIMENTS.reduce((best, b) => (compte(b.id) < compte(best.id) ? b : best), BATIMENTS[0]).id;
+  const ouverts = BATIMENTS.filter(b => batimentOuvert(b));
+  return ouverts.reduce((best, b) => (compte(b.id) < compte(best.id) ? b : best), ouverts[0]).id;
 }
+
+// Nouveaux quartiers ouverts depuis la dernière visite : on les fête une fois
+function annoncerQuartiers() {
+  const eco = Storage.getEconomy();
+  const vus = eco.quartiersVus || [];
+  const nouveaux = quartiersOuverts(eco).filter(q => !vus.includes(q.id));
+  if (!nouveaux.length) return;
+  eco.quartiersVus = vus.concat(nouveaux.map(q => q.id));
+  Storage.saveEconomy(eco);
+  const bats = BATIMENTS.filter(b => nouveaux.some(q => q.id === b.quartier));
+  const noms = nouveaux.map(q => escape(q.nom)).join(' et ');
+  setTimeout(() => {
+    playChestSound();
+    launchConfetti();
+    showSheet(`
+      <div class="sheet-art">${bats.map(b => `<svg viewBox="-110 -232 220 240" width="120" height="130" aria-hidden="true">${facade(b, 2, 0, 0)}</svg>`).join('')}</div>
+      <h3>${nouveaux.length > 1 ? 'Nouveaux quartiers' : 'Nouveau quartier'} : ${noms} !</h3>
+      <p class="text-center">Tes étoiles ont agrandi ta ville. Tu peux maintenant y construire : ${bats.map(b => `<strong>${escape(b.nom)}</strong>`).join(', ')}. Choisis-le à la création d'une liste, ou change le lieu d'une liste.</p>
+      <div class="sheet-actions"><button class="btn btn-primary" onclick="closeSheet()">Super !</button></div>
+    `);
+  }, 400);
+}
+
+// Un bâtiment encore fermé : combien d'étoiles il manque
+function lieuVerrouille(id) {
+  const b = batiment(id);
+  const q = quartierDe(b);
+  if (!q) return;
+  const manque = q.seuil - (Storage.getEconomy().totalEarned || 0);
+  showSheet(`
+    <div class="sheet-art"><svg viewBox="-110 -232 220 240" width="120" height="130" aria-hidden="true" class="lieu-gris">${facade(b, 2, 0, 0)}</svg></div>
+    <h3>${escape(b.nom)} : bientôt !</h3>
+    <p class="text-center">Il ouvre avec ${escape(q.nom.toLowerCase())}, quand tu auras gagné ${q.seuil} ⭐ en tout. Encore ${manque} ⭐ !</p>
+    <div class="sheet-actions"><button class="btn btn-primary" onclick="closeSheet()">D'accord</button></div>
+  `);
+}
+
+// ── Listes Ninja : lieu doré et compagnon ──
+// Le compagnon n° i (équipe kawaii) s'installe dans la i-ième liste Ninja,
+// dans l'ordre de création des listes.
+function compagnonDe(list) {
+  if (!list || !Storage.isListNinja(list)) return null;
+  const ninjas = Storage.getLists().filter(l => Storage.isListNinja(l)).sort((a, b) => a.id - b.id);
+  const i = ninjas.findIndex(l => l.id === list.id);
+  return i >= 0 && i < 5 ? Storage.getTeam().companions[i] : null;
+}
+
+const DORE = { facade: '#FFEFB0', toit: '#F5B21B', accent: '#FFD466' };
 
 // Première parcelle libre de la carte (ni une liste, ni la salle de jeux)
 function parcelleLibre(lists, sauf) {
@@ -228,7 +291,8 @@ function migrer() {
   let change = false;
   lists.forEach((list, i) => {
     if (!list.lieu || (list.lieu.kind === 'batiment' && !BATIMENTS.some(b => b.id === list.lieu.type))) {
-      list.lieu = { kind: 'batiment', type: BATIMENTS[i % BATIMENTS.length].id };
+      const depart = BATIMENTS.filter(b => !b.quartier);
+      list.lieu = { kind: 'batiment', type: depart[i % depart.length].id };
       change = true;
     }
     if (list.wordLocations) {
@@ -317,6 +381,16 @@ function facade(b, etages, x, y) {
   if (b.id === 'coiffure') {
     s += `<rect x="${g - 8}" y="${top - 12}" width="${w + 16}" height="16" rx="5" fill="${c.toit}" ${trait}/>`;
   }
+  if (b.id === 'theatre') {
+    // Fronton arrondi et son étoile
+    s += `<path d="M${g - 6} ${top + 4} Q${x} ${top - 70} ${g + w + 6} ${top + 4} Z" fill="${c.toit}" ${trait}/>`;
+    s += `<path d="M${x} ${top - 52} l5 10 11 1 -8 7 3 11 -11 -6 -11 6 3 -11 -8 -7 11 -1z" fill="${c.accent}" stroke="${ink}" stroke-width="2"/>`;
+  }
+  if (b.id === 'ferme') {
+    // Toit de grange, à deux pentes cassées
+    s += `<path d="M${g - 10} ${top + 2} L${g + 14} ${top - 30} L${x} ${top - 52} L${g + w - 14} ${top - 30} L${g + w + 10} ${top + 2} Z" fill="${c.toit}" ${trait}/>`;
+    s += `<rect x="${x - 14}" y="${top - 34}" width="28" height="22" rx="3" fill="#FFDB6E" ${trait}/>`;
+  }
   if (b.id === 'salle') {
     s += `<rect x="${g + 14}" y="${top - 40}" width="${w - 28}" height="36" rx="10" fill="${c.toit}" ${trait}/>`;
     s += `<text x="${x}" y="${top - 13}" text-anchor="middle" font-size="22" font-weight="900" fill="#fff" font-family="system-ui, sans-serif">JEUX</text>`;
@@ -346,8 +420,16 @@ function facade(b, etages, x, y) {
   if (b.id === 'musee') {
     [g + 14, g + 44, g + w - 56, g + w - 26].forEach(cx => { s += `<rect x="${cx}" y="${ry + 4}" width="12" height="${hRdc - 4}" fill="#fff" stroke="${ink}" stroke-width="2"/>`; });
   }
-  s += `<path d="M${x - 22} ${y} v-34 a22 22 0 0 1 44 0 v34 z" fill="${b.id === 'chateau' ? '#9C6B45' : c.toit}" ${trait}/>`;
-  s += `<circle cx="${x + 12}" cy="${y - 18}" r="3" fill="#FFD466"/>`;
+  if (b.id === 'theatre') {
+    // Rideaux rouges de part et d'autre de la porte
+    s += `<path d="M${x - 44} ${ry + 4} q4 30 18 ${hRdc - 6} h-18 z M${x + 44} ${ry + 4} q-4 30 -18 ${hRdc - 6} h18 z" fill="#E5484D" ${trait}/>`;
+  }
+  if (b.id === 'ferme') {
+    s += `<rect x="${x - 30}" y="${y - 50}" width="60" height="50" fill="${c.toit}" ${trait}/><path d="M${x - 30} ${y - 50} L${x + 30} ${y} M${x + 30} ${y - 50} L${x - 30} ${y} M${x} ${y - 50} V${y}" stroke="#fff" stroke-width="4"/>`;
+  } else {
+    s += `<path d="M${x - 22} ${y} v-34 a22 22 0 0 1 44 0 v34 z" fill="${b.id === 'chateau' ? '#9C6B45' : c.toit}" ${trait}/>`;
+  }
+  if (b.id !== 'ferme') s += `<circle cx="${x + 12}" cy="${y - 18}" r="3" fill="#FFD466"/>`;
   if (b.embleme) s += `<circle cx="${g + 36}" cy="${ry + 30}" r="20" fill="#fff" ${trait}/><g transform="translate(${g + 21} ${ry + 15}) scale(.3)">${Objets.inner(b.embleme, null, { gris: true })}</g>`;
   return s;
 }
@@ -381,14 +463,47 @@ function maitrise(list) {
   return keys.length ? keys.filter(k => estMaitrise(list, k)).length / keys.length : 0;
 }
 
-function hauteurCarte(lists) {
+const BANDE_QUARTIER = 190;
+
+function hauteurVille(lists) {
   const parcelles = lists.map(l => l.parcelle).concat([parcelleLibre(lists), parcelleSalle() || 0]);
   const rangees = Math.ceil((Math.max(...parcelles) + 1) / COLONNES);
   return rangees * CELLULE.h + 30;
 }
 
+// Morceau de carte d'un quartier ouvert : son sol, son nom et quelques objets
+function bandeQuartier(q, y) {
+  let s = `<g class="ville-quartier" role="button" tabindex="0" aria-label="${escape(q.nom)}" onclick="Monde.ouvrirQuartier('${q.id}')">
+    <rect x="0" y="${y}" width="${LARGEUR_CARTE}" height="${BANDE_QUARTIER}" fill="${q.sol}"/>
+    <rect x="0" y="${y}" width="${LARGEUR_CARTE}" height="8" fill="#fff" opacity=".6"/>
+    <rect x="${LARGEUR_CARTE / 2 - 190}" y="${y + 18}" width="380" height="40" rx="20" fill="#fff" opacity=".9"/>
+    <text x="${LARGEUR_CARTE / 2}" y="${y + 46}" text-anchor="middle" class="ville-nom">${escape(q.nom)}</text>`;
+  q.decor.forEach((f, i) => {
+    const x = 40 + i * ((LARGEUR_CARTE - 80) / q.decor.length) + 20;
+    s += `<g transform="translate(${x} ${y + 66}) scale(1.05)">${Objets.inner(f)}</g>`;
+  });
+  return s + '</g>';
+}
+
+function ouvrirQuartier(id) {
+  const q = QUARTIERS.find(x => x.id === id);
+  if (!q) return;
+  const bats = BATIMENTS.filter(b => b.quartier === id);
+  showSheet(`
+    <div class="sheet-art">${bats.map(b => `<svg viewBox="-110 -232 220 240" width="120" height="130" aria-hidden="true">${facade(b, 2, 0, 0)}</svg>`).join('')}</div>
+    <h3>${escape(q.nom)}</h3>
+    <p class="text-center">Ici, tu peux construire : ${bats.map(b => `<strong>${escape(b.nom)}</strong>`).join(', ')}. Choisis-le à la création d'une liste, ou change le lieu d'une liste.</p>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" onclick="closeSheet()">Fermer</button>
+      <button class="btn btn-primary" onclick="closeSheet(); showNewListScreen()">+ Nouvelle liste</button>
+    </div>
+  `);
+}
+
 function carteSVG(lists) {
-  const H = hauteurCarte(lists);
+  const hVille = hauteurVille(lists);
+  const quartiers = quartiersOuverts();
+  const H = hVille + quartiers.length * BANDE_QUARTIER;
   const nouvelle = parcelleLibre(lists);
   let s = `<rect x="0" y="0" width="${LARGEUR_CARTE}" height="${H}" fill="#CDEFC4"/>`;
   // Petites touffes d'herbe et fleurs
@@ -399,7 +514,7 @@ function carteSVG(lists) {
       : `<circle cx="${fx}" cy="${fy}" r="4" fill="${['#FFB3D6', '#FFE38A', '#fff'][k % 3 ? 0 : (k % 2) + 1]}"/>`;
   }
   // Rues sous chaque rangée
-  const rangees = Math.round((H - 30) / CELLULE.h);
+  const rangees = Math.round((hVille - 30) / CELLULE.h);
   for (let r = 0; r < rangees; r++) {
     const ry = r * CELLULE.h + 300;
     s += `<rect x="0" y="${ry}" width="${LARGEUR_CARTE}" height="46" fill="#E4DEEC"/><rect x="0" y="${ry}" width="${LARGEUR_CARTE}" height="6" fill="#F6F2FA"/><rect x="0" y="${ry + 40}" width="${LARGEUR_CARTE}" height="6" fill="#F6F2FA"/>`;
@@ -409,13 +524,21 @@ function carteSVG(lists) {
   lists.forEach(list => {
     const col = list.parcelle % COLONNES, row = Math.floor(list.parcelle / COLONNES);
     const cx = col * CELLULE.w + CELLULE.w / 2, base = row * CELLULE.h + 236;
-    const b = batiment(list.lieu.type);
+    const ninja = Storage.isListNinja(list);
+    const b = ninja ? { ...batiment(list.lieu.type), couleurs: DORE } : batiment(list.lieu.type);
     const etages = Math.max(1, etagesUtilises(list).length);
     const pct = Math.round(maitrise(list) * 100);
-    s += `<g class="ville-batiment" role="button" tabindex="0" aria-label="${escape(list.name)}" onclick="Monde.ouvrirLieu(${list.id})">
+    const comp = compagnonDe(list);
+    const halo = ninja
+      ? `<ellipse cx="${cx}" cy="${base - 70}" rx="118" ry="130" fill="#FFE38A" opacity=".45"/>` +
+        [[-96, -150], [92, -170], [-70, -40], [100, -60]].map(([dx, dy], k) => `<path class="ville-etincelle" style="animation-delay:${k * .5}s" d="M${cx + dx} ${base + dy - 10} l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z" fill="#FFF7C2" stroke="#F5B21B" stroke-width="1.5"/>`).join('')
+      : '';
+    s += `<g class="ville-batiment${ninja ? ' ville-dore' : ''}" role="button" tabindex="0" aria-label="${escape(list.name)}${ninja ? ' (Ninja)' : ''}" onclick="Monde.ouvrirLieu(${list.id})">
       <rect x="${cx - 118}" y="${row * CELLULE.h + 4}" width="236" height="292" rx="22" fill="transparent"/>
+      ${halo}
       <ellipse cx="${cx}" cy="${base + 4}" rx="98" ry="12" fill="#000" opacity=".08"/>
       ${facade(b, etages, cx, base)}
+      ${comp ? Kawaii.draw(comp, 64).replace('<svg ', `<svg x="${cx + 62}" y="${base - 58}" `) : ''}
       <text x="${cx}" y="${base + 30}" class="ville-nom" text-anchor="middle">${escape(tronquer(list.name, 18))}</text>
       <rect x="${cx - 60}" y="${base + 42}" width="120" height="10" rx="5" fill="#fff" opacity=".9"/>
       <rect x="${cx - 60}" y="${base + 42}" width="${Math.max(pct ? 10 : 0, 120 * pct / 100)}" height="10" rx="5" fill="#2FB86A"/>
@@ -444,6 +567,8 @@ function carteSVG(lists) {
     <text x="${cx}" y="${cy + 64}" text-anchor="middle" class="ville-nom">Nouvelle liste</text>
   </g>`;
 
+  quartiers.forEach((q, i) => { s += bandeQuartier(q, hVille + i * BANDE_QUARTIER); });
+
   return `<svg class="ville-svg" viewBox="0 0 ${LARGEUR_CARTE} ${H}" role="img" aria-label="Ma ville">${s}</svg>`;
 }
 
@@ -462,6 +587,7 @@ function renderCarte() {
     </div>
     ${lists.length === 0 ? '<p class="hint text-center">Tape sur le + pour construire ton premier lieu : une liste de mots ou de questions.</p>' : ''}
   `;
+  if (AppState.currentScreen === 'home') annoncerQuartiers();
 }
 
 // Feuille d'un lieu : sa liste et ses modes de jeu
@@ -492,12 +618,16 @@ function ouvrirLieu(listId) {
 function renderChoixLieu(containerId, selected, onPick) {
   const box = document.getElementById(containerId);
   if (!box) return;
-  box.innerHTML = BATIMENTS.map(b => `
-    <button type="button" class="lieu-choix${b.id === selected ? ' selected' : ''}" onclick="${onPick}('${b.id}')" aria-pressed="${b.id === selected}">
+  const ouverts = quartiersOuverts();
+  box.innerHTML = BATIMENTS.map(b => {
+    const ouvert = batimentOuvert(b, ouverts) || b.id === selected;
+    const q = quartierDe(b);
+    return `
+    <button type="button" class="lieu-choix${b.id === selected ? ' selected' : ''}${ouvert ? '' : ' verrouille'}" onclick="${ouvert ? `${onPick}('${b.id}')` : `Monde.lieuVerrouille('${b.id}')`}" aria-pressed="${b.id === selected}">
       <svg viewBox="-110 -232 220 240" width="92" height="100" aria-hidden="true">${facade(b, 2, 0, 0)}</svg>
-      <span>${escape(b.nom)}</span>
-    </button>
-  `).join('');
+      <span>${escape(b.nom)}${ouvert ? '' : `<small>🔒 ${q.seuil} ⭐</small>`}</span>
+    </button>`;
+  }).join('');
 }
 
 // Texte court d'un emplacement : « Boulangerie · étage 1 (le fournil) »
@@ -508,6 +638,7 @@ function lieuTexte(info) {
 return {
   batiment, slotsOf, slotInfo, supportsDe, elementKeys, placeOf, etagesUtilises,
   rangerListe, batimentPropose, objetDe, dessinObjet, parcelleLibre, donnerParcelles, migrer,
-  renderCarte, ouvrirLieu, renderChoixLieu, lieuTexte, maitrise, estMaitrise, facade
+  renderCarte, ouvrirLieu, renderChoixLieu, lieuTexte, maitrise, estMaitrise, facade,
+  quartiersOuverts, batimentOuvert, lieuVerrouille, ouvrirQuartier, compagnonDe
 };
 })();

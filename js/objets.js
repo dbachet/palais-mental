@@ -380,7 +380,60 @@ const FORMES = {
   sac_or: { nom: "le sac de pièces d'or", k: 'petit', c: 'bois', face: [50, 68, .65], d: c =>
     P('M38 30 l-8 -16 q20 -6 40 0 l-8 16 q30 14 26 44 q-4 20 -38 20 q-34 0 -38 -20 q-4 -30 26 -44 z', c.c) + L('M36 30 h28', 4) + C(18, 88, 7, COULEURS.jaune.c) + C(84, 86, 7, COULEURS.jaune.c) },
   coeur: { nom: 'le cœur', k: 'mur', c: 'rose', face: [50, 50, .75], d: c =>
-    P('M50 90 q-44 -28 -40 -58 q4 -22 24 -22 q12 0 16 12 q4 -12 16 -12 q20 0 24 22 q4 30 -40 58 z', c.c) + H('M24 30 q2 -8 10 -10') }
+    P('M50 90 q-44 -28 -40 -58 q4 -22 24 -22 q12 0 16 12 q4 -12 16 -12 q20 0 24 22 q4 30 -40 58 z', c.c) + H('M24 30 q2 -8 10 -10') },
+
+  // ─── La ferme ───
+  vache: { nom: 'la vache', k: 'sol', c: 'blanc', face: [80, 42, .5], d: c =>
+    L('M14 52 q-8 8 -6 20', 3) + L('M26 74 v18 M38 76 v16 M60 76 v16 M72 74 v18', 5) + R(14, 40, 64, 38, 18, c.c) +
+    D(30, 52, 7, INK) + D(54, 64, 6, INK) + D(46, 46, 5, INK) + L('M73 30 l-5 -9 M87 30 l5 -9', 3.5) +
+    E(66, 34, 7, 4, c.c) + E(80, 44, 14, 14, c.c) + E(84, 56, 11, 7, '#FFB3C7') + D(80, 56, 1.6, INK) + D(88, 56, 1.6, INK) },
+  poule: { nom: 'la poule', k: 'petit', c: 'blanc', face: [64, 34, .45], d: c =>
+    L('M44 82 v12 M56 82 v12', 3.5).replace(INK, COULEURS.jaune.s) + P('M22 58 l-12 -18 l18 8 z', c.c) + E(48, 62, 30, 24, c.c) +
+    P('M30 62 q12 -14 26 0 q-12 10 -26 0 z', c.s) + C(66, 34, 14, c.c) + P('M58 22 q3 -12 8 -3 q4 -12 9 0 z', COULEURS.rouge.c) +
+    P('M79 32 l11 4 l-11 4 z', COULEURS.jaune.c) },
+  cochon: { nom: 'le cochon', k: 'sol', c: 'rose', face: [74, 48, .5], d: c =>
+    L('M12 58 q-8 -4 -4 -10 q6 -4 6 4', 3) + R(26, 70, 9, 22, 4, c.s) + R(56, 70, 9, 22, 4, c.s) + E(46, 60, 34, 24, c.c) +
+    P('M64 34 l2 -14 l10 10 z', c.s) + P('M82 34 l6 -12 l4 14 z', c.s) + C(76, 52, 17, c.c) + E(90, 58, 8, 7, c.s) +
+    D(87, 58, 1.7, INK) + D(93, 58, 1.7, INK) },
+  mouton: { nom: 'le mouton', k: 'sol', c: 'blanc', face: [78, 50, .45], d: c =>
+    L('M30 76 v16 M44 78 v14 M58 78 v14 M70 76 v16', 5) +
+    C(26, 58, 14, c.c) + C(42, 46, 16, c.c) + C(60, 48, 15, c.c) + C(38, 66, 15, c.c) + C(58, 66, 15, c.c) + C(20, 44, 10, c.c) +
+    E(68, 44, 7, 4, COULEURS.creme.s) + E(78, 52, 13, 15, COULEURS.creme.s) },
+  lapin: { nom: 'le lapin', k: 'petit', c: 'gris', face: [50, 46, .55], d: c =>
+    E(40, 18, 6, 17, c.c) + E(60, 18, 6, 17, c.c) + E(40, 20, 2.5, 11, '#FFB3C7').replace(O, '') + E(60, 20, 2.5, 11, '#FFB3C7').replace(O, '') +
+    C(76, 76, 7, '#fff') + E(50, 74, 24, 20, c.c) + C(50, 44, 17, c.c) + E(42, 92, 8, 4, c.c) + E(58, 92, 8, 4, c.c) },
+  canard: { nom: 'le canard', k: 'petit', c: 'jaune', face: [62, 32, .45], d: c =>
+    P('M12 58 q2 -10 14 -8 q10 -6 30 -6 q30 0 32 22 q0 22 -38 24 q-36 0 -38 -32 z', c.c) + P('M32 64 q14 -14 30 0 q-14 10 -30 0 z', c.s) +
+    C(62, 32, 15, c.c) + P('M76 32 q14 -2 16 6 q-8 6 -16 2 z', COULEURS.corail.c) },
+  tracteur: { nom: 'le tracteur', k: 'sol', c: 'rouge', face: null, d: c =>
+    R(16, 46, 70, 26, 6, c.c) + R(18, 18, 36, 32, 6, c.c) + R(24, 24, 24, 20, 4, '#CFE8FF') + L('M72 46 v-16', 5) +
+    C(30, 74, 18, COULEURS.gris.s) + C(30, 74, 7, COULEURS.jaune.c) + C(78, 80, 12, COULEURS.gris.s) + C(78, 80, 4, COULEURS.jaune.c) },
+  brouette: { nom: 'la brouette', k: 'sol', c: 'vert', face: [42, 56, .55], d: c =>
+    L('M62 66 L92 78 M58 74 v18', 4) + P('M10 42 h66 l-10 30 h-46 z', c.c) + C(30, 80, 12, COULEURS.gris.c) + D(30, 80, 3, INK) },
+  botte_foin: { nom: 'la botte de foin', k: 'sol', c: 'jaune', face: [50, 62, .6], d: c =>
+    R(10, 38, 80, 54, 10, c.c) + L('M22 38 v54 M78 38 v54', 3).replace(INK, c.s) + L('M18 50 l8 -4 M60 82 l10 -4 M40 44 l6 4 M70 52 l6 -6', 2.5).replace(INK, c.s) },
+  carotte: { nom: 'la carotte', k: 'petit', c: 'corail', face: [50, 44, .5], d: c =>
+    L('M40 24 l-8 -14 M50 22 v-16 M60 24 l8 -14', 5).replace(INK, COULEURS.vert.s) +
+    P('M30 26 q20 -8 40 0 q-4 40 -20 68 q-16 -28 -20 -68 z', c.c) + L('M40 44 l8 2 M44 62 l8 2', 2.5) },
+  citrouille: { nom: 'la citrouille', k: 'petit', c: 'corail', face: [50, 62, .65], d: c =>
+    L('M50 30 q2 -14 12 -18', 4).replace(INK, COULEURS.vert.s) + E(30, 62, 20, 28, c.c) + E(70, 62, 20, 28, c.c) + E(50, 62, 22, 30, c.c) + H('M26 50 q2 -8 6 -12') },
+  oeufs: { nom: "le nid d'œufs", k: 'petit', c: 'creme', face: null, d: c =>
+    E(34, 62, 12, 16, c.c) + E(66, 62, 12, 16, c.c) + E(50, 56, 13, 18, c.c) + P('M10 66 q40 30 80 0 q-4 26 -40 26 q-36 0 -40 -26 z', COULEURS.bois.c) +
+    L('M18 74 q32 12 64 0', 2).replace(INK, COULEURS.bois.s) },
+  bidon: { nom: 'le bidon de lait', k: 'petit', c: 'gris', face: [50, 66, .6], d: c =>
+    R(38, 10, 24, 12, 4, c.s) + P('M38 22 h24 l12 22 v44 q0 6 -6 6 h-36 q-6 0 -6 -6 v-44 z', c.c) + L('M26 52 h48', 3) + H('M34 58 v18') },
+  epouvantail: { nom: "l'épouvantail", k: 'sol', c: 'bois', face: [50, 30, .55], d: c =>
+    L('M50 44 v50 M14 52 h72', 5).replace(INK, c.s) + P('M34 46 h32 l6 30 h-44 z', COULEURS.bleu.c) + C(50, 30, 15, COULEURS.creme.c) +
+    P('M30 20 h40 l-4 -14 h-32 z', COULEURS.jaune.s) + R(26, 18, 48, 6, 3, COULEURS.jaune.c) },
+
+  // ─── Le théâtre ───
+  projecteur: { nom: 'le projecteur', k: 'sol', c: 'nuit', face: null, d: c =>
+    L('M50 56 L30 94 M50 56 L70 94 M50 56 v38', 4) + P('M28 20 l34 -6 l8 30 l-34 8 z', c.c) + E(68, 28, 6, 16, COULEURS.jaune.c) + C(48, 50, 5, c.s) },
+  rideau: { nom: 'le rideau', k: 'mur', c: 'rouge', face: null, d: c =>
+    R(6, 8, 88, 8, 4, COULEURS.jaune.c) + P('M10 16 h36 q-6 40 -26 74 h-10 z', c.c) + P('M90 16 h-36 q6 40 26 74 h10 z', c.c) +
+    L('M20 30 v50 M80 30 v50', 2).replace(INK, c.s) + C(22, 60, 4, COULEURS.jaune.c) + C(78, 60, 4, COULEURS.jaune.c) },
+  billet: { nom: 'le billet', k: 'petit', c: 'jaune', face: [50, 54, .55], d: c =>
+    P('M12 32 h76 v10 a8 8 0 0 0 0 16 v10 h-76 v-10 a8 8 0 0 0 0 -16 z', c.c) + L('M30 32 v36', 2).replace(INK, c.s) }
 };
 
 function couleur(nom, defaut) {

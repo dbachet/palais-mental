@@ -106,17 +106,23 @@ function decor(etage, b) {
   const id = 'sc' + (++uid);
   let defs = motif(id + 'm', etage.motif, etage.mur);
   let art = '';
-  if (etage.fenetre === 'ciel') {
-    // Sur le toit : le ciel à la place du mur
+  if (etage.fenetre === 'ciel' || etage.fenetre === 'champ') {
+    // Dehors : le ciel à la place du mur (rambarde sur un toit, barrière dans un champ)
     defs += `<linearGradient id="${id}c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9FD3FF"/><stop offset="1" stop-color="#E6F5FF"/></linearGradient>`;
     art += `<rect width="${W}" height="${SOL}" fill="url(#${id}c)"/><circle cx="860" cy="90" r="46" fill="#FFE38A"/>`;
     [[120, 90], [420, 60], [640, 120]].forEach(([x, y]) => { art += `<g fill="#fff" opacity=".9"><circle cx="${x}" cy="${y}" r="26"/><circle cx="${x + 30}" cy="${y - 12}" r="32"/><circle cx="${x + 62}" cy="${y}" r="24"/><rect x="${x}" y="${y}" width="62" height="24"/></g>`; });
-    art += `<rect x="0" y="${SOL - 70}" width="${W}" height="14" fill="#fff" opacity=".85"/>` + Array.from({ length: 21 }, (_, i) => `<rect x="${i * 50}" y="${SOL - 70}" width="10" height="70" fill="#fff" opacity=".85"/>`).join('');
+    if (etage.fenetre === 'champ') {
+      art += `<path d="M0 ${SOL - 40} q250 -60 500 -20 t500 -10 V${SOL} H0 Z" fill="#B7DDA0"/>`;
+      art += [SOL - 58, SOL - 30].map(y => `<rect x="0" y="${y}" width="${W}" height="10" rx="4" fill="#D9A06B" stroke="#A86F3F" stroke-width="2"/>`).join('') +
+        Array.from({ length: 11 }, (_, i) => `<rect x="${i * 100 + 20}" y="${SOL - 76}" width="14" height="76" rx="4" fill="#D9A06B" stroke="#A86F3F" stroke-width="2"/>`).join('');
+    } else {
+      art += `<rect x="0" y="${SOL - 70}" width="${W}" height="14" fill="#fff" opacity=".85"/>` + Array.from({ length: 21 }, (_, i) => `<rect x="${i * 50}" y="${SOL - 70}" width="10" height="70" fill="#fff" opacity=".85"/>`).join('');
+    }
   } else {
     art += `<rect width="${W}" height="${SOL}" fill="${etage.mur}"/>`;
     if (defs) art += `<rect width="${W}" height="${SOL}" fill="url(#${id}m)"/>`;
     art += `<rect width="${W}" height="26" fill="${b.couleurs.accent}" opacity=".55"/>`;
-    art += fenetre(etage.fenetre, 230, b.couleurs.accent) + fenetre(etage.fenetre, 770, b.couleurs.accent);
+    if (etage.fenetre !== 'aucune') art += fenetre(etage.fenetre, 230, b.couleurs.accent) + fenetre(etage.fenetre, 770, b.couleurs.accent);
     art += `<rect x="0" y="${SOL - 14}" width="${W}" height="14" fill="rgba(58,43,63,.12)"/>`;
   }
   art += sol(etage.solType, etage.sol, id);
@@ -198,8 +204,25 @@ function render(host, opts) {
     return `<div class="scene-deco${d.sticker ? ' deco-sticker' : ''}" data-index="${i}" style="${placeStyle(d.x, d.y, largeur)}">${art}</div>`;
   }).join('');
 
-  const main = Storage.getTeam().main;
-  const kawaii = main ? `<div class="scene-kawaii"${mode === 'libre' ? ' data-drag' : ''} style="${placeStyle(60, 620, 120)}">${Kawaii.draw(main, 120, { alive: true, mood: Kawaii.period() === 'nuit' ? 'soir' : undefined })}</div>` : '';
+  // L'équipe : le kawaii principal ; en mode libre, tous ses compagnons
+  // (bac à sable) ; en session, le compagnon installé dans ce lieu (Ninja)
+  const team = Storage.getTeam();
+  const mood = Kawaii.period() === 'nuit' ? 'soir' : undefined;
+  const membres = [];
+  if (team.main) membres.push({ k: 'main', config: team.main });
+  if (mode === 'libre') {
+    team.companions.forEach((c, i) => { if (c) membres.push({ k: String(i), config: c }); });
+  } else {
+    const comp = Monde.compagnonDe(list);
+    if (comp) membres.push({ k: 'compagnon', config: comp });
+  }
+  const placesK = mode === 'libre' ? (Libre.kawaii[sceneId(list, etage)] || {}) : {};
+  const kawaii = membres.map((m, i) => {
+    const depart = m.k === 'main' ? { x: 60, y: 620 } : (m.k === 'compagnon' ? { x: 945, y: 625 } : { x: 160 + i * 90, y: 628 });
+    const p = placesK[m.k] || depart;
+    const taille = m.k === 'main' ? 120 : 96;
+    return `<div class="scene-kawaii${m.k === 'main' ? '' : ' scene-compagnon'}"${mode === 'libre' ? ` data-drag data-k="${m.k}"` : ''} style="${placeStyle(p.x, p.y, taille)}">${Kawaii.draw(m.config, taille, { alive: true, mood })}</div>`;
+  }).join('');
 
   host.innerHTML = `
     <div class="scene scene-${mode}" data-scene="${sceneId(list, etage)}">
@@ -264,7 +287,8 @@ function versScene(el, e) {
 // MODE LIBRE : 🧸 Jouer dans un lieu
 // ═══════════════════════════════════════════════════════════════
 
-const Libre = { listId: null, etage: 0, onglet: 'meubles', armed: null, tiroir: false };
+// kawaii : { scène: { k: { x, y } } } où elle a mis ses kawaii (le temps de la visite)
+const Libre = { listId: null, etage: 0, onglet: 'meubles', armed: null, tiroir: false, kawaii: {} };
 
 function listeLibre() {
   return Storage.getActiveLists().find(l => l.id === Libre.listId) || null;
@@ -284,6 +308,7 @@ function ouvrirLibre(listId, opts = {}) {
   Libre.onglet = opts.onglet || 'meubles';
   Libre.tiroir = !!opts.tiroir;
   Libre.armed = null;
+  Libre.kawaii = {};
   showScreen('lieu');
   TempsJeu.demarrer(() => finDuTemps());
   renderLibre();
@@ -391,8 +416,13 @@ function glisser(e, sceneEl, item) {
   const isKawaii = item.classList.contains('scene-kawaii');
   try { item.setPointerCapture(e.pointerId); } catch (err) {}
   item.classList.add('dragging');
-  // Appui long sur une déco : la retirer
-  const appuiLong = isDeco ? setTimeout(() => { if (!moved) { fin(); demanderRetrait(Number(item.dataset.index)); } }, 600) : null;
+  // Appui long : retirer une déco, habiller un kawaii
+  const appuiLong = (isDeco || isKawaii) ? setTimeout(() => {
+    if (moved) return;
+    fin();
+    if (isDeco) demanderRetrait(Number(item.dataset.index));
+    else habiller(item.dataset.k);
+  }, 600) : null;
   const move = (ev) => {
     if (!moved && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 8) return;
     moved = true;
@@ -412,8 +442,10 @@ function glisser(e, sceneEl, item) {
     const p = versScene(sceneEl, ev);
     item.style.zIndex = Math.round(p.y);
     const list = listeLibre();
-    if (isDeco) Storage.moveDeco(sceneId(list, Libre.etage), Number(item.dataset.index), p.x, p.y);
-    else if (!isKawaii) deplacerObjet(list.id, item.dataset.slot, p);
+    const id = sceneId(list, Libre.etage);
+    if (isDeco) Storage.moveDeco(id, Number(item.dataset.index), p.x, p.y);
+    else if (isKawaii) (Libre.kawaii[id] = Libre.kawaii[id] || {})[item.dataset.k] = { x: p.x, y: p.y };
+    else deplacerObjet(list.id, item.dataset.slot, p);
   };
   const fin = () => {
     clearTimeout(appuiLong);
@@ -425,6 +457,50 @@ function glisser(e, sceneEl, item) {
   item.addEventListener('pointermove', move);
   item.addEventListener('pointerup', up);
   item.addEventListener('pointercancel', up);
+}
+
+// ── Habiller un kawaii (appui long en mode libre) ──
+// Seulement ce qu'elle possède déjà : les achats se font à l'atelier.
+const HABITS = [
+  { key: 'hat', titre: 'Sur la tête', liste: () => Kawaii.HATS },
+  { key: 'glasses', titre: 'Lunettes', liste: () => Kawaii.GLASSES },
+  { key: 'outfit', titre: 'Tenue', liste: () => Kawaii.OUTFITS },
+  { key: 'outfitColor', titre: 'Couleur', liste: () => Kawaii.OUTFIT_COLORS, swatch: true }
+];
+
+function configDe(k) {
+  const team = Storage.getTeam();
+  return k === 'main' ? team.main : team.companions[Number(k)];
+}
+
+function habiller(k) {
+  const config = configDe(k);
+  if (!config) return;
+  const possede = (key, id) => key === 'outfitColor' || isAccessoryFree(key, id) || Storage.hasAccessory(`${key}:${id}`);
+  showSheet(`
+    <div class="sheet-art">${Kawaii.draw(config, 150, { alive: true })}</div>
+    <h3>${escapeText(Kawaii.name(config))}</h3>
+    ${HABITS.map(g => {
+      const items = g.liste().filter(it => possede(g.key, it.id));
+      if (items.length < 2) return '';
+      return `<p class="kgroup-title">${g.titre}</p><div class="kchips">${items.map(it => g.swatch
+        ? `<button class="kchip swatch${config[g.key] === it.id ? ' on' : ''}" style="background:${it.c}" aria-label="${it.id}" onclick="Scene.porter('${k}', '${g.key}', '${it.id}')"></button>`
+        : `<button class="kchip${config[g.key] === it.id ? ' on' : ''}" onclick="Scene.porter('${k}', '${g.key}', '${it.id}')">${escapeText(it.nom)}</button>`).join('')}</div>`;
+    }).join('')}
+    <p class="hint text-center">D'autres habits t'attendent à l'atelier, dans les coffres et à la boutique.</p>
+    <div class="sheet-actions"><button class="btn btn-primary" onclick="closeSheet()">C'est beau !</button></div>
+  `);
+}
+
+function porter(k, key, value) {
+  const team = Storage.getTeam();
+  const config = k === 'main' ? team.main : team.companions[Number(k)];
+  if (!config) return;
+  config[key] = value;
+  Storage.saveTeam(team);
+  TempsJeu.activite();
+  renderLibre();
+  habiller(k);
 }
 
 function deplacerObjet(listId, slotId, p) {
@@ -527,6 +603,6 @@ function choisirLieu(onglet = 'stickers') {
 return {
   render, objetsEtage, sceneId,
   ouvrirLibre, allerEtage, basculerTiroir, onglet, armer, retirer,
-  remettreEnPlace, demanderRemettre, quitter, choisirLieu
+  remettreEnPlace, demanderRemettre, quitter, choisirLieu, habiller, porter
 };
 })();

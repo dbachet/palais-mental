@@ -61,7 +61,7 @@ palais-mental/
 │   └── kawaii.js       # Moteur de dessin des personnages kawaii (SVG, sans image)
 └── data/
     ├── lieux.js        # Économie, temps, révision, images, langues, catalogue de stickers
-    └── monde.js        # BATIMENTS : étages, décor et objets de chaque bâtiment
+    └── monde.js        # BATIMENTS : étages, décor et objets de chaque bâtiment ; QUARTIERS
 ```
 
 ## 🐾 Kawaii : principal et compagnons
@@ -71,6 +71,8 @@ Pas d'avatar humain : l'enfant choisit un **kawaii principal** parmi 16 personna
 Ajouter un personnage = ajouter une entrée dans `CHARS` et sa forme dans `shapes()` de `js/kawaii.js`.
 
 ## 🎨 Récompenses : étoiles, coffres, stickers, meubles
+
+Chaque **niveau gagné** sur une liste offre un meuble, de préférence un qu'elle n'a pas encore. L'album a une page « Mes meubles » : ceux trouvés en couleur, les autres en silhouette.
 
 Aucune image à gérer : les récompenses sont des **stickers** (emojis, ou kawaii dessinés par le code, plus chers) et des **meubles** (les formes de `js/objets.js`) que l'enfant pose où elle veut dans les étages de ses lieux, et des **habits et accessoires** pour ses kawaii. Stickers et meubles ne servent qu'à décorer : ils ne portent jamais de mot ni de question. Tout se règle dans `data/lieux.js` :
 
@@ -143,13 +145,17 @@ Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre), `A
 
 L'accueil est la carte d'une petite ville. **Une liste = un lieu**, **un élément de la liste (mot, question, leçon) = un objet** de ce lieu.
 
-- À la création d'une liste, on choisit son bâtiment parmi six : boulangerie, salon de coiffure, château, musée, labo, école. On peut en changer plus tard (édition de la liste) : tous les éléments sont alors rangés sur de nouveaux objets.
+- À la création d'une liste, on choisit son bâtiment parmi six : boulangerie, salon de coiffure, château, musée, labo, école. D'autres s'ouvrent avec les **quartiers** (voir plus bas). On peut en changer plus tard (édition de la liste) : tous les éléments sont alors rangés sur de nouveaux objets.
 - Chaque bâtiment a **6 étages de 12 objets** (72 emplacements). Un étage n'est ouvert que si la liste en a besoin : les 12 premiers éléments vont au premier étage, etc. Au-delà de 72, plusieurs éléments partagent un objet.
 - Le **rangement est stable** : un élément garde son objet. En modifiant la liste, seuls les nouveaux éléments sont rangés. Mots : au hasard dans le premier étage qui a de la place. Révision : dans l'ordre du texte, pour qu'un élément reste voisin de ceux qui l'entourent.
 - Les objets sont **dessinés par le code** (`js/objets.js`, une centaine de formes) : silhouette grise tant que l'élément n'est pas maîtrisé, en couleur avec un petit visage ensuite (sur la carte et en mode libre). Pendant Apprendre et S'entraîner, seuls les objets qu'elle peut toucher sont en couleur ; le reste de la pièce est gris pâle. Les emojis et les stickers ne servent que de décor.
 - Un appui sur un bâtiment ouvre sa liste et ses modes de jeu ; le **+** crée une nouvelle liste. La **salle de jeux** a aussi son bâtiment.
 - **Apprendre et S'entraîner** se passent dans l'étage, en **mode calme** : la pièce, les objets du paquet en cours (10 mots) et le kawaii. **L'enfant choisit elle-même l'objet** : le kawaii y marche, puis la pièce disparaît et on ne voit plus que le mot (qui s'anime, ou à écrire) ; « ← Retour à la pièce » pour en choisir un autre. En Apprendre, on peut revoir un objet autant qu'on veut (✓ = déjà vu ; « J'ai tout vu » quand tout est vu). En S'entraîner, un objet fait est marqué (✓ ou ↺) et ne se touche plus ; le paquet se termine quand tous sont faits. Si le paquet est rangé dans plusieurs étages (ou lieux, dans un mélange), des boutons permettent de passer de l'un à l'autre. Les objets hors du paquet et les déco sont estompés.
 - **🧸 Jouer dans ce lieu** (fiche d'un bâtiment), en **mode libre** : on passe d'étage en étage, on déplace les objets d'apprentissage (marqués ⭐ ; le mot suit son objet), son kawaii et ses déco, et on pose meubles et stickers depuis le tiroir « 🎒 Décorer ». « Remettre les objets » rend leur place de départ aux objets de l'étage. Ce mode consomme le temps de jeu du jour.
+
+- **Quartiers** : les étoiles gagnées depuis le début (`totalEarned`) agrandissent la ville. À 150 ⭐, le quartier des spectacles ouvre le **Théâtre** ; à 400 ⭐, la campagne ouvre la **Ferme**. Chaque quartier ouvert ajoute son morceau de carte en bas de la ville, et il est fêté une fois. Un bâtiment pas encore ouvert est grisé dans le choix du lieu, avec les étoiles qu'il faut. Réglages : `QUARTIERS` dans `data/monde.js`.
+- **Liste Ninja** : son lieu devient doré et scintille sur la carte, et un compagnon de l'équipe s'y installe (le 1er compagnon dans la 1re liste Ninja, etc.). On le voit à côté du bâtiment et dans ses étages.
+- **Bac à sable** : en mode libre, toute l'équipe kawaii est dans la pièce. On la déplace au doigt ; un appui long sur un kawaii ouvre son habillage (chapeaux, lunettes, tenues et couleurs qu'elle possède déjà ; les achats se font à l'atelier).
 
 Ajouter un bâtiment = ajouter une entrée dans `BATIMENTS` (`data/monde.js`) : 6 étages, chacun avec son décor, ses supports (comptoir, étagère, table, socle) et 12 objets de `js/objets.js` composés à la main, chacun à sa place de départ, sans réutiliser une forme dans le même étage. Ajouter un objet = ajouter une forme dans `FORMES` (`js/objets.js`).
 
@@ -198,7 +204,7 @@ Chaque mot est associé à un **objet précis** d'un lieu de la ville. L'enfant 
 Toutes les données sont stockées en **localStorage** :
 
 - `wordLists` : Listes, niveaux, progression, éléments de révision (`cards`) et numéros de leurs images (`images`), lieu (`lieu`), rangement des éléments sur les objets (`places`), place des objets dans l'étage si elle les a déplacés (`positions`) et place sur la carte (`parcelle`)
-- `economy` : Étoiles, stickers et meubles possédés (`inventory`, `meubles`), déco posées (`placed` : par étage, avec leur position), garde-robe, cadeaux de l'album récupérés, défis du jour, jours de jeu, jeux débloqués et records, temps de jeu du jour (`tempsJeu`), parcelle de la salle de jeux (`salleJeux`)
+- `economy` : Étoiles, stickers et meubles possédés (`inventory`, `meubles`), déco posées (`placed` : par étage, avec leur position), garde-robe, cadeaux de l'album récupérés, défis du jour, jours de jeu, jeux débloqués et records, temps de jeu du jour (`tempsJeu`), parcelle de la salle de jeux (`salleJeux`), quartiers déjà fêtés (`quartiersVus`)
 - `kawaiiTeam` : Kawaii principal et compagnons
 - `sauvegardeAvantMonde` : copie, faite une seule fois, des données d'avant la ville (reste sur l'appareil)
 

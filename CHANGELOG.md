@@ -1,3 +1,18 @@
+## [2026-10-07] - Le monde virtuel, étape 4 : quartiers, lieux dorés, compagnons, bac à sable
+
+### Ajouté
+- **Quartiers** : avec les étoiles gagnées depuis le début, la ville s'agrandit. À 150 ⭐, le quartier des spectacles ouvre le **Théâtre** (hall, scène, coulisses, loge, costumes, salle de spectacle) ; à 400 ⭐, la campagne ouvre la **Ferme** (étable, poulailler, grange, cuisine, potager, verger). Chaque quartier a son morceau de carte, et son ouverture est fêtée une fois. Les bâtiments pas encore ouverts sont grisés dans le choix du lieu, avec les étoiles qu'il faut
+- 17 nouveaux objets dessinés : vache, poule, cochon, mouton, lapin, canard, tracteur, brouette, botte de foin, carotte, citrouille, nid d'œufs, bidon de lait, épouvantail, projecteur, rideau, billet. Pièces sans fenêtre (la scène) et en plein air avec une barrière (potager, verger)
+- **Lieu doré** : une liste Ninja rend son bâtiment doré et scintillant, et un compagnon de l'équipe s'y installe, sur la carte et dans ses étages
+- **Bac à sable** : en mode libre, toute l'équipe kawaii est dans la pièce ; on la déplace au doigt, et un appui long ouvre l'habillage (seulement ce qu'elle possède)
+- **Un meuble par niveau gagné** (de préférence nouveau), montré avec la célébration du niveau. Page « 🛋️ Mes meubles » dans l'album, avec ceux pas encore trouvés en silhouette
+
+### Technique
+- `QUARTIERS` et le champ `quartier` des bâtiments (`data/monde.js`) ; `economy.quartiersVus`. `Monde.quartiersOuverts`, `batimentOuvert`, `compagnonDe` ; la migration ne donne que des bâtiments de départ
+- Décor : fenêtres `aucune` et `champ` (`js/scene.js`) ; façades du théâtre et de la ferme (`js/monde.js`)
+- `Storage.gagnerMeubleNiveau`, `meubleGagneHTML` ; `Scene.habiller`, `Scene.porter`
+- Service worker et `?v=` : `v27`
+
 ## [2026-10-07] - Le monde virtuel, étape 3 : les listes de révision
 
 ### Ajouté

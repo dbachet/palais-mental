@@ -507,6 +507,17 @@ const Storage = {
   },
 
   // Meuble au hasard, de préférence un qu'elle n'a pas encore
+  // Meuble offert pour un niveau gagné : un qu'elle n'a pas encore, si possible
+  gagnerMeubleNiveau() {
+    const owned = this.getEconomy().meubles;
+    const formes = Objets.ids();
+    const nouveaux = formes.filter(f => !owned[f]);
+    const pool = nouveaux.length ? nouveaux : formes;
+    const forme = pool[Math.floor(Math.random() * pool.length)];
+    this.addMeuble(forme);
+    return forme;
+  },
+
   drawMeuble() {
     const formes = Objets.ids();
     const owned = this.getEconomy().meubles;
@@ -1861,6 +1872,7 @@ function showResultsScreen() {
           ${celebrationArt(ninja ? '🥷' : '🚀')}
           <div class="level-up-title">${name}Niveau ${next + 1} atteint : ${levelName(next, maxLevel)} !</div>
           <div class="level-up-sub">${sub} · ${starsPerWord('progressive', next)} ⭐ par mot</div>
+          ${meubleGagneHTML(Storage.gagnerMeubleNiveau())}
         </div>
       `;
     } else if (level >= maxLevel) {
@@ -3950,6 +3962,12 @@ function startInterrogationOnWords(listId) {
 
 function startScan() {
   alert('Le scanner arrive bientôt. En attendant, saisis la liste à la main.');
+}
+
+// Le meuble gagné avec un niveau, sous la célébration
+function meubleGagneHTML(forme) {
+  const info = Objets.info(forme);
+  return `<div class="meuble-gagne">${Objets.draw(forme, { taille: 64 })}<span>🎁 Nouveau meuble : <strong>${escapeText(info.nom)}</strong>, à poser dans tes lieux</span></div>`;
 }
 
 // Tirage pondéré des questions pour les jeux (js/jeux-cartes.js) : celles

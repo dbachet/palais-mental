@@ -576,6 +576,214 @@ header h1 {
 }
 
 /* ─────────────────────────────────────────────────────────────── */
+/* LA VILLE (accueil) : une liste = un lieu */
+/* ─────────────────────────────────────────────────────────────── */
+
+.home-content {
+  max-width: 1000px;
+}
+
+.home-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.home-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+@media (min-width: 860px) {
+  .home-cols { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+}
+
+.ville-card {
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  padding: 14px;
+  box-shadow: var(--ombre-2);
+}
+
+.ville-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 6px 12px;
+}
+
+.ville-head h2 {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: var(--encre);
+}
+
+.btn-small {
+  min-height: 44px;
+  padding: 8px 16px;
+  font-size: 0.95rem;
+}
+
+.ville {
+  position: relative;
+  border-radius: var(--r-l);
+  overflow: hidden;
+  line-height: 0;
+}
+
+.ville-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ville-batiment {
+  cursor: pointer;
+  transition: transform 0.25s var(--rebond);
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.ville-batiment:active {
+  transform: scale(0.96);
+}
+
+.ville-batiment:focus {
+  outline: none;
+}
+
+.ville-batiment:focus-visible {
+  outline: 4px solid var(--rose);
+}
+
+.ville-nom {
+  font-family: var(--police);
+  font-size: 24px;
+  font-weight: 900;
+  fill: var(--encre);
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 6px;
+  stroke-linejoin: round;
+}
+
+/* Stickers collés librement (décor) */
+.stickers-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.stickers-layer.armed {
+  pointer-events: auto;
+  cursor: crosshair;
+  background: rgba(255, 255, 255, 0.25);
+  outline: 4px dashed var(--rose);
+  outline-offset: -4px;
+}
+
+.placed-sticker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  touch-action: none;
+  line-height: 0;
+  cursor: grab;
+  filter: drop-shadow(0 3px 4px rgba(70, 40, 80, 0.2));
+}
+
+.placed-sticker.dragging {
+  transform: translate(-50%, -50%) scale(1.15);
+  cursor: grabbing;
+  z-index: 2;
+}
+
+.stickers-armed-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  color: var(--encre);
+  font-weight: 800;
+  font-size: 1rem;
+  line-height: 1.3;
+  padding: 10px 16px;
+  border-radius: 999px;
+  box-shadow: var(--ombre-2);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Feuille d'un lieu */
+.lieu-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.lieu-sheet-emoji {
+  line-height: 0;
+}
+
+.lieu-sheet-type {
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: var(--encre);
+}
+
+.lieu-sheet-etages {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--encre-2);
+}
+
+/* Choix du lieu d'une liste */
+.lieu-choix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.lieu-choix {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 10px 6px;
+  border-radius: var(--r-m);
+  border: 3px solid var(--bord);
+  background: var(--surface-2);
+  font-family: var(--police);
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--encre-2);
+  cursor: pointer;
+}
+
+.lieu-choix.selected {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+  color: var(--encre);
+}
+
+/* Objets dessinés : silhouette grise tant que l'élément n'est pas maîtrisé */
+.objet {
+  overflow: visible;
+}
+
+.obj-gris {
+  filter: grayscale(1) brightness(1.18) opacity(0.6);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
 /* ÉQUIPE DE KAWAII (accueil) */
 /* ─────────────────────────────────────────────────────────────── */
 
@@ -1119,54 +1327,25 @@ header h1 {
   text-align: center;
 }
 
-.lieu-room-emoji {
-  font-size: 3.4rem;
-  line-height: 1;
+.lieu-objet {
+  line-height: 0;
   margin-bottom: 8px;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.12));
+  filter: drop-shadow(0 6px 10px rgba(70, 40, 80, 0.15));
 }
 
 .lieu-room {
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--encre-2);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 1.7rem;
+  font-weight: 900;
+  color: var(--encre);
 }
 
 .lieu-place {
-  font-size: 1.6rem;
-  font-weight: 900;
-  color: var(--encre);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--encre-2);
   margin-top: 4px;
 }
 
-/* Stickers collés sur le lieu */
-.lieu-stickers {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.lieu-stickers .sticker-on-place {
-  position: absolute;
-  line-height: 0;
-  animation: stickerFloat 3.5s ease-in-out infinite;
-}
-
-.lieu-stickers .sticker-on-place svg {
-  width: 56px;
-  height: 56px;
-}
-
-.lieu-stickers .sticker-on-place:nth-child(1) { top: 12px; left: 14px; }
-.lieu-stickers .sticker-on-place:nth-child(2) { top: 12px; right: 14px; animation-delay: -1s; }
-.lieu-stickers .sticker-on-place:nth-child(3) { bottom: 12px; left: 14px; animation-delay: -2s; }
-.lieu-stickers .sticker-on-place:nth-child(4) { bottom: 12px; right: 14px; animation-delay: -3s; }
-
-@keyframes stickerFloat {
-  0%, 100% { transform: translateY(0) rotate(-4deg); }
-  50% { transform: translateY(-5px) rotate(4deg); }
 }
 
 /* ─────────────────────────────────────────────────────────────── */
@@ -1727,257 +1906,6 @@ header h1 {
   box-shadow: none;
   opacity: 1;
   color: white;
-}
-
-/* ─────────────────────────────────────────────────────────────── */
-/* MON PALAIS : pièces et lieux */
-/* ─────────────────────────────────────────────────────────────── */
-
-.rooms-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 14px;
-}
-
-.room-card {
-  background: var(--surface);
-  border-radius: var(--r-l);
-  padding: 18px 12px 14px;
-  box-shadow: var(--ombre-1);
-  border: 2px solid transparent;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.15s var(--doux);
-  position: relative;
-}
-
-.room-card:active {
-  transform: scale(0.96);
-}
-
-.room-emoji {
-  font-size: 2.8rem;
-  line-height: 1;
-  margin-bottom: 8px;
-}
-
-.room-name {
-  font-weight: 900;
-  color: var(--encre);
-  font-size: 1rem;
-}
-
-.room-meta {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--encre-3);
-  margin-top: 4px;
-}
-
-.room-stickers {
-  display: flex;
-  justify-content: center;
-  gap: 2px;
-  margin-top: 8px;
-  min-height: 30px;
-  line-height: 0;
-}
-
-.room-stickers svg {
-  width: 30px;
-  height: 30px;
-}
-
-.place-card {
-  background: var(--surface);
-  border-radius: var(--r-l);
-  padding: 16px 18px;
-  margin-bottom: 14px;
-  box-shadow: var(--ombre-1);
-}
-
-.place-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.place-name {
-  font-weight: 900;
-  font-size: 1.15rem;
-  color: var(--encre);
-}
-
-.place-word {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--encre-3);
-}
-
-.place-slots {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.slot {
-  width: 58px;
-  height: 58px;
-  border-radius: var(--r-m);
-  border: 3px dashed var(--bord);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  background: var(--surface-2);
-  cursor: pointer;
-  transition: transform 0.15s var(--doux);
-}
-
-.slot:active {
-  transform: scale(0.92);
-}
-
-.slot.filled {
-  border-style: solid;
-  border-color: var(--rose);
-  background: var(--rose-pale);
-  line-height: 0;
-}
-
-.slot.filled svg {
-  width: 52px;
-  height: 52px;
-}
-
-.slot.add {
-  color: var(--rose-fonce);
-  font-size: 1.6rem;
-  font-weight: 900;
-}
-
-/* Ma maison : édition des pièces et endroits */
-.maison-room {
-  background: var(--surface);
-  border-radius: var(--r-l);
-  padding: 14px 16px 16px;
-  margin-bottom: 16px;
-  box-shadow: var(--ombre-1);
-}
-
-.maison-room-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.maison-name {
-  flex: 1;
-  min-height: 44px;
-  text-align: left;
-  background: none;
-  border: none;
-  padding: 8px 10px;
-  border-radius: var(--r-s);
-  font-family: inherit;
-  font-weight: 800;
-  font-size: 1.05rem;
-  color: var(--encre);
-  cursor: pointer;
-  border-bottom: 2px dashed var(--bord);
-}
-
-.maison-name:active {
-  background: var(--surface-2);
-}
-
-.maison-room-name {
-  font-size: 1.3rem;
-  font-weight: 900;
-}
-
-.maison-emoji {
-  width: 52px;
-  height: 52px;
-  flex-shrink: 0;
-  border: 2px dashed var(--bord);
-  border-radius: var(--r-m);
-  background: var(--surface-2);
-  font-size: 1.7rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.15s var(--doux);
-}
-
-.maison-emoji:active {
-  transform: scale(0.92);
-}
-
-.sheet-grid-emoji {
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-}
-
-.sheet-grid-emoji .sheet-item .emoji {
-  line-height: 1;
-  font-size: 2.2rem;
-  padding: 6px 0;
-}
-
-.sheet-grid-emoji .sheet-item {
-  padding: 8px 4px;
-  border: 3px solid transparent;
-  background: var(--surface-2);
-  font-family: inherit;
-}
-
-.sheet-grid-emoji .sheet-item.selected,
-.sheet-actions .btn.selected {
-  border-color: var(--rose);
-  background: var(--rose-pale);
-}
-
-.maison-words {
-  display: block;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--encre-3);
-  margin-top: 2px;
-}
-
-.maison-places {
-  margin: 0 0 12px;
-}
-
-.maison-place {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0 4px 12px;
-  border-left: 3px solid var(--rose-pale);
-  margin: 6px 0;
-}
-
-.maison-actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.maison-actions .btn-icon:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.maison-actions .btn-icon {
-  width: 44px;
-  height: 44px;
 }
 
 /* Sélecteur de stickers (feuille en bas) */

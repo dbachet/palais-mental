@@ -63,9 +63,7 @@ const Defis = {
       case 'sticker': {
         const eco = Storage.getEconomy();
         const free = Storage.getFreeStickers().length > 0;
-        const room = Storage.getAllLocations()
-          .some(loc => (eco.placed[placeKeyOf(loc)] || []).length < ECONOMIE.maxStickersParLieu);
-        return free && room;
+        return free && (eco.placed.carte || []).length < ECONOMIE.maxStickersParScene;
       }
       default:
         return true;
@@ -215,7 +213,7 @@ const Defis = {
   // Où aller pour réussir ce défi
   go(id) {
     if (id === 'travail') showStrugglingWordsScreen();
-    else if (id === 'sticker') showPalaisScreen();
+    else if (id === 'sticker') collerStickers();
     else if (id === 'album') showAlbumScreen();
     else if (id === 'calin') {
       const main = document.querySelector('#team-card .team-main');
@@ -425,8 +423,8 @@ function showAlbumSticker(stickerId) {
   const free = Storage.getFreeCount(stickerId, eco);
   const placed = count - free;
   const where = placed === 0
-    ? 'Pas encore collé dans ton palais.'
-    : `${placed} collé${placed > 1 ? 's' : ''} dans ton palais${free > 0 ? `, ${free} dans ton sac` : ''}.`;
+    ? 'Pas encore collé dans ta ville.'
+    : `${placed} collé${placed > 1 ? 's' : ''} dans ta ville${free > 0 ? `, ${free} dans ton sac` : ''}.`;
   showSheet(`
     <div class="sheet-art">${stickerArt(sticker, 110)}</div>
     <h3>${escapeText(sticker.nom)}${count > 1 ? ` ×${count}` : ''}</h3>
@@ -434,7 +432,167 @@ function showAlbumSticker(stickerId) {
     <p class="text-center mt-10">${where}</p>
     <div class="sheet-actions">
       <button class="btn btn-ghost" onclick="closeSheet()">Fermer</button>
-      ${free > 0 ? '<button class="btn btn-primary" onclick="closeSheet(); showPalaisScreen()">🏠 Le coller</button>' : ''}
+      ${free > 0 ? '<button class="btn btn-primary" onclick="closeSheet(); collerStickers()">🏙️ Le coller</button>' : ''}
     </div>
   `);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STICKERS À COLLER OÙ ON VEUT (décor seulement, jamais pour le jeu)
+// ═══════════════════════════════════════════════════════════════
+// Une scène (la carte de la ville, un étage, une maison) a un calque où
+// les stickers se posent librement. Positions gardées dans les unités du
+// dessin de la scène (son viewBox), pour qu'ils restent en place quelle que
+// soit la taille de l'écran.
+//   Stickers.attach(calque, sceneId, largeur, hauteur) : affiche et rend déplaçables
+//   Stickers.choisir() : ouvre le sac, puis « tape où tu veux le coller »
+// Glisser un sticker le déplace ; un appui long le décolle (il revient dans le sac).
+
+const Stickers = {
+  scene: null, // { layer, id, w, h }
+  armed: null, // id du sticker choisi, en attente d'un endroit
+
+  attach(layer, sceneId, w, h) {
+    if (!layer) return;
+    this.scene = { layer, id: sceneId, w, h };
+    this.armed = null;
+    layer.onpointerdown = (e) => this.onLayerDown(e);
+    this.render();
+  },
+
+  render() {
+    const sc = this.scene;
+    if (!sc || !document.body.contains(sc.layer)) return;
+    sc.layer.classList.toggle('armed', !!this.armed);
+    sc.layer.innerHTML = Storage.getPlacedStickers(sc.id).map((it, i) => `
+      <div class="placed-sticker" data-index="${i}" style="left:${(Math.min(it.x, sc.w) / sc.w) * 100}%;top:${(Math.min(it.y, sc.h) / sc.h) * 100}%">${stickerArt(it.sticker, 56)}</div>
+    `).join('') + (this.armed ? '<div class="stickers-armed-hint">👆 Tape où tu veux coller ton sticker</div>' : '');
+  },
+
+  // Point de l'écran → unités de la scène
+  toScene(e) {
+    const r = this.scene.layer.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(this.scene.w, ((e.clientX - r.left) / r.width) * this.scene.w)),
+      y: Math.max(0, Math.min(this.scene.h, ((e.clientY - r.top) / r.height) * this.scene.h))
+    };
+  },
+
+  onLayerDown(e) {
+    const el = e.target.closest('.placed-sticker');
+    if (this.armed) {
+      e.preventDefault();
+      const { x, y } = this.toScene(e);
+      const id = this.armed;
+      this.armed = null;
+      if (Storage.placeSticker(this.scene.id, id, x, y)) {
+        playStarSound();
+        Defis.track('sticker');
+        if (AppState.currentScreen === 'home') renderPalaceCard();
+      } else {
+        showFeedback(`Pas plus de ${ECONOMIE.maxStickersParScene} stickers ici`, 'error');
+      }
+      this.render();
+      return;
+    }
+    if (el) this.startDrag(e, el);
+  },
+
+  startDrag(e, el) {
+    e.preventDefault();
+    const index = Number(el.dataset.index);
+    const start = { x: e.clientX, y: e.clientY };
+    let moved = false;
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    el.classList.add('dragging');
+    const longPress = setTimeout(() => { if (!moved) { cleanup(); this.askRemove(index); } }, 600);
+    const move = (ev) => {
+      if (!moved && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 8) return;
+      moved = true;
+      clearTimeout(longPress);
+      const p = this.toScene(ev);
+      el.style.left = (p.x / this.scene.w) * 100 + '%';
+      el.style.top = (p.y / this.scene.h) * 100 + '%';
+    };
+    const up = (ev) => {
+      cleanup();
+      if (moved) {
+        const p = this.toScene(ev);
+        Storage.moveSticker(this.scene.id, index, p.x, p.y);
+      }
+    };
+    const cleanup = () => {
+      clearTimeout(longPress);
+      el.classList.remove('dragging');
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+  },
+
+  askRemove(index) {
+    const it = Storage.getPlacedStickers(this.scene.id)[index];
+    if (!it) return;
+    showSheet(`
+      <div class="sheet-art">${stickerArt(it.sticker, 110)}</div>
+      <h3>${escapeText(it.sticker.nom)}</h3>
+      <p class="text-center">Le décoller ? Il retourne dans ton sac.</p>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet()">Garder</button>
+        <button class="btn btn-secondary" onclick="closeSheet(); Stickers.remove(${index})">Décoller</button>
+      </div>
+    `);
+  },
+
+  remove(index) {
+    Storage.removeSticker(this.scene.id, index);
+    this.render();
+    if (AppState.currentScreen === 'home') renderPalaceCard();
+  },
+
+  // Ouvre le sac : on choisit un sticker, puis on tape dans la scène
+  choisir() {
+    const free = Storage.getFreeStickers();
+    if (free.length === 0) {
+      showSheet(`
+        <h3>🎒 Ton sac est vide</h3>
+        <p class="text-center">Gagne des étoiles pour ouvrir des coffres, ou choisis un sticker dans la boutique.</p>
+        <div class="sheet-actions">
+          <button class="btn btn-ghost" onclick="closeSheet()">D'accord</button>
+          <button class="btn btn-primary" onclick="closeSheet(); showShopScreen()">🛍️ Boutique</button>
+        </div>
+      `);
+      return;
+    }
+    const items = free.map(({ sticker, count }) => `
+      <div class="sheet-item" onclick="Stickers.arm('${sticker.id}')">
+        <div class="emoji">${stickerArt(sticker, 64)}</div>
+        <div class="count">${escapeText(sticker.nom)}${count > 1 ? ` ×${count}` : ''}</div>
+      </div>
+    `).join('');
+    showSheet(`
+      <h3>Quel sticker coller ?</h3>
+      <p class="hint text-center">Ensuite, tape où tu veux le coller. Tu pourras le déplacer avec le doigt, et le décoller en appuyant longtemps dessus.</p>
+      <div class="sheet-grid">${items}</div>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet()">Annuler</button>
+      </div>
+    `);
+  },
+
+  arm(stickerId) {
+    closeSheet();
+    this.armed = stickerId;
+    this.render();
+    if (this.scene) this.scene.layer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+};
+
+// Depuis n'importe où : retour sur la carte, sac ouvert
+function collerStickers() {
+  showScreen('home');
+  setTimeout(() => Stickers.choisir(), 150);
 }

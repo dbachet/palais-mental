@@ -1,3 +1,28 @@
+## [2026-10-07] - Le monde virtuel, étape 1 : la ville et ses bâtiments
+
+### Ajouté
+- **🏙️ La ville** : l'accueil est la carte d'une petite ville. Chaque liste est un bâtiment, avec son nom et sa barre de maîtrise ; un appui ouvre la liste et ses modes de jeu, le **+** crée une liste
+- **Six bâtiments tout prêts** : boulangerie, salon de coiffure, château, musée, labo, école. Chacun a **6 étages de 12 objets** (72 emplacements), un thème par étage (le fournil, la salle du trône, la tour du magicien…). Un étage ne s'ouvre que si la liste en a besoin, et le bâtiment grandit sur la carte avec ses étages
+- **Les objets sont dessinés par le code** : une centaine de meubles et objets dans le style des kawaii (lit, four, trône, télescope, piano…). Gris tant que l'élément n'est pas maîtrisé, en couleur avec un petit visage ensuite. Une même forme ne sert qu'une fois par bâtiment
+- **Choix du lieu** à la création d'une liste, et dans l'édition pour en changer
+- **Stickers collés où on veut** sur la carte (🎒 Mes stickers) : on choisit, on tape à l'endroit voulu, on déplace au doigt, un appui long décolle. Ils ne servent qu'à décorer
+- Apprendre et S'entraîner montrent l'objet, son nom et son étage ; « J'y suis ! » devient « 👀 Voir le mot » et « ✏️ J'écris le mot »
+
+### Retiré
+- La maison réelle : écrans « Mon palais », pièce et « Ma maison », `LIEUX`, emojis des pièces, déplacement physique
+
+### Migration (automatique, au premier lancement)
+- Chaque liste reçoit un bâtiment tout prêt (à tour de rôle) et ses éléments sont rangés sur des objets. Le contenu des listes, leur niveau et leur progression sont gardés, comme les étoiles, les coffres, la garde-robe et l'équipe de kawaii
+- Les stickers collés dans l'ancienne maison reviennent dans le sac (ceux possédés sont tous gardés)
+- Une copie de l'état d'avant est gardée sur l'appareil (`sauvegardeAvantMonde`, aussi dans le fichier de sauvegarde)
+
+### Technique
+- Nouveaux fichiers : `data/monde.js` (`BATIMENTS`), `js/objets.js` (`Objets`), `js/monde.js` (`Monde` : lieux, rangement, carte, migration). Composant `Stickers` dans `js/recompenses.js`
+- Liste : `lieu`, `places` (`{ clé: "étage:objet" }`, clé = mot ou id de carte), `parcelle` ; `wordLocations` supprimé. Rangement stable et reproductible (hasard tiré de l'id de la liste)
+- `economy.placed` : `{ scène: [{ sticker, x, y }] }`, `economy.version = 2` ; `ECONOMIE.maxStickersParScene` remplace `maxStickersParLieu`
+- Clé `maison` supprimée (et retirée de la synchronisation)
+- Service worker et `?v=` : `v20`
+
 ## [2026-09-29] - Jeux des cartes questions, album de stickers, défis du jour
 
 ### Ajouté

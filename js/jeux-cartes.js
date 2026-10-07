@@ -702,7 +702,7 @@ const JeuxCartes = {
       <div class="result-actions">
         <button class="btn btn-primary btn-big" onclick="replaySession()">${this.JEUX[this.jeu].icone} Encore une partie</button>
         <button class="btn btn-secondary" onclick="showListsScreen()">📚 Changer de jeu</button>
-        ${freeStickers > 0 ? `<button class="btn btn-ghost" onclick="showPalaisScreen()">🏠 Coller mes ${freeStickers} sticker${freeStickers > 1 ? 's' : ''}</button>` : ''}
+        ${freeStickers > 0 ? `<button class="btn btn-ghost" onclick="collerStickers()">🏙️ Coller mes ${freeStickers} sticker${freeStickers > 1 ? 's' : ''}</button>` : ''}
       </div>
     `;
     container.innerHTML = html;

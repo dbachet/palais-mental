@@ -76,7 +76,7 @@ Un autre enfant : il ouvre l'adresse, joue, et un parent crée son compte avec *
 
 - La session reste ouverte sur l'appareil : l'enfant ne tape jamais de code.
 - Les progrès partent en ligne quelques secondes après chaque changement, et quand l'app est mise de côté. Hors-ligne, ils attendent.
-- Deux appareils : la fusion se fait **donnée par donnée** (listes, étoiles/stickers, kawaii, maison). Ajouter une liste sur le téléphone pendant qu'elle gagne des étoiles sur l'iPad ne pose pas de problème. Si les **deux** modifient les listes en même temps sans réseau, la version la plus récente des listes l'emporte.
+- Deux appareils : la fusion se fait **donnée par donnée** (listes, étoiles/stickers, kawaii). Ajouter une liste sur le téléphone pendant qu'elle gagne des étoiles sur l'iPad ne pose pas de problème. Si les **deux** modifient les listes en même temps sans réseau, la version la plus récente des listes l'emporte.
 - Si des listes arrivent d'un autre appareil pendant une session, l'app attend le retour à l'accueil pour se recharger.
 - Connexion sur un appareil qui a déjà un palais, à un compte qui en a un autre : l'app **demande lequel garder**, et ne touche à rien tant que le choix n'est pas fait.
 - **Se déconnecter** retire le palais de l'appareil (il reste dans le compte). C'est refusé s'il reste des progrès non envoyés.
@@ -85,5 +85,6 @@ Un autre enfant : il ouvre l'adresse, joue, et un parent crée son compte avec *
 ## Filets de sécurité
 
 - **Fichier JSON** de l'espace parents : fonctionne comme avant (sans la session du compte).
+- **Copie d'avant le monde virtuel** : au premier lancement de la version « ville », l'app garde l'ancien état (listes, étoiles, kawaii, maison) dans la clé `sauvegardeAvantMonde` de l'appareil. Elle n'est pas envoyée en ligne, mais elle est dans le fichier JSON.
 - **Copie quotidienne côté serveur** : table `palace_history`, 30 jours. Procédure de restauration à la fin de `supabase/schema.sql`.
 - **Copies locales** avant tout remplacement en bloc, dans la clé `syncBackup` du localStorage : `appareilAvantCompte`, `compteRemplace`, `avantDeconnexion`.

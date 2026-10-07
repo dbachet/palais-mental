@@ -6,7 +6,7 @@ Application web pour aider les enfants (notamment avec TDAH et dysorthographie) 
 
 ### En ligne, avec comptes (recommandé)
 
-Hébergée sur GitHub Pages, l'app s'ouvre sans le Mac, fonctionne hors-ligne, et le palais de chaque enfant est enregistré dans son compte (connexion par code reçu par email). Mise en place pas à pas, et déménagement des données existantes : **[EN-LIGNE.md](EN-LIGNE.md)**.
+Hébergée sur GitHub Pages, l'app s'ouvre sans le Mac, fonctionne hors-ligne, et la ville de chaque enfant est enregistré dans son compte (connexion par code reçu par email). Mise en place pas à pas, et déménagement des données existantes : **[EN-LIGNE.md](EN-LIGNE.md)**.
 
 ### Sur Mac (serveur local)
 
@@ -48,6 +48,8 @@ palais-mental/
 │   └── style.css       # Tous les styles (tokens de couleur dans :root)
 ├── js/
 │   ├── app.js          # Logique principale
+│   ├── monde.js        # La ville : lieux, rangement des éléments sur les objets, carte, migration
+│   ├── objets.js       # Objets des lieux dessinés par le code (SVG, sans image)
 │   ├── recompenses.js  # Défis du jour et album de stickers
 │   ├── jeux-cartes.js  # QCM, paires et réponse à écrire (cartes questions, mots de langue)
 │   ├── arcade.js       # Salle de jeux : serpent, blocs (tetris), bonbons (match-3)
@@ -55,7 +57,8 @@ palais-mental/
 │   ├── sync.js         # Compte et enregistrement en ligne (fusion, hors-ligne)
 │   └── kawaii.js       # Moteur de dessin des personnages kawaii (SVG, sans image)
 └── data/
-    └── lieux.js        # LIEUX, emojis des pièces, économie, temps, catalogue de stickers
+    ├── lieux.js        # Économie, temps, cartes, langues, catalogue de stickers
+    └── monde.js        # BATIMENTS : étages, décor et objets de chaque bâtiment
 ```
 
 ## 🐾 Kawaii : principal et compagnons
@@ -66,17 +69,16 @@ Ajouter un personnage = ajouter une entrée dans `CHARS` et sa forme dans `shape
 
 ## 🎨 Récompenses : étoiles, coffres, stickers
 
-Aucune image à gérer : les récompenses sont des **stickers** (emojis, ou kawaii dessinés par le code, plus chers) que l'enfant colle sur les lieux de son palais, et des **habits et accessoires** pour ses kawaii. Tout se règle dans `data/lieux.js` :
+Aucune image à gérer : les récompenses sont des **stickers** (emojis, ou kawaii dessinés par le code, plus chers) que l'enfant colle où elle veut dans sa ville, et des **habits et accessoires** pour ses kawaii. Les stickers ne servent qu'à décorer : ils ne portent jamais de mot ni de question. Tout se règle dans `data/lieux.js` :
 
-- `ECONOMIE` : étoiles par bonne réponse, bonus sans-faute, étoiles par coffre, prix par rareté (commun, rare, légendaire, kawaii), prix des habits et accessoires, chance qu'un coffre donne un accessoire, stickers max par lieu.
+- `ECONOMIE` : étoiles par bonne réponse, bonus sans-faute, étoiles par coffre, prix par rareté (commun, rare, légendaire, kawaii), prix des habits et accessoires, chance qu'un coffre donne un accessoire, stickers max par scène (`maxStickersParScene`).
 - `STICKERS` : le catalogue. Un sticker emoji = `{ id, nom, emoji, rarete }`. Un sticker kawaii = `{ id, nom, rarete: "kawaii", k: { char, fur, face, hat, glasses, outfit, outfitColor } }` (les champs de `k` absents prennent la valeur de base).
-- `PIECE_EMOJIS` : emoji affiché pour chaque pièce, trouvé par mot-clé dans son nom (fonctionne avec n'importe quelle maison).
 
 Boucle de jeu :
 1. Chaque bonne réponse donne des étoiles, d'autant plus que le niveau de la liste est élevé (1 ⭐ au niveau 1, 2 ⭐ au niveau 2...). Le compteur s'anime pendant la session.
 2. Tous les 12 étoiles gagnées, un **coffre** apparaît sur l'accueil : l'enfant tape dessus pour l'ouvrir et découvre un sticker (rareté aléatoire). Un niveau sans faute donne un coffre rare garanti.
 3. Les étoiles se dépensent aussi dans la **Boutique** pour choisir un sticker précis.
-4. Dans **Mon palais**, l'enfant colle ses stickers sur les lieux réels de la maison. Ils apparaissent ensuite pendant la visite et l'interrogation, sur la carte du lieu.
+4. **🎒 Mes stickers** (sur la carte de la ville) : l'enfant choisit un sticker, tape où elle veut le coller, le déplace au doigt ; un appui long le décolle (il revient dans le sac).
 5. **Mon album** montre tout le catalogue : les stickers trouvés en couleur, les autres en silhouette. Des cadeaux (étoiles, coffres) se récupèrent à chaque palier de stickers différents. Les coffres donnent le plus souvent un sticker qui manque encore.
 6. Les **défis du jour** : trois petits défis, quelques étoiles chacun, un coffre pour les trois. Pas de série à tenir : on ne perd jamais rien en ne jouant pas, et le compteur de jours de jeu ne fait que monter.
 
@@ -89,11 +91,12 @@ Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre), `A
 ### ✅ Implémenté
 
 - **Gestion des listes** : créer, éditer, supprimer des listes de mots ; barre de maîtrise et badge « liste dorée » quand tous les mots sont acquis
-- **Mode apprentissage** : « Visite du palais » avec animation rythmique
-  - Déplacement physique vers chaque emplacement
+- **La ville** (accueil) : chaque liste est un bâtiment de la carte (voir plus bas)
+- **Mode apprentissage** : « Apprendre » avec animation rythmique
+  - L'objet où le mot est rangé, puis « Voir le mot »
   - Animation lettre par lettre avec agrandissement et changement de couleur
   - Son synchronisé à chaque lettre, bouton Rejouer, curseur de vitesse (sauvegardé)
-- **Mode interrogation** : « Retour au palais » avec dictée et clavier virtuel
+- **Mode interrogation** : « S'entraîner » avec dictée et clavier virtuel
   - Mot affiché en **cases de lettres** : lettres visibles, cases à trouver, saisie en rose, vert si juste, rouge si faux
   - **Niveau mémorisé par liste** : niveau 1 = 2 lettres à trouver, +1 lettre par niveau. Une session réussie à 80 % fait monter d'un niveau, et ça ne redescend jamais. Dernier niveau **Ninja** : mot entier plus une ou deux cases pièges, pour ne pas connaître le nombre de lettres. **Interrogation complète = niveau Ninja** : réussie à 80 %, la liste passe directement Ninja (et débloque un compagnon) sans passer tous les niveaux
   - Ordre aléatoire des mots, timer qui passe à l'orange quand il reste peu de temps. Temps = 30 s + 5 s par lettre à trouver, réglable via `TEMPS` dans `data/lieux.js`
@@ -102,10 +105,10 @@ Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre), `A
   - Feux d'artifice pour un sans-faute
 - **Récompenses** : étoiles, coffres à ouvrir, boutique, stickers à coller sur les lieux (voir plus haut)
 - **Mélanger plusieurs listes** (Mes listes → 🔀) : on coche 2 listes de mots ou plus, puis Apprendre, S'entraîner ou Interrogation complète sur tous leurs mots, tirés au hasard parmi toutes les listes cochées
-  - Chaque mot garde son lieu, le niveau de sa liste et sa progression ; chaque liste passe son niveau sur ses propres mots (80 %)
+  - Chaque mot garde son objet, le niveau de sa liste et sa progression ; chaque liste passe son niveau sur ses propres mots (80 %)
   - Les listes cochées sont retenues pour la fois suivante
 - **Mots de langue** (anglais, espagnol, allemand…) : une ligne par mot, `mot = traduction`, avec la langue montrée et la langue à écrire (⇄ inverse les deux, mots compris)
-  - Même jeu que les mots à réécrire (lieux, niveaux, Ninja, mélange) : on voit et on entend le mot de départ, on écrit la traduction en cases de lettres
+  - Même jeu que les mots à réécrire (objets, niveaux, Ninja, mélange) : on voit et on entend le mot de départ, on écrit la traduction en cases de lettres
   - À la visite, le mot de départ est dit dans sa langue puis la traduction dans la sienne. En interrogation, seul le mot de départ est dit
   - Langues et voix : `LANGUES` dans `data/lieux.js`
 - **Cartes questions** : listes de questions/réponses (`question = réponse`, une par ligne), jouées en cartes à retourner
@@ -127,38 +130,19 @@ Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre), `A
 - **Mode rythmique** : Jeu basé sur les syllabes (TODO commenté dans le code)
 - **Vérification d'images** : Détection automatique des images disponibles
 
-## 📝 Modifier les pièces et les endroits
+## 🏙️ La ville : lieux, étages et objets
 
-Depuis l'app : **Mon palais → ✏️** ouvre l'écran **Ma maison**. On peut y ajouter, renommer, réordonner et supprimer des pièces et des endroits, sans toucher au code. La maison est sauvegardée en localStorage (`maison`).
+L'accueil est la carte d'une petite ville. **Une liste = un lieu**, **un élément de la liste (mot, question) = un objet** de ce lieu.
 
-- **Emoji** : appuyer sur l'emoji d'une pièce ouvre une palette (`EMOJIS_PIECES` dans `data/lieux.js`). « Automatique » revient à la détection par mot-clé.
-- **Renommer** une pièce ou un endroit garde les mots qui y sont rangés et les stickers collés.
-- **Supprimer** un endroit libère ses stickers et déplace les mots qui y étaient vers un endroit libre. Les autres mots ne bougent pas.
-- **Revenir à la maison de départ** recharge la maison définie dans `data/lieux.js`.
+- À la création d'une liste, on choisit son bâtiment parmi six : boulangerie, salon de coiffure, château, musée, labo, école. On peut en changer plus tard (édition de la liste) : tous les éléments sont alors rangés sur de nouveaux objets.
+- Chaque bâtiment a **6 étages de 12 objets** (72 emplacements). Un étage n'est ouvert que si la liste en a besoin : les 12 premiers éléments vont au premier étage, etc. Au-delà de 72, plusieurs éléments partagent un objet.
+- Le **rangement est stable** : un élément garde son objet. En modifiant la liste, seuls les nouveaux éléments sont rangés. Mots : au hasard dans le premier étage qui a de la place. Cartes questions : dans l'ordre de la liste, pour qu'une question reste voisine de celles qui l'entourent.
+- Les objets sont **dessinés par le code** (`js/objets.js`, une centaine de formes) : silhouette grise tant que l'élément n'est pas maîtrisé, en couleur avec un petit visage ensuite. Les emojis et les stickers ne servent que de décor.
+- Un appui sur un bâtiment ouvre sa liste et ses modes de jeu ; le **+** crée une nouvelle liste.
 
-La **maison de départ** (`LIEUX` dans `data/lieux.js`) sert uniquement la première fois qu'un appareil ouvre l'app, et pour le bouton « maison de départ » :
+Ajouter un bâtiment = ajouter une entrée dans `BATIMENTS` (`data/monde.js`) : 6 étages, chacun avec son décor et 12 formes de `js/objets.js`, sans réutiliser une forme dans le même bâtiment. Ajouter un objet = ajouter une forme dans `FORMES` (`js/objets.js`).
 
-```javascript
-const LIEUX = {
-  salon: [
-    "sur le canapé",
-    "sur la table à manger",
-    "dans la cuisine",
-    "devant la télé"
-  ],
-  "ta chambre": [
-    "sur ta chaise de bureau",
-    "devant ta coiffeuse",
-    "sous ton lit"
-  ]
-};
-```
-
-**Conseils** :
-- Utilisez des déterminants (le, la, ta, ton, des) pour rendre les noms plus naturels
-- Sans emoji choisi, l'emoji d'une pièce est trouvé par mot-clé dans son nom (`PIECE_EMOJIS`)
-
-**Important** : une fois les mots d'une liste rangés dans des endroits, le rangement ne change plus, sauf pour un mot dont l'endroit a été supprimé. S'il y a plus de mots que d'endroits, plusieurs mots partagent un endroit.
+Le hasard du rangement est tiré de l'id de la liste : deux appareils qui rangent la même liste obtiennent les mêmes objets.
 
 ## 🎨 Direction artistique
 
@@ -170,19 +154,18 @@ const LIEUX = {
 
 ## 🧠 Méthode des lieux
 
-Chaque mot est associé à un **emplacement précis** de la maison réelle. L'enfant :
+Chaque mot est associé à un **objet précis** d'un lieu de la ville. L'enfant :
 
-1. **Se déplace PHYSIQUEMENT** vers chaque emplacement de la maison avec son iPad
-2. **Clique sur "J'y suis !"** une fois arrivée à l'endroit
-3. **Observe l'animation rythmique** du mot (lettre par lettre, son + agrandissement)
-4. **Ajuste la vitesse** et **rejoue** autant de fois que nécessaire
-5. **Se remémore** en revisitant physiquement l'emplacement lors de l'interrogation
+1. **Regarde l'objet** où le mot est rangé (son nom, son étage, son bâtiment)
+2. **Observe l'animation rythmique** du mot (lettre par lettre, son + agrandissement)
+3. **Ajuste la vitesse** et **rejoue** autant de fois que nécessaire
+4. **Se remémore** le mot en revoyant l'objet lors de l'entraînement
 
 ### Flux pédagogique recommandé
 
 **Apprentissage → Interrogation immédiate** (recommandé pour renforcer la mémorisation)
 1. Choisir "Apprendre" sur une liste
-2. Visiter tous les emplacements et voir les mots
+2. Voir chaque objet et le mot qui y est rangé
 3. À la fin : écran "Bravo ! Tu as appris X mots"
 4. Cliquer sur "🎯 Oui, je m'entraîne !"
 5. Interrogation sur les mots qui viennent d'être appris (ordre aléatoire)
@@ -194,7 +177,7 @@ Chaque mot est associé à un **emplacement précis** de la maison réelle. L'en
 
 ### Apprentissage multi-sensoriel
 
-- **Spatial** : Déplacement physique dans la maison (ancrage corporel)
+- **Spatial** : chaque mot a sa place sur un objet, dans un étage, dans un bâtiment
 - **Visuel** : Animation de chaque lettre (agrandissement + couleur rose vif très contrastée)
 - **Auditif** : Mélodie unique pour chaque mot (gamme pentatonique majeure)
   - Chaque lettre = une note musicale différente
@@ -203,16 +186,14 @@ Chaque mot est associé à un **emplacement précis** de la maison réelle. L'en
   - Chaque mot a sa propre "chanson" pour faciliter la mémorisation
 - **Rythmique** : Tempo constant et ajustable (0.5s à 2.0s par lettre)
 
-Les **pièces virtuelles** (chambre panda, bureau de président, etc.) sont des versions fantaisistes qui rendent le jeu plus ludique, tout en gardant l'ancrage spatial réel nécessaire à la méthode. L'enfant doit vraiment aller au canapé, devant la télé, etc.
-
 ## 💾 Données
 
 Toutes les données sont stockées en **localStorage** :
 
-- `wordLists` : Listes de mots, niveaux, progression et rangement des mots
-- `economy` : Étoiles, inventaire, stickers collés, garde-robe, cadeaux de l'album récupérés, défis du jour, jours de jeu, jeux débloqués et records
+- `wordLists` : Listes, niveaux, progression, lieu (`lieu`), rangement des éléments sur les objets (`places`) et place sur la carte (`parcelle`)
+- `economy` : Étoiles, inventaire, stickers collés (`placed` : par scène, avec leur position), garde-robe, cadeaux de l'album récupérés, défis du jour, jours de jeu, jeux débloqués et records
 - `kawaiiTeam` : Kawaii principal et compagnons
-- `maison` : Pièces et endroits (modifiables dans l'app)
+- `sauvegardeAvantMonde` : copie, faite une seule fois, des données d'avant la ville (reste sur l'appareil)
 
 Avec un compte (espace parents), ces clés, plus `mixSelection` et `animationSpeed`, sont recopiées en ligne et suivent l'enfant d'un appareil à l'autre : voir [EN-LIGNE.md](EN-LIGNE.md). Pour qu'une nouvelle clé suive aussi, l'ajouter à `SYNC_KEYS` dans `js/sync.js`.
 

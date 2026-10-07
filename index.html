@@ -22,7 +22,7 @@
 
   <!-- Styles. Le ?v= force les navigateurs sans service worker (http://IP:port)
        à recharger les fichiers : l'augmenter à chaque version, ici et dans sw.js. -->
-  <link rel="stylesheet" href="css/style.css?v=19">
+  <link rel="stylesheet" href="css/style.css?v=20">
 </head>
 <body>
   <div id="app">
@@ -37,20 +37,22 @@
       </header>
 
       <div class="home-content">
+        <!-- La ville : une liste = un lieu (Monde.renderCarte) -->
+        <div class="ville-card" id="ville-card"></div>
+
+        <div class="home-cols">
+        <div class="home-col">
         <!-- Équipe de kawaii : principal + compagnons -->
         <div class="team-card" id="team-card">
           <!-- Rempli dynamiquement par renderHome() -->
         </div>
+        </div>
 
-        <!-- Carte palais : étoiles + coffre -->
+        <div class="home-col">
+        <!-- Étoiles + coffre -->
         <div class="palace-card" id="palace-card">
           <!-- Rempli dynamiquement par renderHome() -->
         </div>
-
-        <!-- Action principale -->
-        <button class="btn btn-hero" onclick="showListsScreen()">
-          📚 Mes listes
-        </button>
 
         <!-- Défis du jour -->
         <div class="defis-card hidden" id="defis-card">
@@ -59,8 +61,8 @@
 
         <!-- Actions secondaires -->
         <div class="menu-grid">
-          <button class="btn btn-tile" onclick="showPalaisScreen()">
-            <span class="tile-icon">🏠</span>Mon palais
+          <button class="btn btn-tile" onclick="showListsScreen()">
+            <span class="tile-icon">📚</span>Mes listes
           </button>
           <button class="btn btn-tile" onclick="showShopScreen()">
             <span class="tile-icon">🛍️</span>Boutique
@@ -82,6 +84,8 @@
         <button class="btn-parents" onclick="askParentGate()">👨‍👩‍👧 Espace parents</button>
         <!-- État de l'enregistrement en ligne, rempli par renderSyncStatus() -->
         <p class="sync-status" id="sync-status"></p>
+        </div>
+        </div>
       </div>
     </div>
 
@@ -173,6 +177,10 @@
             <button class="btn btn-ghost btn-block mt-10" onclick="copyCardsPrompt()">📋 Copier la consigne pour une IA</button>
           </div>
 
+          <p class="field-label mt-20">Son lieu dans la ville</p>
+          <div class="lieu-choix-grid" id="new-list-lieu"></div>
+          <p class="hint">Chaque mot ou question sera rangé sur un objet de ce lieu.</p>
+
           <button class="btn btn-success btn-block mt-20" onclick="createListFromManualInput()">
             ✅ Créer la liste
           </button>
@@ -231,6 +239,10 @@
             <div id="edit-cards-errors" class="cards-errors hidden"></div>
           </div>
 
+          <p class="field-label mt-20">Son lieu dans la ville</p>
+          <div class="lieu-choix-grid" id="edit-list-lieu"></div>
+          <p class="hint" id="edit-list-lieu-hint">Changer de lieu range tous les éléments sur de nouveaux objets.</p>
+
           <button class="btn btn-success btn-block mt-20" onclick="saveEditedList()">
             ✅ Enregistrer
           </button>
@@ -247,7 +259,7 @@
     <div id="apprentissage-screen" class="screen">
       <header>
         <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
-        <h1>🎓 Visite du palais</h1>
+        <h1>🎓 Apprendre</h1>
         <span class="progress-chip" id="apprentissage-progress">Mot 1/10</span>
       </header>
 
@@ -258,9 +270,9 @@
         <!-- Bouton "J'y suis" - affiché en premier -->
         <div id="ready-button-container" class="text-center mt-20">
           <button class="btn btn-success btn-big" onclick="showWordToTrace()">
-            ✓ J'y suis !
+            👀 Voir le mot
           </button>
-          <p class="hint">Va à cet endroit, puis appuie sur le bouton</p>
+          <p class="hint">Regarde bien l'objet, puis appuie sur le bouton</p>
         </div>
 
         <!-- Mot animé (affiché après "J'y suis") -->
@@ -324,7 +336,7 @@
     <div id="interrogation-screen" class="screen">
       <header>
         <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
-        <h1>🎯 Retour au palais</h1>
+        <h1>🎯 S'entraîner</h1>
         <span class="progress-chip" id="interrogation-progress">Mot 1/10</span>
       </header>
 
@@ -346,9 +358,9 @@
         <!-- Bouton "J'y suis" - affiché en premier -->
         <div id="interrogation-ready-button" class="text-center mt-20">
           <button class="btn btn-success btn-big" onclick="showInterrogationQuestion()">
-            ✓ J'y suis !
+            ✏️ J'écris le mot
           </button>
-          <p class="hint">Va à cet endroit, puis appuie sur le bouton</p>
+          <p class="hint">Rappelle-toi ce qui est rangé sur cet objet</p>
         </div>
 
         <!-- Zone de question (cachée au début) -->
@@ -528,7 +540,7 @@
         <div class="card">
           <h2>Sauvegarde</h2>
           <p class="hint" id="parents-summary"></p>
-          <p>Toutes les données (listes, progression, étoiles, stickers, kawaii, maison) sont rangées dans un seul fichier. Garde-le dans Fichiers, iCloud ou envoie-le-toi par mail.</p>
+          <p>Toutes les données (listes, progression, étoiles, stickers, kawaii) sont rangées dans un seul fichier. Garde-le dans Fichiers, iCloud ou envoie-le-toi par mail.</p>
           <button class="btn btn-primary btn-block mt-20" onclick="exportData()">💾 Sauvegarder dans un fichier</button>
         </div>
 
@@ -538,52 +550,6 @@
           <button class="btn btn-ghost btn-block mt-20" onclick="document.getElementById('import-file').click()">📂 Restaurer depuis un fichier</button>
           <input type="file" id="import-file" class="hidden" accept=".json,application/json,text/plain" onchange="importData(this)">
         </div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════
-         ÉCRAN MON PALAIS (pièces)
-         ══════════════════════════════════════════════════════════ -->
-    <div id="palais-screen" class="screen">
-      <header>
-        <button class="back-btn" onclick="showScreen('home')" aria-label="Retour">←</button>
-        <h1>🏠 Mon palais</h1>
-        <button class="header-action" onclick="showMaisonScreen()" aria-label="Modifier ma maison">✏️</button>
-      </header>
-
-      <div class="screen-body">
-        <p class="intro" id="palais-intro"></p>
-        <div id="palais-grid" class="rooms-grid">
-          <!-- Rempli dynamiquement -->
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════
-         ÉCRAN UNE PIÈCE (lieux + stickers)
-         ══════════════════════════════════════════════════════════ -->
-    <div id="piece-screen" class="screen">
-      <header>
-        <button class="back-btn" onclick="showPalaisScreen()" aria-label="Retour">←</button>
-        <h1 id="piece-title">Pièce</h1>
-      </header>
-
-      <div class="screen-body" id="piece-content">
-        <!-- Rempli dynamiquement -->
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════
-         ÉCRAN MA MAISON (pièces et endroits modifiables)
-         ══════════════════════════════════════════════════════════ -->
-    <div id="maison-screen" class="screen">
-      <header>
-        <button class="back-btn" onclick="showPalaisScreen()" aria-label="Retour">←</button>
-        <h1>🏡 Ma maison</h1>
-      </header>
-
-      <div class="screen-body" id="maison-content">
-        <!-- Rempli dynamiquement -->
       </div>
     </div>
 
@@ -710,13 +676,16 @@
   </div>
 
   <!-- Scripts -->
-  <script src="data/lieux.js?v=19"></script>
-  <script src="js/kawaii.js?v=19"></script>
-  <script src="js/config.js?v=19"></script>
-  <script src="js/sync.js?v=19"></script>
-  <script src="js/app.js?v=19"></script>
-  <script src="js/recompenses.js?v=19"></script>
-  <script src="js/jeux-cartes.js?v=19"></script>
-  <script src="js/arcade.js?v=19"></script>
+  <script src="data/lieux.js?v=20"></script>
+  <script src="data/monde.js?v=20"></script>
+  <script src="js/objets.js?v=20"></script>
+  <script src="js/kawaii.js?v=20"></script>
+  <script src="js/config.js?v=20"></script>
+  <script src="js/sync.js?v=20"></script>
+  <script src="js/app.js?v=20"></script>
+  <script src="js/monde.js?v=20"></script>
+  <script src="js/recompenses.js?v=20"></script>
+  <script src="js/jeux-cartes.js?v=20"></script>
+  <script src="js/arcade.js?v=20"></script>
 </body>
 </html>

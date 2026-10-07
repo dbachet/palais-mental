@@ -1,105 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
-// DONNÉES DU PALAIS MENTAL
+// RÉGLAGES DU PALAIS MENTAL
 // ═══════════════════════════════════════════════════════════════
-// Maison de départ : pièces et endroits proposés la première fois qu'un
-// appareil ouvre l'app. Ensuite, la maison se modifie dans l'app
-// (Mon palais → ✏️ Ma maison) et est stockée en localStorage (`maison`).
-// Ce fichier sert aussi au bouton « Revenir à la maison de départ ».
-
-const LIEUX = {
-  "salon": [
-    "sur le canapé",
-    "devant la télé",
-    "à côté de la fenêtre",
-    "sur le fauteuil"
-  ],
-  "cuisine": [
-    "devant le frigo",
-    "sur la table",
-    "devant l'évier",
-    "à côté du four"
-  ],
-  "entrée": [
-    "devant la porte d'entrée",
-    "à côté des chaussures",
-    "sous les manteaux"
-  ],
-  "couloir": [
-    "devant la porte de la salle de bain",
-    "devant la porte de ta chambre",
-    "devant la porte de la chambre de tes parents"
-  ],
-  "salle de bain": [
-    "devant le miroir",
-    "dans la baignoire",
-    "sur les wc",
-    "à côté de la machine à laver"
-  ],
-  "ta chambre": [
-    "sur ton lit",
-    "sous ton lit",
-    "sur ta chaise de bureau",
-    "devant ton armoire",
-    "à côté de la fenêtre",
-    "sur le tapis"
-  ],
-  "chambre des parents": [
-    "sur le lit",
-    "devant l'armoire",
-    "à côté de la table de nuit"
-  ],
-  "bureau": [
-    "sur la chaise de bureau",
-    "devant l'ordinateur",
-    "à côté de la bibliothèque"
-  ]
-};
-
-// ═══════════════════════════════════════════════════════════════
-// MAPPING PIÈCES VIRTUELLES
-// ═══════════════════════════════════════════════════════════════
-// Associe chaque emplacement réel à une image de pièce virtuelle
-// Format: "piece_emplacement" → "nom_fichier_image.png"
-// Les images doivent être placées dans assets/rooms/
-// Si pas d'image, un fond générique sera affiché
-
-const PIECES_VIRTUELLES = {
-  // Exemple: "sa_chambre_sous le lit": "chambre_panda.png",
-  // Ajouter vos mappings ici au fur et à mesure
-};
-
-// ═══════════════════════════════════════════════════════════════
-// EMOJIS DES PIÈCES
-// ═══════════════════════════════════════════════════════════════
-// Emoji affiché pour chaque pièce, trouvé par mot-clé dans son nom.
-// Le premier mot-clé qui matche gagne. "defaut" sert si rien ne matche.
-
-const PIECE_EMOJIS = [
-  { motCle: "salon",     emoji: "🛋️" },
-  { motCle: "cuisine",   emoji: "🍳" },
-  { motCle: "douche",    emoji: "🚿" },
-  { motCle: "bain",      emoji: "🛁" },
-  { motCle: "couloir",   emoji: "🚪" },
-  { motCle: "parents",   emoji: "🛏️" },
-  { motCle: "amis",      emoji: "🛌" },
-  { motCle: "chambre",   emoji: "🧸" },
-  { motCle: "atelier",   emoji: "🧵" },
-  { motCle: "sous-sol",  emoji: "🔦" },
-  { motCle: "cave",      emoji: "🔦" },
-  { motCle: "garage",    emoji: "🚗" },
-  { motCle: "bureau",    emoji: "💻" },
-  { motCle: "jardin",    emoji: "🌳" },
-  { motCle: "defaut",    emoji: "🏠" }
-];
-
-// Emojis proposés dans l'app quand on choisit l'icône d'une pièce
-const EMOJIS_PIECES = [
-  "🛋️", "📺", "🍳", "🍽️", "🧊", "🚪", "🔑", "🧥",
-  "🚿", "🛁", "🚽", "🧺", "🛏️", "🛌", "🧸", "🪆",
-  "🧵", "🎨", "🎹", "🎸", "📚", "💻", "🎮", "🧩",
-  "🔦", "🚗", "🚲", "🧰", "🏋️", "🌳", "🌸", "🪴",
-  "🐶", "🐱", "🐰", "🦄", "🏠", "🏡", "🏰", "⭐"
-];
+// Les lieux (bâtiments, étages, objets) sont dans data/monde.js.
 
 // ═══════════════════════════════════════════════════════════════
 // ÉCONOMIE DES ÉTOILES
@@ -115,7 +17,7 @@ const ECONOMIE = {
   etoilesApprentissage: 3,        // fin d'une visite du palais
   seuilPassageNiveau: 0.8,        // réussite de session pour monter d'un niveau (jamais de descente)
   etoilesParCoffre: 12,           // un coffre tous les N étoiles gagnées
-  maxStickersParLieu: 4,
+  maxStickersParScene: 12,          // stickers collés au plus sur la carte, un étage ou une maison
   prix: { commun: 5, rare: 12, legendaire: 25, kawaii: 40 },
   // Habits et accessoires de l'atelier : prix par type
   // fond : couleur unie derrière le kawaii ; scene : fond dessiné (plage, espace…)
@@ -192,13 +94,13 @@ const DEFIS = {
     ],
     [ // une activité à terminer
       { id: 'session', emoji: '🎯', texte: 'Termine un entraînement', cible: 1 },
-      { id: 'visite',  emoji: '🎓', texte: 'Fais une visite du palais', cible: 1 },
+      { id: 'visite',  emoji: '🎓', texte: 'Fais une visite d\'un lieu', cible: 1 },
       { id: 'travail', emoji: '🌱', texte: 'Réussis 3 mots à travailler', cible: 3 },
       { id: 'jeu',     emoji: '🃏', texte: 'Termine un jeu de cartes questions', cible: 1 }
     ],
     [ // un moment doux
       { id: 'calin',   emoji: '💖', texte: 'Fais un câlin à ton kawaii', cible: 1 },
-      { id: 'sticker', emoji: '🏠', texte: 'Colle un sticker dans ton palais', cible: 1 },
+      { id: 'sticker', emoji: '🏙️', texte: 'Colle un sticker dans ta ville', cible: 1 },
       { id: 'album',   emoji: '📒', texte: 'Va voir ton album', cible: 1 }
     ]
   ]
@@ -262,8 +164,10 @@ const LANGUES = {
 // ═══════════════════════════════════════════════════════════════
 // STICKERS (récompenses)
 // ═══════════════════════════════════════════════════════════════
-// Pas d'images : chaque sticker est un emoji. On les gagne dans les
-// coffres ou on les achète, puis on les colle sur les lieux du palais.
+// Pas d'images : chaque sticker est un emoji ou un kawaii. On les gagne
+// dans les coffres ou on les achète, puis on les colle où on veut (sur la
+// carte de la ville, dans les étages, dans les maisons). Ils ne servent
+// qu'à décorer : les éléments des listes sont rangés sur des objets dessinés.
 // Ajouter un sticker = ajouter une ligne.
 
 // Deux sortes de stickers :
@@ -349,19 +253,4 @@ const RARETES = {
   rare:       { nom: "Rare",       couleur: "#B48CDB" },
   legendaire: { nom: "Légendaire", couleur: "#F5B21B" },
   kawaii:     { nom: "Kawaii",     couleur: "#FF7EB9" }
-};
-
-// ═══════════════════════════════════════════════════════════════
-// COULEURS DU THÈME
-// ═══════════════════════════════════════════════════════════════
-
-const THEME_COLORS = {
-  rose: "#FFB6D9",
-  violet: "#D4A5D4",
-  turquoise: "#A0E7E5",
-  rose_clair: "#FFE5F0",
-  violet_clair: "#F0E5F0",
-  turquoise_clair: "#E0F9F8",
-  blanc: "#FFFFFF",
-  texte: "#5A5A5A"
 };

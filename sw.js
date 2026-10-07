@@ -6,17 +6,24 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v11'; // v11 : emoji des pièces
+const CACHE_NAME = 'mental-palace-v19'; // v19 : jeux des cartes questions, album, défis du jour
 // Même ?v= que dans index.html
-const V = '11';
+const V = '19';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './css/style.css?v=' + V,
   './js/app.js?v=' + V,
+  './js/recompenses.js?v=' + V,
+  './js/jeux-cartes.js?v=' + V,
+  './js/arcade.js?v=' + V,
   './js/kawaii.js?v=' + V,
+  './js/config.js?v=' + V,
+  './js/sync.js?v=' + V,
   './data/lieux.js?v=' + V,
-  './manifest.json'
+  './manifest.json',
+  './assets/apple-touch-icon.png',
+  './assets/icon-192.png'
 ];
 
 // Installation : mise en cache des fichiers, en forçant le réseau
@@ -45,20 +52,24 @@ self.addEventListener('fetch', (event) => {
   const sameOrigin = new URL(request.url).origin === self.location.origin;
 
   if (sameOrigin) {
-    // Réseau d'abord, cache en secours
+    // Réseau d'abord, cache en secours. Délai de 3 s : sur un wifi sans
+    // internet, le réseau peut mettre très longtemps à échouer.
+    const network = fetch(request, { cache: 'no-store' }).then((response) => {
+      if (response && response.status === 200) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+      }
+      return response;
+    });
+    const timeout = new Promise((_, reject) => setTimeout(reject, 3000));
     event.respondWith(
-      fetch(request, { cache: 'no-store' })
-        .then((response) => {
-          if (response && response.status === 200) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request).then((cached) => {
-          if (cached) return cached;
-          if (request.mode === 'navigate') return caches.match('./index.html');
-        }))
+      Promise.race([network, timeout]).catch(() => caches.match(request).then((cached) => {
+        if (cached) return cached;
+        if (request.mode === 'navigate') {
+          return caches.match('./index.html').then((page) => page || network);
+        }
+        return network; // rien en cache : on attend quand même le réseau
+      }))
     );
     return;
   }

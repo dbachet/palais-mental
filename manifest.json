@@ -2,7 +2,7 @@
   "name": "Mental Palace - Apprendre en s'amusant",
   "short_name": "Mental Palace",
   "description": "Application pour mémoriser les mots invariables via la méthode des lieux",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#FFE5F0",
   "theme_color": "#FFB6D9",

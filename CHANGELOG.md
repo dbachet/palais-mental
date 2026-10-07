@@ -1,3 +1,9 @@
+## [2026-10-07] - En session, la couleur montre ce qu'on peut toucher
+
+### Changé
+- Pendant Apprendre et S'entraîner, les objets qu'elle peut toucher sont en couleur, avec un léger halo ; tout le reste (objets faits ou hors du paquet, objets de décor, comptoirs, étagères, tables, socles, déco) est gris pâle. Avant, c'était l'inverse : les objets à toucher, pas encore maîtrisés, étaient gris et les supports en couleur. Le petit visage reste réservé aux éléments maîtrisés
+- Service worker et `?v=` : `v24`
+
 ## [2026-10-07] - Des pièces pensées, et le mot avant la voix
 
 ### Changé

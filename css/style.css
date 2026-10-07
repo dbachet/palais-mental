@@ -852,10 +852,14 @@ header h1 {
   50% { transform: scale(1.03, 0.98); }
 }
 
-/* Mode calme : elle choisit un objet du paquet ; le reste se fait discret */
+/* Mode calme : elle choisit un objet du paquet (en couleur) ; le reste est gris pâle */
 .scene-calme .scene-obj { cursor: default; pointer-events: none; }
 .scene-calme .obj-session { cursor: pointer; pointer-events: auto; }
+.scene-calme .obj-session:not(.obj-fini) > svg.objet {
+  filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 9px rgba(255, 212, 102, 0.75));
+}
 .scene-calme .obj-fini { pointer-events: none; opacity: 0.55; }
+.scene-calme .scene-support { filter: grayscale(1) brightness(1.12) opacity(0.45); }
 .scene-calme .obj-hors { opacity: 0.3; }
 .scene-calme .scene-deco { opacity: 0.25; pointer-events: none; }
 
@@ -891,10 +895,6 @@ header h1 {
   animation: objCible 1.6s ease-in-out infinite;
 }
 
-.scene-calme .obj-cible.obj-gris > svg.objet,
-.scene-calme .obj-cible > svg.objet.obj-gris {
-  filter: grayscale(1) brightness(1.18) drop-shadow(0 0 6px #FFF3A8) drop-shadow(0 0 14px #FFD466);
-}
 
 @keyframes objCible {
   0%, 100% { transform: translateY(0); }

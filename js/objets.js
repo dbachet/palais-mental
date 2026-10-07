@@ -403,11 +403,13 @@ function inner(id, coul, opts = {}) {
   const f = FORMES[id];
   if (!f) return '';
   const c = couleur(coul, f.c);
-  const face = !opts.gris && f.face ? visage(...f.face) : '';
+  const avecVisage = opts.visage !== undefined ? opts.visage : !opts.gris;
+  const face = avecVisage && f.face ? visage(...f.face) : '';
   return `<g class="obj-dessin">${f.d(c)}${face}</g>`;
 }
 
-// SVG complet. opts : { couleur, taille, gris, classe }
+// SVG complet. opts : { couleur, taille, gris, visage, classe }
+// (visage : par défaut, seulement quand l'objet n'est pas gris)
 function draw(id, opts = {}) {
   const taille = opts.taille || 64;
   const cls = `objet${opts.gris ? ' obj-gris' : ''}${opts.classe ? ' ' + opts.classe : ''}`;

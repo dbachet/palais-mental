@@ -6,9 +6,9 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v23'; // v23 : pièces composées à la main, mot affiché avant la voix
+const CACHE_NAME = 'mental-palace-v24'; // v24 : en session, seuls les objets à toucher sont en couleur
 // Même ?v= que dans index.html
-const V = '23';
+const V = '24';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

@@ -8,8 +8,9 @@
 // Deux modes :
 // - 'calme' (Apprendre, S'entraîner) : la pièce, les objets d'apprentissage
 //   et le kawaii. L'enfant choisit elle-même l'objet à aller voir : le kawaii
-//   y marche, puis l'app montre le mot (la pièce disparaît). Les objets hors
-//   du paquet sont estompés ; les déco sont très pâles et ne se touchent pas.
+//   y marche, puis l'app montre le mot (la pièce disparaît). Seuls les objets
+//   qu'elle peut toucher sont en couleur ; le reste (objets faits ou hors du
+//   paquet, supports, déco) est gris pâle et ne se touche pas.
 // - 'libre' (🧸 Jouer) : elle se promène d'étage en étage, déplace les
 //   objets d'apprentissage (le mot suit son objet) et son kawaii, pose et
 //   retire des déco (meubles et stickers gagnés). Le temps de jeu du jour
@@ -180,9 +181,12 @@ function render(host, opts) {
     let cls = '';
     if (mode === 'calme') cls = st ? ` obj-session obj-${st.etat}${st.fini ? ' obj-fini' : ''}` : ' obj-hors';
     const actif = mode === 'libre' || (st && !st.fini);
+    // En session, seuls les objets qu'elle peut toucher sont en couleur ;
+    // en mode libre, la couleur dit si l'élément est maîtrisé
+    const gris = mode === 'calme' ? !actif : !o.maitrise;
     return `<button type="button" class="scene-obj obj-${o.k}${cls}${o.maitrise ? ' obj-maitrise' : ''}" data-slot="${o.slotId}"
         style="${placeStyle(o.pos.x, o.pos.y, o.taille, o.pos.z)}" aria-label="${escapeText(o.info.nom)}"${actif ? '' : ' tabindex="-1" disabled'}>
-        ${Objets.draw(o.info.forme, { couleur: o.info.couleur, taille: 100, gris: !o.maitrise })}
+        ${Objets.draw(o.info.forme, { couleur: o.info.couleur, taille: 100, gris, visage: o.maitrise })}
         ${mode === 'libre' && !o.vide ? '<span class="obj-pastille" aria-hidden="true">⭐</span>' : ''}
         ${st && BADGES[st.etat] ? `<span class="obj-badge badge-${st.etat}" aria-hidden="true">${BADGES[st.etat]}</span>` : ''}
       </button>`;

@@ -671,52 +671,21 @@ header h1 {
   stroke-linejoin: round;
 }
 
-/* Stickers collés librement (décor) */
-.stickers-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.stickers-layer.armed {
-  pointer-events: auto;
-  cursor: crosshair;
-  background: rgba(255, 255, 255, 0.25);
-  outline: 4px dashed var(--rose);
-  outline-offset: -4px;
-}
-
-.placed-sticker {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  pointer-events: auto;
-  touch-action: none;
-  line-height: 0;
-  cursor: grab;
-  filter: drop-shadow(0 3px 4px rgba(70, 40, 80, 0.2));
-}
-
-.placed-sticker.dragging {
-  transform: translate(-50%, -50%) scale(1.15);
-  cursor: grabbing;
-  z-index: 2;
-}
-
-.stickers-armed-hint {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--surface);
-  color: var(--encre);
+.ville-temps {
   font-weight: 800;
-  font-size: 1rem;
-  line-height: 1.3;
-  padding: 10px 16px;
+  font-size: 0.95rem;
+  color: var(--violet-fonce);
+  background: var(--violet-pale);
   border-radius: 999px;
-  box-shadow: var(--ombre-2);
-  pointer-events: none;
-  white-space: nowrap;
+  padding: 8px 14px;
+}
+
+.ville-neon { animation: neon 1.8s ease-in-out infinite; }
+.ville-neon:nth-of-type(2n) { animation-delay: -0.9s; }
+
+@keyframes neon {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 /* Feuille d'un lieu */
@@ -781,6 +750,327 @@ header h1 {
 
 .obj-gris {
   filter: grayscale(1) brightness(1.18) opacity(0.6);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* ÉTAGES : scène, objets, déco, kawaii (js/scene.js) */
+/* ─────────────────────────────────────────────────────────────── */
+
+.scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1000 / 640;
+  border-radius: var(--r-l);
+  overflow: hidden;
+  box-shadow: var(--ombre-2);
+  container-type: inline-size;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.scene-calme { touch-action: auto; }
+
+.scene-fond {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.scene-items {
+  position: absolute;
+  inset: 0;
+}
+
+.scene-obj,
+.scene-deco,
+.scene-kawaii {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  line-height: 0;
+  touch-action: none;
+}
+
+.scene-obj {
+  border: 0;
+  padding: 0;
+  background: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  font: inherit;
+}
+
+.scene-obj > svg.objet,
+.scene-deco > svg,
+.scene-kawaii > svg {
+  width: 100%;
+  height: auto;
+}
+
+.scene-obj .scene-table {
+  width: 84%;
+  height: auto;
+  margin-top: -6%;
+}
+
+.scene-deco .sticker-emoji {
+  width: 100% !important;
+  height: auto !important;
+  font-size: 6cqw !important;
+  line-height: 1;
+}
+
+.scene-obj.dragging,
+.scene-deco.dragging,
+.scene-kawaii.dragging {
+  filter: drop-shadow(0 10px 10px rgba(70, 40, 80, 0.3));
+  cursor: grabbing;
+}
+
+.obj-pastille {
+  position: absolute;
+  top: -2%;
+  right: 4%;
+  font-size: 2.2cqw;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+/* Objet maîtrisé : il respire doucement */
+.obj-maitrise > svg.objet {
+  animation: objRespire 4s ease-in-out infinite;
+  transform-origin: 50% 100%;
+}
+
+@keyframes objRespire {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03, 0.98); }
+}
+
+/* Mode calme : l'objet du moment brille, le reste se fait discret */
+.scene-calme .scene-obj { cursor: default; }
+.scene-calme .scene-obj:not(.obj-cible) { pointer-events: none; }
+.scene-calme .scene-deco { opacity: 0.25; pointer-events: none; }
+
+.scene-calme .obj-cible { cursor: pointer; }
+
+.scene-calme .obj-cible > svg.objet {
+  filter: drop-shadow(0 0 6px #FFF3A8) drop-shadow(0 0 14px #FFD466);
+  animation: objCible 1.6s ease-in-out infinite;
+}
+
+.scene-calme .obj-cible.obj-gris > svg.objet,
+.scene-calme .obj-cible > svg.objet.obj-gris {
+  filter: grayscale(1) brightness(1.18) drop-shadow(0 0 6px #FFF3A8) drop-shadow(0 0 14px #FFD466);
+}
+
+@keyframes objCible {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3%); }
+}
+
+/* Le kawaii marche par petits bonds */
+.scene-kawaii {
+  transition: left 1.2s var(--doux), top 1.2s var(--doux);
+  pointer-events: auto;
+}
+
+.scene-kawaii.marche > svg {
+  animation: kawaiiBond 0.3s ease-in-out 4;
+}
+
+@keyframes kawaiiBond {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8%); }
+}
+
+.scene-libre .scene-kawaii { transition: none; cursor: grab; }
+
+/* Poser une déco : la scène attend un appui */
+.scene.armed {
+  cursor: crosshair;
+  outline: 4px dashed var(--rose);
+  outline-offset: -4px;
+}
+
+.scene-armed-hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  color: var(--encre);
+  font-weight: 800;
+  padding: 10px 16px;
+  border-radius: 999px;
+  box-shadow: var(--ombre-2);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 3000;
+}
+
+/* Écran d'un lieu en mode libre */
+.lieu-body {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.etages {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.etage-chip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: var(--r-m);
+  border: 3px solid var(--bord);
+  background: var(--surface);
+  font-family: var(--police);
+  color: var(--encre-2);
+  cursor: pointer;
+  text-align: left;
+}
+
+.etage-chip strong { font-weight: 900; color: var(--encre); }
+.etage-chip span { font-weight: 700; font-size: 0.85rem; }
+
+.etage-chip.selected {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.lieu-outils {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.tiroir {
+  background: var(--surface);
+  border-radius: var(--r-l);
+  box-shadow: var(--ombre-2);
+  padding: 12px;
+}
+
+.tiroir-onglets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.tiroir-onglet {
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 3px solid var(--bord);
+  background: var(--surface-2);
+  font-family: var(--police);
+  font-weight: 800;
+  color: var(--encre-2);
+  cursor: pointer;
+}
+
+.tiroir-onglet.selected {
+  border-color: var(--violet);
+  background: var(--violet-pale);
+  color: var(--encre);
+}
+
+.tiroir-compte {
+  margin-left: auto;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--encre-3);
+}
+
+.tiroir-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.tiroir-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 8px 4px;
+  border-radius: var(--r-m);
+  border: 3px solid transparent;
+  background: var(--surface-2);
+  font-family: var(--police);
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--encre-2);
+  cursor: pointer;
+}
+
+.tiroir-item.selected {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+/* Temps de jeu du jour */
+.temps-jeu.bas {
+  background: var(--or-pale);
+  color: #7A5300;
+}
+
+.temps-sheet-art { font-size: 4rem; line-height: 1.2; }
+
+/* Choisir un lieu (coller un sticker) */
+.lieu-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.lieu-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 14px;
+  border-radius: var(--r-m);
+  border: 3px solid var(--bord);
+  background: var(--surface-2);
+  font-family: var(--police);
+  text-align: left;
+  cursor: pointer;
+}
+
+.lieu-pick strong { display: block; font-weight: 900; color: var(--encre); }
+.lieu-pick small { font-weight: 700; color: var(--encre-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-kawaii { transition-duration: 0.3s; }
+  .scene-kawaii.marche > svg,
+  .obj-maitrise > svg.objet,
+  .scene-calme .obj-cible > svg.objet,
+  .ville-neon { animation: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────── */
@@ -1311,30 +1601,23 @@ header h1 {
 /* ─────────────────────────────────────────────────────────────── */
 
 .lieu-display {
-  position: relative;
   width: 100%;
-  min-height: 190px;
-  border-radius: var(--r-l);
-  overflow: hidden;
-  margin: 4px 0 16px;
-  box-shadow: var(--ombre-2);
-  background: linear-gradient(135deg, var(--rose-pale), var(--menthe-pale));
+  max-width: 760px;
+  margin: 4px auto 14px;
+}
+
+.lieu-legende {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: baseline;
   justify-content: center;
-  padding: 22px 20px;
+  gap: 4px 12px;
+  margin-top: 10px;
   text-align: center;
 }
 
-.lieu-objet {
-  line-height: 0;
-  margin-bottom: 8px;
-  filter: drop-shadow(0 6px 10px rgba(70, 40, 80, 0.15));
-}
-
 .lieu-room {
-  font-size: 1.7rem;
+  font-size: 1.5rem;
   font-weight: 900;
   color: var(--encre);
 }
@@ -1343,7 +1626,6 @@ header h1 {
   font-size: 1rem;
   font-weight: 800;
   color: var(--encre-2);
-  margin-top: 4px;
 }
 
 }
@@ -3928,41 +4210,84 @@ header h1 {
 /* SALLE DE JEUX : serpent, blocs, bonbons                         */
 /* ─────────────────────────────────────────────────────────────── */
 
-.arcade-grid {
+.arcade-salle {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px;
+  gap: 18px;
+  padding: 18px;
+  border-radius: var(--r-xl);
+  background: linear-gradient(180deg, #4B3F80 0%, #6B5BA8 70%, #8A7BC4 100%);
+  box-shadow: var(--ombre-2);
 }
 
-.arcade-card {
-  background: var(--surface);
-  border-radius: var(--r-l);
-  padding: 20px 16px 18px;
-  box-shadow: var(--ombre-2);
-  text-align: center;
+.arcade-borne {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  text-align: center;
+  color: #fff;
 }
 
-.arcade-card.locked {
-  background: var(--surface-2);
-  box-shadow: none;
-  border: 2px dashed var(--bord);
+.arcade-borne .arcade-desc { color: #EDE6FF; }
+.arcade-borne .arcade-record-line { color: #FFE38A; }
+.arcade-borne .btn { width: 100%; }
+
+/* Borne d'arcade dessinée en CSS */
+.borne {
+  width: 150px;
+  min-height: 190px;
+  border: 4px solid #3A2B3F;
+  border-radius: 26px 26px 12px 12px;
+  background: linear-gradient(180deg, #FF7EB9, #E8479A);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 14px;
+  cursor: pointer;
+  font-family: var(--police);
+  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s var(--rebond);
 }
 
-.arcade-card.locked .arcade-emoji { filter: grayscale(0.6); opacity: 0.8; }
+.borne:active { transform: translateY(3px) scale(0.98); }
+.arcade-borne.locked .borne { filter: grayscale(0.55); }
 
-.arcade-emoji {
-  font-size: 3.4rem;
-  line-height: 1.1;
-}
-
-.arcade-name {
-  font-size: 1.3rem;
+.borne-titre {
   font-weight: 900;
+  font-size: 1rem;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
 }
+
+.borne-ecran {
+  width: 100%;
+  height: 86px;
+  border-radius: 12px;
+  border: 4px solid #3A2B3F;
+  background: radial-gradient(circle at 50% 40%, #6FE3DC, #2B8F9A);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.8rem;
+}
+
+.borne-boutons {
+  display: flex;
+  gap: 10px;
+}
+
+.borne-boutons i {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid #3A2B3F;
+  background: #FFE38A;
+}
+
+.borne-boutons i:nth-child(2) { background: #5FD3CE; }
+.borne-boutons i:nth-child(3) { background: #fff; }
 
 .arcade-desc {
   font-size: 0.9rem;
@@ -3978,7 +4303,6 @@ header h1 {
   margin-bottom: 4px;
 }
 
-.arcade-card .btn { width: 100%; margin-top: 4px; }
 
 .arcade-sheet-emoji { font-size: 4rem; line-height: 1.2; }
 .arcade-item-emoji { font-size: 3.2rem; line-height: 84px; }

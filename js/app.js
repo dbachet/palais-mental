@@ -278,11 +278,12 @@ const Storage = {
     return true;
   },
 
-  // Supprime une liste
+  // Supprime une liste (ses déco reviennent dans l'inventaire)
   deleteList(listId) {
     const lists = this.getLists();
     const filtered = lists.filter(l => l.id !== listId);
     this.saveLists(filtered);
+    this.freeDecoOf(`bat:${listId}:`);
     return filtered.length < lists.length; // true si suppression réussie
   },
 
@@ -377,7 +378,8 @@ const Storage = {
       chestsOpened: eco.chestsOpened || 0,     // coffres de palier déjà attribués
       pendingChests: eco.pendingChests || [],  // coffres à ouvrir : 'normal' | 'rare'
       inventory: eco.inventory || {},          // { stickerId: nombre possédé }
-      placed: eco.placed || {},                // stickers collés : { scène: [{ sticker, x, y }] } (voir Stickers)
+      placed: eco.placed || {},                // déco posées : { scène: [{ sticker | meuble, x, y }] } (js/scene.js)
+      meubles: eco.meubles || {},              // { forme: nombre possédé } (meubles de déco, js/objets.js)
       wardrobe: eco.wardrobe || [],            // accessoires d'atelier débloqués ("hat:couronne")
       albumClaimed: eco.albumClaimed || [],    // paliers de l'album déjà récupérés (js/recompenses.js)
       daily: eco.daily || null,                // défis du jour : { date, ids, progress, done, bonus }
@@ -432,14 +434,18 @@ const Storage = {
     this.saveEconomy(eco);
   },
 
+  // Exemplaires posés quelque part, pour un sticker ou un meuble
+  countPlaced(eco, kind, id) {
+    let n = 0;
+    Object.values(eco.placed).forEach(items => {
+      (Array.isArray(items) ? items : []).forEach(it => { if (it && it[kind] === id) n++; });
+    });
+    return n;
+  },
+
   // Nombre d'exemplaires d'un sticker pas encore collés
   getFreeCount(stickerId, eco = this.getEconomy()) {
-    const owned = eco.inventory[stickerId] || 0;
-    let placedCount = 0;
-    Object.values(eco.placed).forEach(items => {
-      placedCount += (Array.isArray(items) ? items : []).filter(it => it && it.sticker === stickerId).length;
-    });
-    return owned - placedCount;
+    return (eco.inventory[stickerId] || 0) - this.countPlaced(eco, 'sticker', stickerId);
   },
 
   // Tous les stickers libres : [{sticker, count}]
@@ -450,21 +456,52 @@ const Storage = {
       .filter(x => x.count > 0);
   },
 
-  // ── Stickers collés librement dans une scène (carte, étage, maison) ──
-  // x, y : position dans les unités de la scène (son viewBox)
+  // ── Meubles de déco (formes de js/objets.js) ──
 
-  placeSticker(sceneId, stickerId, x, y) {
+  addMeuble(forme) {
+    const eco = this.getEconomy();
+    eco.meubles[forme] = (eco.meubles[forme] || 0) + 1;
+    this.saveEconomy(eco);
+  },
+
+  getFreeMeubleCount(forme, eco = this.getEconomy()) {
+    return (eco.meubles[forme] || 0) - this.countPlaced(eco, 'meuble', forme);
+  },
+
+  // Tous les meubles libres : [{forme, count}]
+  getFreeMeubles() {
+    const eco = this.getEconomy();
+    return Object.keys(eco.meubles)
+      .filter(f => Objets.info(f))
+      .map(forme => ({ forme, count: this.getFreeMeubleCount(forme, eco) }))
+      .filter(x => x.count > 0);
+  },
+
+  // Meuble au hasard, de préférence un qu'elle n'a pas encore
+  drawMeuble() {
+    const formes = Objets.ids();
+    const owned = this.getEconomy().meubles;
+    const missing = formes.filter(f => !owned[f]);
+    const pool = missing.length > 0 && Math.random() < 0.7 ? missing : formes;
+    return pool[Math.floor(Math.random() * pool.length)];
+  },
+
+  // ── Déco posée librement dans une scène (étage d'un lieu) ──
+  // item = { sticker: id } ou { meuble: forme } ; x, y dans les unités de la scène
+
+  placeDeco(sceneId, item, x, y) {
     const eco = this.getEconomy();
     const items = eco.placed[sceneId] || [];
-    if (items.length >= ECONOMIE.maxStickersParScene) return false;
-    if (this.getFreeCount(stickerId, eco) <= 0) return false;
-    items.push({ sticker: stickerId, x: Math.round(x), y: Math.round(y) });
+    if (items.length >= ECONOMIE.maxDecoParScene) return false;
+    if (item.sticker && this.getFreeCount(item.sticker, eco) <= 0) return false;
+    if (item.meuble && this.getFreeMeubleCount(item.meuble, eco) <= 0) return false;
+    items.push({ ...item, x: Math.round(x), y: Math.round(y) });
     eco.placed[sceneId] = items;
     this.saveEconomy(eco);
     return true;
   },
 
-  moveSticker(sceneId, index, x, y) {
+  moveDeco(sceneId, index, x, y) {
     const eco = this.getEconomy();
     const item = (eco.placed[sceneId] || [])[index];
     if (!item) return;
@@ -473,7 +510,7 @@ const Storage = {
     this.saveEconomy(eco);
   },
 
-  removeSticker(sceneId, index) {
+  removeDeco(sceneId, index) {
     const eco = this.getEconomy();
     const items = eco.placed[sceneId] || [];
     items.splice(index, 1);
@@ -482,12 +519,19 @@ const Storage = {
     this.saveEconomy(eco);
   },
 
-  // [{ sticker, x, y }] d'une scène
-  getPlacedStickers(sceneId) {
+  // Déco d'une scène, avec leur sticker résolu : [{ sticker?, meuble?, x, y }]
+  getDeco(sceneId) {
     const eco = this.getEconomy();
     return (eco.placed[sceneId] || [])
-      .map(it => ({ sticker: getSticker(it.sticker), x: it.x, y: it.y }))
-      .filter(it => it.sticker);
+      .map(it => ({ ...it, sticker: it.sticker ? getSticker(it.sticker) : null }))
+      .filter(it => it.sticker || (it.meuble && Objets.info(it.meuble)));
+  },
+
+  // Déco d'un lieu qui disparaît : elles reviennent dans l'inventaire
+  freeDecoOf(prefix) {
+    const eco = this.getEconomy();
+    Object.keys(eco.placed).forEach(k => { if (k.startsWith(prefix)) delete eco.placed[k]; });
+    this.saveEconomy(eco);
   },
 
   // ── Garde-robe : accessoires débloqués pour l'atelier ──
@@ -817,8 +861,10 @@ function showApprentissageScreen() {
     progress.textContent = `Mot ${AppState.currentWordIndex + 1}/${AppState.currentLevelWords.length}`;
   }
 
-  // Affiche uniquement le lieu et le bouton "J'y suis"
-  displayLocation(location);
+  // Affiche l'étage ; un appui sur l'objet (ou sur le bouton) montre le mot
+  displayLocation(location, 'lieu-display', () => {
+    if (!document.getElementById('ready-button-container').classList.contains('hidden')) showWordToTrace();
+  });
   document.getElementById('translation-prompt').classList.add('hidden');
 
   // Cache l'animation du mot, les contrôles et le bouton suivant
@@ -931,20 +977,24 @@ function accessoryArt(acc, size) {
   return Kawaii.draw({ ...base, [acc.type]: acc.value }, size);
 }
 
-// Lieu du mot en cours : l'objet dessiné (gris tant que le mot n'est pas
-// maîtrisé), son nom, son étage
-function displayLocation(location, containerId = 'lieu-display') {
+// Lieu du mot en cours : l'étage en mode calme, le kawaii marche jusqu'à
+// l'objet, qui brille ; un appui sur l'objet fait la suite (onCible).
+// Sous la scène : le nom de l'objet et son étage.
+function displayLocation(location, containerId = 'lieu-display', onCible) {
   const container = document.getElementById(containerId);
   if (!container || !location) return;
-  const gris = !Monde.estMaitrise(AppState.currentList, AppState.currentWord);
-
   container.innerHTML = `
     <div class="lieu-display">
-      <div class="lieu-objet">${Monde.dessinObjet(location, 130, gris)}</div>
-      <div class="lieu-room">${escapeText(capitalizeFirst(location.nom))}</div>
-      <div class="lieu-place">${escapeText(Monde.lieuTexte(location))}</div>
+      <div class="lieu-scene"></div>
+      <div class="lieu-legende">
+        <span class="lieu-room">${escapeText(capitalizeFirst(location.nom))}</span>
+        <span class="lieu-place">${escapeText(Monde.lieuTexte(location))}</span>
+      </div>
     </div>
   `;
+  Scene.render(container.querySelector('.lieu-scene'), {
+    list: AppState.currentList, etage: location.etage, mode: 'calme', cible: location.slotId, onCible
+  });
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -1280,7 +1330,9 @@ function showInterrogationScreen() {
   createWordPattern(word);
   console.log(`Pattern créé: "${AppState.wordPattern}"`);
 
-  displayLocation(location, 'interrogation-lieu-display');
+  displayLocation(location, 'interrogation-lieu-display', () => {
+    if (!document.getElementById('interrogation-ready-button').classList.contains('hidden')) showInterrogationQuestion();
+  });
 
   // Affiche uniquement le lieu et le bouton "J'y suis"
   document.getElementById('interrogation-ready-button').classList.remove('hidden');
@@ -3100,12 +3152,23 @@ function openPendingChests(onDone) {
     }
   }
 
+  // Puis un meuble pour décorer ses lieux, ou un sticker
+  if (Math.random() < ECONOMIE.chanceMeubleCoffre) {
+    const forme = Storage.drawMeuble();
+    Storage.addMeuble(forme);
+    showChestOverlay(tier, {
+      art: Objets.draw(forme, { taille: 170 }), nom: capitalizeFirst(Objets.info(forme).nom), tag: 'Meuble', tagColor: '#2BB3AE',
+      sub: 'Un nouveau meuble pour décorer tes lieux !'
+    }, next);
+    return;
+  }
+
   const sticker = Storage.drawSticker(tier);
   Storage.addSticker(sticker.id);
   const rarity = RARETES[sticker.rarete];
   showChestOverlay(tier, {
     art: stickerArt(sticker, 170), nom: sticker.nom, tag: rarity.nom, tagColor: rarity.couleur,
-    sub: 'Nouveau sticker pour ta ville !'
+    sub: 'Un nouveau sticker à coller dans tes lieux !'
   }, next);
 }
 
@@ -3625,12 +3688,12 @@ function showShopScreen() {
         <strong>🎒 Mon sac</strong>
         <div class="inventory-emojis">${freeCount ? free.map(x => `<span class="inv-item" title="${x.sticker.nom}">${stickerArt(x.sticker, 44)}${x.count > 1 ? `<b>×${x.count}</b>` : ''}</span>`).join('') : 'vide'}</div>
       </div>
-      ${freeCount ? '<button class="btn btn-secondary" onclick="collerStickers()">Coller dans ma ville</button>' : ''}
+      ${freeCount ? '<button class="btn btn-secondary" onclick="collerStickers()">Coller dans mes lieux</button>' : ''}
     </div>
   `;
 
   // Rayons : un appui y descend, la boutique est longue
-  const rayons = [['habits', '🎩 Habits'], ...['commun', 'rare', 'legendaire', 'kawaii']
+  const rayons = [['meubles', '🛋️ Meubles'], ['habits', '🎩 Habits'], ...['commun', 'rare', 'legendaire', 'kawaii']
     .map(r => [r, `<span style="color:${RARETES[r].couleur}">●</span> ${RARETES[r].nom}`])];
   html += `
     <nav class="shop-nav" aria-label="Rayons de la boutique">
@@ -3638,6 +3701,28 @@ function showShopScreen() {
       <button class="shop-nav-chip" onclick="scrollToRayon('jeux')">🕹️ Jeux</button>
       <button class="shop-nav-chip" onclick="showAlbumScreen()">📒 Album</button>
     </nav>
+  `;
+
+  // Rayon meubles : pour décorer ses lieux (mode 🧸 Jouer)
+  const formes = Objets.ids().sort((a, b) => ECONOMIE.prixMeubles[Objets.info(a).k] - ECONOMIE.prixMeubles[Objets.info(b).k]);
+  html += `
+    <div class="category-section" id="rayon-meubles">
+      <div class="category-title">🛋️ Meubles <span class="price-tag">${formes.filter(f => eco.meubles[f]).length}/${formes.length}</span></div>
+      <p class="hint" style="margin:0 0 10px">Pour décorer tes lieux. On en trouve aussi dans les coffres.</p>
+      <div class="items-grid">
+        ${formes.map(f => {
+          const prix = ECONOMIE.prixMeubles[Objets.info(f).k];
+          const owned = eco.meubles[f] || 0;
+          return `
+            <div class="item-card accessory ${eco.stars >= prix ? '' : 'too-expensive'}" onclick="askBuyMeuble('${f}')">
+              ${owned ? `<span class="item-owned">×${owned}</span>` : ''}
+              <div class="item-preview">${Objets.draw(f, { taille: 76 })}</div>
+              <div class="item-name">${escapeText(capitalizeFirst(Objets.info(f).nom))}</div>
+              <div class="item-price">${prix} ⭐</div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
   `;
 
   // Rayon habits et accessoires pour l'atelier
@@ -3672,7 +3757,7 @@ function showShopScreen() {
       <div class="category-title">
         🕹️ Salle de jeux <span class="price-tag">${arcade.unlocked.length}/${ARCADE.jeux.length}</span>
       </div>
-      <p class="hint" style="margin:0 0 10px">De vrais jeux, pour se détendre après l'entraînement.${ARCADE.prixJeton > 0 ? ` Une partie coûte ${ARCADE.prixJeton} ⭐.` : ''}</p>
+      <p class="hint" style="margin:0 0 10px">De vrais jeux, dans la salle de jeux de ta ville. On y joue sur ton temps de jeu du jour.</p>
       <div class="items-grid">
         ${ARCADE.jeux.map(jeu => {
           const owned = arcade.unlocked.includes(jeu.id);
@@ -3751,6 +3836,35 @@ function askBuySticker(stickerId) {
       <button class="btn btn-primary" onclick="buySticker('${stickerId}')">Oui, j'achète !</button>
     </div>
   `);
+}
+
+function askBuyMeuble(forme) {
+  const info = Objets.info(forme);
+  if (!info) return;
+  const prix = ECONOMIE.prixMeubles[info.k];
+  const eco = Storage.getEconomy();
+  const nom = escapeText(capitalizeFirst(info.nom));
+  const art = `<div class="sheet-art">${Objets.draw(forme, { taille: 110 })}</div>`;
+  if (eco.stars < prix) {
+    showSheet(`${art}<h3>${nom}</h3><p class="text-center">Il te manque ${prix - eco.stars} ⭐. Continue à t'entraîner !</p>
+      <div class="sheet-actions"><button class="btn btn-primary" onclick="closeSheet()">D'accord</button></div>`);
+    return;
+  }
+  showSheet(`${art}<h3>${nom}</h3><p class="text-center">Acheter pour ${prix} ⭐ ? Il te restera ${eco.stars - prix} ⭐.</p>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" onclick="closeSheet()">Non</button>
+      <button class="btn btn-primary" onclick="buyMeuble('${forme}')">Oui, j'achète !</button>
+    </div>`);
+}
+
+function buyMeuble(forme) {
+  closeSheet();
+  const info = Objets.info(forme);
+  if (!info || !Storage.spendStars(ECONOMIE.prixMeubles[info.k])) return;
+  Storage.addMeuble(forme);
+  playChestSound();
+  showShopScreen();
+  showFeedback(`${capitalizeFirst(info.nom)} : à toi ! Pose-le dans un lieu 🧸`, 'success');
 }
 
 function buySticker(stickerId) {

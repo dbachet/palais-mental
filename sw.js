@@ -6,9 +6,9 @@
 //   Un fichier modifié est donc visible dès le prochain chargement.
 // - Ressources externes (police Google) : cache d'abord, réseau en secours.
 
-const CACHE_NAME = 'mental-palace-v20'; // v20 : le monde virtuel (ville, bâtiments, objets dessinés)
+const CACHE_NAME = 'mental-palace-v21'; // v21 : les étages, le mode libre, le temps de jeu
 // Même ?v= que dans index.html
-const V = '20';
+const V = '21';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -24,6 +24,7 @@ const ASSETS_TO_CACHE = [
   './data/monde.js?v=' + V,
   './js/objets.js?v=' + V,
   './js/monde.js?v=' + V,
+  './js/scene.js?v=' + V,
   './manifest.json',
   './assets/apple-touch-icon.png',
   './assets/icon-192.png'

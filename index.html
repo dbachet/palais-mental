@@ -22,7 +22,7 @@
 
   <!-- Styles. Le ?v= force les navigateurs sans service worker (http://IP:port)
        à recharger les fichiers : l'augmenter à chaque version, ici et dans sw.js. -->
-  <link rel="stylesheet" href="css/style.css?v=20">
+  <link rel="stylesheet" href="css/style.css?v=21">
 </head>
 <body>
   <div id="app">
@@ -272,7 +272,7 @@
           <button class="btn btn-success btn-big" onclick="showWordToTrace()">
             👀 Voir le mot
           </button>
-          <p class="hint">Regarde bien l'objet, puis appuie sur le bouton</p>
+          <p class="hint">Tape sur l'objet qui brille pour voir le mot</p>
         </div>
 
         <!-- Mot animé (affiché après "J'y suis") -->
@@ -360,7 +360,7 @@
           <button class="btn btn-success btn-big" onclick="showInterrogationQuestion()">
             ✏️ J'écris le mot
           </button>
-          <p class="hint">Rappelle-toi ce qui est rangé sur cet objet</p>
+          <p class="hint">Rappelle-toi le mot rangé sur l'objet qui brille, puis tape dessus</p>
         </div>
 
         <!-- Zone de question (cachée au début) -->
@@ -554,6 +554,27 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════
+         ÉCRAN UN LIEU EN MODE LIBRE (🧸 Jouer : se promener, décorer)
+         ══════════════════════════════════════════════════════════ -->
+    <div id="lieu-screen" class="screen">
+      <header>
+        <button class="back-btn" onclick="Scene.quitter()" aria-label="Retour à la ville">←</button>
+        <h1 id="lieu-titre">🧸 Jouer</h1>
+        <span class="progress-chip temps-jeu" aria-live="polite">⏳</span>
+      </header>
+      <div class="screen-body lieu-body">
+        <div class="etages" id="lieu-etages"></div>
+        <div id="lieu-scene"></div>
+        <div class="lieu-outils">
+          <button class="btn btn-primary" id="lieu-btn-tiroir" onclick="Scene.basculerTiroir()" aria-expanded="false">🎒 Décorer</button>
+          <button class="btn btn-ghost" onclick="Scene.demanderRemettre()">↩️ Remettre les objets</button>
+        </div>
+        <div class="tiroir hidden" id="lieu-tiroir"></div>
+        <p class="hint text-center">Fais glisser les objets ⭐ où tu veux : tes mots les suivent. Appuie longtemps sur une déco pour la retirer.</p>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
          ÉCRAN MES KAWAII (équipe)
          ══════════════════════════════════════════════════════════ -->
     <div id="kawaii-screen" class="screen">
@@ -676,16 +697,17 @@
   </div>
 
   <!-- Scripts -->
-  <script src="data/lieux.js?v=20"></script>
-  <script src="data/monde.js?v=20"></script>
-  <script src="js/objets.js?v=20"></script>
-  <script src="js/kawaii.js?v=20"></script>
-  <script src="js/config.js?v=20"></script>
-  <script src="js/sync.js?v=20"></script>
-  <script src="js/app.js?v=20"></script>
-  <script src="js/monde.js?v=20"></script>
-  <script src="js/recompenses.js?v=20"></script>
-  <script src="js/jeux-cartes.js?v=20"></script>
-  <script src="js/arcade.js?v=20"></script>
+  <script src="data/lieux.js?v=21"></script>
+  <script src="data/monde.js?v=21"></script>
+  <script src="js/objets.js?v=21"></script>
+  <script src="js/kawaii.js?v=21"></script>
+  <script src="js/config.js?v=21"></script>
+  <script src="js/sync.js?v=21"></script>
+  <script src="js/app.js?v=21"></script>
+  <script src="js/monde.js?v=21"></script>
+  <script src="js/scene.js?v=21"></script>
+  <script src="js/recompenses.js?v=21"></script>
+  <script src="js/jeux-cartes.js?v=21"></script>
+  <script src="js/arcade.js?v=21"></script>
 </body>
 </html>

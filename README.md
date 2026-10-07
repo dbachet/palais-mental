@@ -49,8 +49,9 @@ palais-mental/
 ├── js/
 │   ├── app.js          # Logique principale
 │   ├── monde.js        # La ville : lieux, rangement des éléments sur les objets, carte, migration
+│   ├── scene.js        # Les étages : décor, objets, déco, kawaii ; mode calme et mode libre (🧸 Jouer)
 │   ├── objets.js       # Objets des lieux dessinés par le code (SVG, sans image)
-│   ├── recompenses.js  # Défis du jour et album de stickers
+│   ├── recompenses.js  # Défis du jour, album de stickers, temps de jeu du jour
 │   ├── jeux-cartes.js  # QCM, paires et réponse à écrire (cartes questions, mots de langue)
 │   ├── arcade.js       # Salle de jeux : serpent, blocs (tetris), bonbons (match-3)
 │   ├── config.js       # Adresse et clé publique Supabase (vide = app 100 % locale)
@@ -67,24 +68,25 @@ Pas d'avatar humain : l'enfant choisit un **kawaii principal** parmi 16 personna
 
 Ajouter un personnage = ajouter une entrée dans `CHARS` et sa forme dans `shapes()` de `js/kawaii.js`.
 
-## 🎨 Récompenses : étoiles, coffres, stickers
+## 🎨 Récompenses : étoiles, coffres, stickers, meubles
 
-Aucune image à gérer : les récompenses sont des **stickers** (emojis, ou kawaii dessinés par le code, plus chers) que l'enfant colle où elle veut dans sa ville, et des **habits et accessoires** pour ses kawaii. Les stickers ne servent qu'à décorer : ils ne portent jamais de mot ni de question. Tout se règle dans `data/lieux.js` :
+Aucune image à gérer : les récompenses sont des **stickers** (emojis, ou kawaii dessinés par le code, plus chers) et des **meubles** (les formes de `js/objets.js`) que l'enfant pose où elle veut dans les étages de ses lieux, et des **habits et accessoires** pour ses kawaii. Stickers et meubles ne servent qu'à décorer : ils ne portent jamais de mot ni de question. Tout se règle dans `data/lieux.js` :
 
-- `ECONOMIE` : étoiles par bonne réponse, bonus sans-faute, étoiles par coffre, prix par rareté (commun, rare, légendaire, kawaii), prix des habits et accessoires, chance qu'un coffre donne un accessoire, stickers max par scène (`maxStickersParScene`).
+- `ECONOMIE` : étoiles par bonne réponse, bonus sans-faute, étoiles par coffre, prix par rareté (commun, rare, légendaire, kawaii), prix des habits et accessoires, contenu des coffres (`chanceAccessoireCoffre`, `chanceMeubleCoffre`), prix des meubles (`prixMeubles`), kit de 12 meubles offert au départ (`kitDepart`), déco max par étage (`maxDecoParScene`, 20).
 - `STICKERS` : le catalogue. Un sticker emoji = `{ id, nom, emoji, rarete }`. Un sticker kawaii = `{ id, nom, rarete: "kawaii", k: { char, fur, face, hat, glasses, outfit, outfitColor } }` (les champs de `k` absents prennent la valeur de base).
 
 Boucle de jeu :
 1. Chaque bonne réponse donne des étoiles, d'autant plus que le niveau de la liste est élevé (1 ⭐ au niveau 1, 2 ⭐ au niveau 2...). Le compteur s'anime pendant la session.
-2. Tous les 12 étoiles gagnées, un **coffre** apparaît sur l'accueil : l'enfant tape dessus pour l'ouvrir et découvre un sticker (rareté aléatoire). Un niveau sans faute donne un coffre rare garanti.
-3. Les étoiles se dépensent aussi dans la **Boutique** pour choisir un sticker précis.
-4. **🎒 Mes stickers** (sur la carte de la ville) : l'enfant choisit un sticker, tape où elle veut le coller, le déplace au doigt ; un appui long le décolle (il revient dans le sac).
+2. Tous les 12 étoiles gagnées, un **coffre** apparaît sur l'accueil : l'enfant tape dessus pour l'ouvrir et découvre un sticker (rareté aléatoire), un meuble ou un accessoire. Un niveau sans faute donne un coffre rare garanti. Les coffres s'ouvrent aussi en fin de paquet et en fin d'Apprendre.
+3. Les étoiles se dépensent aussi dans la **Boutique** pour choisir un sticker, un meuble ou un habit précis, et pour acheter du temps de jeu.
+4. **🧸 Jouer dans un lieu** : dans chaque étage, l'enfant pose ses meubles et ses stickers où elle veut (20 au plus), les déplace au doigt, et les retire d'un appui long (ils reviennent dans l'inventaire).
 5. **Mon album** montre tout le catalogue : les stickers trouvés en couleur, les autres en silhouette. Des cadeaux (étoiles, coffres) se récupèrent à chaque palier de stickers différents. Les coffres donnent le plus souvent un sticker qui manque encore.
 6. Les **défis du jour** : trois petits défis, quelques étoiles chacun, un coffre pour les trois. Pas de série à tenir : on ne perd jamais rien en ne jouant pas, et le compteur de jours de jeu ne fait que monter.
 
-7. La **salle de jeux** : de vrais jeux (serpent, blocs, bonbons) à débloquer une fois avec des étoiles, puis un jeton par partie. Ils ne rapportent rien : les étoiles se gagnent en apprenant, et se dépensent aussi à jouer. Chaque partie se termine d'elle-même ; le record est gardé.
+7. La **salle de jeux** : un bâtiment de la ville, avec une borne par jeu (serpent, blocs, bonbons). Chaque jeu se débloque une fois avec des étoiles, puis on y joue sur le temps de jeu du jour. Les jeux ne rapportent rien : les étoiles se gagnent en apprenant. Chaque partie se termine d'elle-même ; le record est gardé.
+8. Le **temps de jeu du jour** : 5 minutes offertes chaque jour pour jouer dans les lieux (se promener, décorer) et dans la salle de jeux, puis 5 minutes de plus pour 5 ⭐, jusqu'à 20 minutes par jour. Apprendre, s'entraîner, l'atelier, les coffres et la boutique ne le consomment pas. Le temps ne compte que l'app à l'écran, et pas après une minute sans toucher l'écran. Quand il est fini, retour à la ville avec un message doux ; une partie commencée se termine normalement.
 
-Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre), `ARCADE` (jeux, prix, jeton ; `prixJeton: 0` = parties gratuites) et `ECONOMIE.chanceNouveauSticker` dans `data/lieux.js`.
+Réglages : `ALBUM` (paliers et cadeaux), `DEFIS` (défis, étoiles, coffre), `ARCADE` (jeux, prix de déblocage), `TEMPS_JEU` (minutes offertes, prix et durée d'un achat, plafond par jour) et `ECONOMIE.chanceNouveauSticker` dans `data/lieux.js`.
 
 ## 🎯 Fonctionnalités
 
@@ -138,7 +140,9 @@ L'accueil est la carte d'une petite ville. **Une liste = un lieu**, **un éléme
 - Chaque bâtiment a **6 étages de 12 objets** (72 emplacements). Un étage n'est ouvert que si la liste en a besoin : les 12 premiers éléments vont au premier étage, etc. Au-delà de 72, plusieurs éléments partagent un objet.
 - Le **rangement est stable** : un élément garde son objet. En modifiant la liste, seuls les nouveaux éléments sont rangés. Mots : au hasard dans le premier étage qui a de la place. Cartes questions : dans l'ordre de la liste, pour qu'une question reste voisine de celles qui l'entourent.
 - Les objets sont **dessinés par le code** (`js/objets.js`, une centaine de formes) : silhouette grise tant que l'élément n'est pas maîtrisé, en couleur avec un petit visage ensuite. Les emojis et les stickers ne servent que de décor.
-- Un appui sur un bâtiment ouvre sa liste et ses modes de jeu ; le **+** crée une nouvelle liste.
+- Un appui sur un bâtiment ouvre sa liste et ses modes de jeu ; le **+** crée une nouvelle liste. La **salle de jeux** a aussi son bâtiment.
+- **Apprendre et S'entraîner** se passent dans l'étage, en **mode calme** : la pièce, les objets d'apprentissage et le kawaii, qui marche jusqu'à l'objet du moment. L'objet brille ; on tape dessus pour voir le mot (ou pour l'écrire). Les déco sont très pâles et ne se touchent pas.
+- **🧸 Jouer dans ce lieu** (fiche d'un bâtiment), en **mode libre** : on passe d'étage en étage, on déplace les objets d'apprentissage (marqués ⭐ ; le mot suit son objet), son kawaii et ses déco, et on pose meubles et stickers depuis le tiroir « 🎒 Décorer ». « Remettre les objets » rend leur place de départ aux objets de l'étage. Ce mode consomme le temps de jeu du jour.
 
 Ajouter un bâtiment = ajouter une entrée dans `BATIMENTS` (`data/monde.js`) : 6 étages, chacun avec son décor et 12 formes de `js/objets.js`, sans réutiliser une forme dans le même bâtiment. Ajouter un objet = ajouter une forme dans `FORMES` (`js/objets.js`).
 
@@ -190,8 +194,8 @@ Chaque mot est associé à un **objet précis** d'un lieu de la ville. L'enfant 
 
 Toutes les données sont stockées en **localStorage** :
 
-- `wordLists` : Listes, niveaux, progression, lieu (`lieu`), rangement des éléments sur les objets (`places`) et place sur la carte (`parcelle`)
-- `economy` : Étoiles, inventaire, stickers collés (`placed` : par scène, avec leur position), garde-robe, cadeaux de l'album récupérés, défis du jour, jours de jeu, jeux débloqués et records
+- `wordLists` : Listes, niveaux, progression, lieu (`lieu`), rangement des éléments sur les objets (`places`), place des objets dans l'étage si elle les a déplacés (`positions`) et place sur la carte (`parcelle`)
+- `economy` : Étoiles, stickers et meubles possédés (`inventory`, `meubles`), déco posées (`placed` : par étage, avec leur position), garde-robe, cadeaux de l'album récupérés, défis du jour, jours de jeu, jeux débloqués et records, temps de jeu du jour (`tempsJeu`), parcelle de la salle de jeux (`salleJeux`)
 - `kawaiiTeam` : Kawaii principal et compagnons
 - `sauvegardeAvantMonde` : copie, faite une seule fois, des données d'avant la ville (reste sur l'appareil)
 

@@ -1,3 +1,26 @@
+## [2026-10-07] - Le monde virtuel, étape 2 : les étages, le mode libre, le temps de jeu
+
+### Ajouté
+- **Les étages** : chaque étage est une pièce dessinée par le code (murs, papier peint, fenêtres, sol selon le thème de l'étage ; ciel et rambarde sur les toits) avec ses objets d'apprentissage, en deux rangées et au mur
+- **Apprendre et S'entraîner dans l'étage (mode calme)** : le kawaii marche jusqu'à l'objet du moment, qui brille ; on tape dessus pour voir le mot ou pour l'écrire (le bouton reste là aussi). Animation lettre par lettre, mélodie, dictée, cases, timer et niveaux inchangés. Les déco sont très pâles et ne se touchent pas
+- **🧸 Jouer dans un lieu (mode libre)**, depuis la fiche d'un bâtiment : on passe d'étage en étage, on déplace au doigt les objets d'apprentissage (pastille ⭐ ; le mot suit son objet), son kawaii et ses déco. « ↩️ Remettre les objets » rend leur place de départ aux objets de l'étage
+- **Décorer** : le tiroir « 🎒 Décorer » montre les meubles et les stickers de l'inventaire ; on en choisit un, on tape dans la pièce pour le poser, un appui long le retire. 20 déco au plus par étage
+- **Meubles** : les formes dessinées servent aussi de meubles de déco. Kit de 12 meubles offert, meubles dans les coffres (environ un sur trois) et rayon « 🛋️ Meubles » à la boutique (4 à 8 ⭐)
+- **Temps de jeu du jour** : 5 minutes offertes chaque jour pour jouer dans les lieux et dans la salle de jeux, puis 5 minutes pour 5 ⭐, jusqu'à 20 minutes. Jauge ⏳ pendant le jeu, temps restant sur la carte. Quand il est fini : le kawaii bâille, retour à la ville avec un message doux
+- **Salle de jeux dans la ville** : un bâtiment à enseigne lumineuse, avec une borne d'arcade par jeu
+
+### Changé
+- **Les stickers se collent dans les étages**, plus sur la carte. Ceux déjà collés sur la carte reviennent dans le sac. « Coller un sticker » (défi du jour, album, fin de session) fait choisir un lieu, puis ouvre son tiroir
+- Salle de jeux : plus de jetons par partie ; le déblocage unique reste, et on joue sur le temps du jour. Une partie commencée se termine même si le temps finit
+- Défi « Colle un sticker dans un lieu »
+
+### Technique
+- Nouveau fichier `js/scene.js` (`Scene` : décor, `render` en mode calme ou libre, glisser-déposer, tiroir). `TempsJeu` dans `js/recompenses.js` (le composant `Stickers` de la carte est retiré)
+- `list.positions` ; `economy.placed` par étage (`bat:<liste>:<étage>`, `{ sticker | meuble, x, y }`) ; `economy.meubles`, `economy.kitDepart`, `economy.tempsJeu`, `economy.salleJeux`, `economy.version = 3`. Supprimer une liste remet ses déco dans l'inventaire
+- Réglages : `TEMPS_JEU`, `ECONOMIE.maxDecoParScene`, `chanceMeubleCoffre`, `prixMeubles`, `kitDepart` ; `ARCADE.prixJeton` retiré
+- `js/kawaii.js` : pas de caresse sur un kawaii qu'on fait glisser (`data-drag`)
+- Service worker et `?v=` : `v21`
+
 ## [2026-10-07] - Le monde virtuel, étape 1 : la ville et ses bâtiments
 
 ### Ajouté

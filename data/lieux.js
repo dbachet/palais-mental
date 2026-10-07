@@ -17,12 +17,17 @@ const ECONOMIE = {
   etoilesApprentissage: 3,        // fin d'une visite du palais
   seuilPassageNiveau: 0.8,        // réussite de session pour monter d'un niveau (jamais de descente)
   etoilesParCoffre: 12,           // un coffre tous les N étoiles gagnées
-  maxStickersParScene: 12,          // stickers collés au plus sur la carte, un étage ou une maison
+  maxDecoParScene: 20,            // déco (meubles + stickers) au plus par étage d'un lieu
   prix: { commun: 5, rare: 12, legendaire: 25, kawaii: 40 },
   // Habits et accessoires de l'atelier : prix par type
   // fond : couleur unie derrière le kawaii ; scene : fond dessiné (plage, espace…)
   prixAccessoires: { fur: 8, glasses: 10, hat: 12, outfit: 15, fond: 6, scene: 18 },
-  chanceAccessoireCoffre: 0.3,  // un coffre sur trois donne un accessoire plutôt qu'un sticker
+  chanceAccessoireCoffre: 0.25, // un coffre sur quatre donne un accessoire pour l'atelier
+  chanceMeubleCoffre: 0.35,     // sinon, un sur trois environ donne un meuble (le reste : un sticker)
+  // Meubles de déco (les formes de js/objets.js) : prix selon leur taille
+  prixMeubles: { petit: 4, mur: 5, sol: 8 },
+  // Offerts une fois, pour décorer tout de suite
+  kitDepart: ['plante', 'lampe', 'coussin', 'tableau', 'vase', 'pouf', 'horloge', 'nounours', 'ballons', 'fleur', 'etoile', 'miroir'],
   // Probabilités d'un coffre normal (un coffre "rare" garantit au moins rare)
   chancesCoffre: { commun: 0.62, rare: 0.30, legendaire: 0.05, kawaii: 0.03 },
   // Dans la rareté tirée, chance de donner un sticker que l'enfant n'a pas
@@ -33,14 +38,14 @@ const ECONOMIE = {
 // ═══════════════════════════════════════════════════════════════
 // SALLE DE JEUX (récompenses : de vrais jeux)
 // ═══════════════════════════════════════════════════════════════
-// Chaque jeu se débloque une fois avec des étoiles, puis chaque partie
-// coûte un jeton (prixJeton étoiles ; 0 = parties gratuites). Les jeux ne
-// rapportent pas d'étoiles : ils se gagnent en apprenant. Une partie se
-// termine d'elle-même (murs, blocs empilés, coups épuisés).
-// Moteurs dans js/arcade.js.
+// La salle de jeux est un bâtiment de la ville. Chaque jeu se débloque une
+// fois avec des étoiles, puis on joue sur le temps de jeu du jour
+// (TEMPS_JEU). Les jeux ne rapportent pas d'étoiles : elles se gagnent en
+// apprenant. Une partie se termine d'elle-même (murs, blocs empilés, coups
+// épuisés). Moteurs dans js/arcade.js. Ajouter un jeu = une ligne ici + son
+// moteur ; il a sa borne dans la salle.
 
 const ARCADE = {
-  prixJeton: 3,
   jeux: [
     { id: 'serpent', nom: 'Serpent', emoji: '🐍', prix: 30,
       desc: 'Ton kawaii mange ses objets préférés et grandit. Attention aux murs !' },
@@ -49,6 +54,23 @@ const ARCADE = {
     { id: 'bonbons', nom: 'Bonbons', emoji: '🍬', prix: 40,
       desc: 'Aligne 3 bonbons pareils. Tu as 20 coups pour faire le meilleur score.' }
   ]
+};
+
+// ═══════════════════════════════════════════════════════════════
+// TEMPS DE JEU LIBRE (par jour)
+// ═══════════════════════════════════════════════════════════════
+// Jouer dans les lieux (se promener, décorer, coller des stickers) et les
+// jeux de la salle de jeux consomment un temps de jeu par jour. Apprendre,
+// s'entraîner, l'atelier, les coffres et la boutique n'en consomment pas.
+// Le temps ne compte que l'app à l'écran, et s'arrête après un moment sans
+// toucher l'écran.
+
+const TEMPS_JEU = {
+  offertMinutes: 5,      // offertes chaque jour
+  achatMinutes: 5,       // minutes ajoutées par achat
+  achatPrix: 5,          // étoiles par achat
+  maxMinutesParJour: 20, // offertes + achetées, au plus
+  pauseApresSecondes: 60 // sans toucher l'écran, le temps ne compte plus
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -100,7 +122,7 @@ const DEFIS = {
     ],
     [ // un moment doux
       { id: 'calin',   emoji: '💖', texte: 'Fais un câlin à ton kawaii', cible: 1 },
-      { id: 'sticker', emoji: '🏙️', texte: 'Colle un sticker dans ta ville', cible: 1 },
+      { id: 'sticker', emoji: '🏠', texte: 'Colle un sticker dans un lieu', cible: 1 },
       { id: 'album',   emoji: '📒', texte: 'Va voir ton album', cible: 1 }
     ]
   ]
@@ -165,8 +187,8 @@ const LANGUES = {
 // STICKERS (récompenses)
 // ═══════════════════════════════════════════════════════════════
 // Pas d'images : chaque sticker est un emoji ou un kawaii. On les gagne
-// dans les coffres ou on les achète, puis on les colle où on veut (sur la
-// carte de la ville, dans les étages, dans les maisons). Ils ne servent
+// dans les coffres ou on les achète, puis on les colle où on veut (dans les
+// étages des bâtiments, dans les maisons). Ils ne servent
 // qu'à décorer : les éléments des listes sont rangés sur des objets dessinés.
 // Ajouter un sticker = ajouter une ligne.
 

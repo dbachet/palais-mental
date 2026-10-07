@@ -60,11 +60,9 @@ const Defis = {
       }
       case 'calin':
         return !!Storage.getTeam().main;
-      case 'sticker': {
-        const eco = Storage.getEconomy();
-        const free = Storage.getFreeStickers().length > 0;
-        return free && (eco.placed.carte || []).length < ECONOMIE.maxStickersParScene;
-      }
+      case 'sticker':
+        // Il faut un sticker dans le sac, un lieu où le coller et du temps de jeu
+        return Storage.getFreeStickers().length > 0 && Storage.getActiveLists().length > 0 && TempsJeu.peutJouer();
       default:
         return true;
     }
@@ -423,8 +421,8 @@ function showAlbumSticker(stickerId) {
   const free = Storage.getFreeCount(stickerId, eco);
   const placed = count - free;
   const where = placed === 0
-    ? 'Pas encore collé dans ta ville.'
-    : `${placed} collé${placed > 1 ? 's' : ''} dans ta ville${free > 0 ? `, ${free} dans ton sac` : ''}.`;
+    ? 'Pas encore collé dans un lieu.'
+    : `${placed} collé${placed > 1 ? 's' : ''} dans tes lieux${free > 0 ? `, ${free} dans ton sac` : ''}.`;
   showSheet(`
     <div class="sheet-art">${stickerArt(sticker, 110)}</div>
     <h3>${escapeText(sticker.nom)}${count > 1 ? ` ×${count}` : ''}</h3>
@@ -432,167 +430,199 @@ function showAlbumSticker(stickerId) {
     <p class="text-center mt-10">${where}</p>
     <div class="sheet-actions">
       <button class="btn btn-ghost" onclick="closeSheet()">Fermer</button>
-      ${free > 0 ? '<button class="btn btn-primary" onclick="closeSheet(); collerStickers()">🏙️ Le coller</button>' : ''}
+      ${free > 0 ? '<button class="btn btn-primary" onclick="closeSheet(); collerStickers()">🏠 Le coller</button>' : ''}
     </div>
   `);
 }
 
 // ═══════════════════════════════════════════════════════════════
-// STICKERS À COLLER OÙ ON VEUT (décor seulement, jamais pour le jeu)
+// TEMPS DE JEU LIBRE (par jour)
 // ═══════════════════════════════════════════════════════════════
-// Une scène (la carte de la ville, un étage, une maison) a un calque où
-// les stickers se posent librement. Positions gardées dans les unités du
-// dessin de la scène (son viewBox), pour qu'ils restent en place quelle que
-// soit la taille de l'écran.
-//   Stickers.attach(calque, sceneId, largeur, hauteur) : affiche et rend déplaçables
-//   Stickers.choisir() : ouvre le sac, puis « tape où tu veux le coller »
-// Glisser un sticker le déplace ; un appui long le décolle (il revient dans le sac).
+// Jouer dans les lieux (🧸) et les jeux de la salle de jeux consomment le
+// temps du jour : TEMPS_JEU.offertMinutes offertes, puis des minutes à
+// acheter avec des étoiles, jusqu'à TEMPS_JEU.maxMinutesParJour.
+// Rangé dans economy.tempsJeu = { date, utilise (secondes), achete (minutes) },
+// donc synchronisé : le temps joué sur l'iPad compte aussi ailleurs.
+// Le temps ne compte que l'app à l'écran, et pas après un moment sans
+// toucher l'écran.
 
-const Stickers = {
-  scene: null, // { layer, id, w, h }
-  armed: null, // id du sticker choisi, en attente d'un endroit
+const TempsJeu = {
+  timer: null,
+  onFin: null,
+  enAttente: 0,        // secondes jouées pas encore enregistrées
+  derniereActivite: 0,
 
-  attach(layer, sceneId, w, h) {
-    if (!layer) return;
-    this.scene = { layer, id: sceneId, w, h };
-    this.armed = null;
-    layer.onpointerdown = (e) => this.onLayerDown(e);
-    this.render();
+  aujourdhui() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   },
 
-  render() {
-    const sc = this.scene;
-    if (!sc || !document.body.contains(sc.layer)) return;
-    sc.layer.classList.toggle('armed', !!this.armed);
-    sc.layer.innerHTML = Storage.getPlacedStickers(sc.id).map((it, i) => `
-      <div class="placed-sticker" data-index="${i}" style="left:${(Math.min(it.x, sc.w) / sc.w) * 100}%;top:${(Math.min(it.y, sc.h) / sc.h) * 100}%">${stickerArt(it.sticker, 56)}</div>
-    `).join('') + (this.armed ? '<div class="stickers-armed-hint">👆 Tape où tu veux coller ton sticker</div>' : '');
+  etat(eco = Storage.getEconomy()) {
+    const t = eco.tempsJeu;
+    if (!t || t.date !== this.aujourdhui()) return { date: this.aujourdhui(), utilise: 0, achete: 0 };
+    return { date: t.date, utilise: t.utilise || 0, achete: t.achete || 0 };
   },
 
-  // Point de l'écran → unités de la scène
-  toScene(e) {
-    const r = this.scene.layer.getBoundingClientRect();
-    return {
-      x: Math.max(0, Math.min(this.scene.w, ((e.clientX - r.left) / r.width) * this.scene.w)),
-      y: Math.max(0, Math.min(this.scene.h, ((e.clientY - r.top) / r.height) * this.scene.h))
-    };
+  // Secondes qui restent aujourd'hui
+  restant() {
+    const t = this.etat();
+    return Math.max(0, (TEMPS_JEU.offertMinutes + t.achete) * 60 - t.utilise - this.enAttente);
   },
 
-  onLayerDown(e) {
-    const el = e.target.closest('.placed-sticker');
-    if (this.armed) {
-      e.preventDefault();
-      const { x, y } = this.toScene(e);
-      const id = this.armed;
-      this.armed = null;
-      if (Storage.placeSticker(this.scene.id, id, x, y)) {
-        playStarSound();
-        Defis.track('sticker');
-        if (AppState.currentScreen === 'home') renderPalaceCard();
-      } else {
-        showFeedback(`Pas plus de ${ECONOMIE.maxStickersParScene} stickers ici`, 'error');
-      }
-      this.render();
+  peutJouer() {
+    return this.restant() > 0;
+  },
+
+  // { ok } ou { ok: false, raison: 'max' | 'etoiles' }
+  achatPossible() {
+    const t = this.etat();
+    if (TEMPS_JEU.offertMinutes + t.achete + TEMPS_JEU.achatMinutes > TEMPS_JEU.maxMinutesParJour) return { ok: false, raison: 'max' };
+    if (Storage.getEconomy().stars < TEMPS_JEU.achatPrix) return { ok: false, raison: 'etoiles' };
+    return { ok: true };
+  },
+
+  acheter() {
+    if (!this.achatPossible().ok || !Storage.spendStars(TEMPS_JEU.achatPrix)) return false;
+    const eco = Storage.getEconomy();
+    const t = this.etat(eco);
+    t.achete += TEMPS_JEU.achatMinutes;
+    eco.tempsJeu = t;
+    Storage.saveEconomy(eco);
+    playStarSound();
+    this.afficher();
+    return true;
+  },
+
+  sauver() {
+    if (this.enAttente <= 0) return;
+    const eco = Storage.getEconomy();
+    const t = this.etat(eco);
+    t.utilise += this.enAttente;
+    eco.tempsJeu = t;
+    this.enAttente = 0;
+    Storage.saveEconomy(eco);
+  },
+
+  demarrer(onFin) {
+    this.arreter();
+    this.onFin = onFin;
+    this.derniereActivite = Date.now();
+    this.timer = setInterval(() => this.tic(), 1000);
+    this.afficher();
+  },
+
+  tic() {
+    if (document.hidden) return;
+    const pause = Date.now() - this.derniereActivite > TEMPS_JEU.pauseApresSecondes * 1000;
+    if (pause) {
+      this.afficher(true);
       return;
     }
-    if (el) this.startDrag(e, el);
-  },
-
-  startDrag(e, el) {
-    e.preventDefault();
-    const index = Number(el.dataset.index);
-    const start = { x: e.clientX, y: e.clientY };
-    let moved = false;
-    try { el.setPointerCapture(e.pointerId); } catch (err) {}
-    el.classList.add('dragging');
-    const longPress = setTimeout(() => { if (!moved) { cleanup(); this.askRemove(index); } }, 600);
-    const move = (ev) => {
-      if (!moved && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 8) return;
-      moved = true;
-      clearTimeout(longPress);
-      const p = this.toScene(ev);
-      el.style.left = (p.x / this.scene.w) * 100 + '%';
-      el.style.top = (p.y / this.scene.h) * 100 + '%';
-    };
-    const up = (ev) => {
-      cleanup();
-      if (moved) {
-        const p = this.toScene(ev);
-        Storage.moveSticker(this.scene.id, index, p.x, p.y);
-      }
-    };
-    const cleanup = () => {
-      clearTimeout(longPress);
-      el.classList.remove('dragging');
-      el.removeEventListener('pointermove', move);
-      el.removeEventListener('pointerup', up);
-      el.removeEventListener('pointercancel', up);
-    };
-    el.addEventListener('pointermove', move);
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
-  },
-
-  askRemove(index) {
-    const it = Storage.getPlacedStickers(this.scene.id)[index];
-    if (!it) return;
-    showSheet(`
-      <div class="sheet-art">${stickerArt(it.sticker, 110)}</div>
-      <h3>${escapeText(it.sticker.nom)}</h3>
-      <p class="text-center">Le décoller ? Il retourne dans ton sac.</p>
-      <div class="sheet-actions">
-        <button class="btn btn-ghost" onclick="closeSheet()">Garder</button>
-        <button class="btn btn-secondary" onclick="closeSheet(); Stickers.remove(${index})">Décoller</button>
-      </div>
-    `);
-  },
-
-  remove(index) {
-    Storage.removeSticker(this.scene.id, index);
-    this.render();
-    if (AppState.currentScreen === 'home') renderPalaceCard();
-  },
-
-  // Ouvre le sac : on choisit un sticker, puis on tape dans la scène
-  choisir() {
-    const free = Storage.getFreeStickers();
-    if (free.length === 0) {
-      showSheet(`
-        <h3>🎒 Ton sac est vide</h3>
-        <p class="text-center">Gagne des étoiles pour ouvrir des coffres, ou choisis un sticker dans la boutique.</p>
-        <div class="sheet-actions">
-          <button class="btn btn-ghost" onclick="closeSheet()">D'accord</button>
-          <button class="btn btn-primary" onclick="closeSheet(); showShopScreen()">🛍️ Boutique</button>
-        </div>
-      `);
-      return;
+    this.enAttente++;
+    if (this.enAttente >= 5) this.sauver();
+    this.afficher();
+    if (this.restant() <= 0) {
+      const f = this.onFin;
+      this.arreter();
+      if (f) f();
     }
-    const items = free.map(({ sticker, count }) => `
-      <div class="sheet-item" onclick="Stickers.arm('${sticker.id}')">
-        <div class="emoji">${stickerArt(sticker, 64)}</div>
-        <div class="count">${escapeText(sticker.nom)}${count > 1 ? ` ×${count}` : ''}</div>
-      </div>
-    `).join('');
-    showSheet(`
-      <h3>Quel sticker coller ?</h3>
-      <p class="hint text-center">Ensuite, tape où tu veux le coller. Tu pourras le déplacer avec le doigt, et le décoller en appuyant longtemps dessus.</p>
-      <div class="sheet-grid">${items}</div>
-      <div class="sheet-actions">
-        <button class="btn btn-ghost" onclick="closeSheet()">Annuler</button>
-      </div>
-    `);
   },
 
-  arm(stickerId) {
+  activite() {
+    this.derniereActivite = Date.now();
+  },
+
+  arreter() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    this.onFin = null;
+    this.sauver();
+  },
+
+  format(sec) {
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  },
+
+  // Met à jour les jauges ⏳ affichées (salle de jeux, lieu)
+  afficher(enPause) {
+    const r = this.restant();
+    document.querySelectorAll('.temps-jeu').forEach(el => {
+      el.textContent = `⏳ ${this.format(r)}${enPause ? ' · pause' : ''}`;
+      el.classList.toggle('bas', r <= 60);
+    });
+  },
+
+  // Phrase pour l'accueil
+  texte() {
+    const r = this.restant();
+    if (r <= 0) return '🧸 Temps de jeu fini pour aujourd\'hui';
+    const m = Math.ceil(r / 60);
+    return `🧸 ${m} min de jeu aujourd'hui`;
+  },
+
+  boutonAchat() {
+    const a = this.achatPossible();
+    if (a.ok) return `<button class="btn btn-primary" onclick="TempsJeu.acheterPuis()">⏳ +${TEMPS_JEU.achatMinutes} min pour ${TEMPS_JEU.achatPrix} ⭐</button>`;
+    return '';
+  },
+
+  raisonTexte() {
+    const a = this.achatPossible();
+    if (a.raison === 'max') return 'Tu as assez joué pour aujourd\'hui. À demain !';
+    if (a.raison === 'etoiles') return `Il faut ${TEMPS_JEU.achatPrix} ⭐ pour ${TEMPS_JEU.achatMinutes} minutes de plus. Va apprendre un peu, et reviens !`;
+    return `Tu peux ajouter ${TEMPS_JEU.achatMinutes} minutes pour ${TEMPS_JEU.achatPrix} ⭐.`;
+  },
+
+  apresAchat: null,
+  acheterPuis() {
     closeSheet();
-    this.armed = stickerId;
-    this.render();
-    if (this.scene) this.scene.layer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const suite = this.apresAchat;
+    this.apresAchat = null;
+    if (this.acheter() && suite) suite();
+  },
+
+  // Plus de temps : propose d'en acheter, puis onOk()
+  proposerAchat(onOk) {
+    this.apresAchat = onOk;
+    showSheet(`
+      <div class="sheet-art temps-sheet-art">⏳</div>
+      <h3>Plus de temps de jeu aujourd'hui</h3>
+      <p class="text-center">${this.raisonTexte()}</p>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet()">D'accord</button>
+        ${this.boutonAchat()}
+      </div>
+    `);
+  },
+
+  // Le temps vient de finir pendant le jeu
+  messageFin(onRejouer, onQuitter, main) {
+    this.apresAchat = onRejouer;
+    showSheet(`
+      ${main ? `<div class="sheet-art">${Kawaii.draw(main, 110, { alive: true, mood: 'soir' })}</div>` : '<div class="sheet-art temps-sheet-art">⏳</div>'}
+      <h3>Ton temps de jeu est fini</h3>
+      <p class="text-center">${this.raisonTexte()}</p>
+      <div class="sheet-actions">
+        <button class="btn btn-ghost" onclick="closeSheet(); TempsJeu.quitterApresFin()">D'accord</button>
+        ${this.boutonAchat()}
+      </div>
+    `);
+    this.onQuitter = onQuitter;
+  },
+
+  quitterApresFin() {
+    const f = this.onQuitter;
+    this.onQuitter = null;
+    if (f) f();
   }
 };
 
-// Depuis n'importe où : retour sur la carte, sac ouvert
+document.addEventListener('pointerdown', () => TempsJeu.activite(), { passive: true });
+document.addEventListener('keydown', () => TempsJeu.activite());
+document.addEventListener('visibilitychange', () => { if (document.hidden) TempsJeu.sauver(); });
+
+// Coller un sticker, depuis n'importe où : choisir un lieu, y entrer sac ouvert
 function collerStickers() {
-  showScreen('home');
-  setTimeout(() => Stickers.choisir(), 150);
+  Scene.choisirLieu('stickers');
 }

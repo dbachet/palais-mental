@@ -1,8 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
 // MENTAL PALACE - Salle de jeux : de vrais jeux, gagnés avec les étoiles
 // ═══════════════════════════════════════════════════════════════
-// Serpent, Blocs (tetris) et Bonbons (match-3). Un jeu se débloque une
-// fois, puis chaque partie coûte un jeton (ARCADE dans data/lieux.js).
+// Serpent, Blocs (tetris) et Bonbons (match-3), dans la salle de jeux de la
+// ville. Un jeu se débloque une fois (ARCADE dans data/lieux.js), puis on
+// joue sur le temps de jeu du jour (TempsJeu, js/recompenses.js).
 // Les jeux ne rapportent pas d'étoiles ; ils gardent le record de l'enfant.
 // Tout est dessiné par le code (canvas ou DOM), le kawaii principal joue
 // dedans. Rangé dans economy.arcade = { unlocked, records, parties }.
@@ -51,7 +52,7 @@ const Arcade = {
       `);
       return;
     }
-    const jeton = ARCADE.prixJeton > 0 ? ` Ensuite, chaque partie coûte ${ARCADE.prixJeton} ⭐.` : '';
+    const jeton = ' Ensuite, tu y joues sur ton temps de jeu du jour.';
     showSheet(`
       <div class="sheet-art arcade-sheet-emoji">${jeu.emoji}</div>
       <h3>${jeu.nom}</h3>
@@ -78,40 +79,21 @@ const Arcade = {
     else showArcadeScreen();
   },
 
+  // Jouer, s'il reste du temps de jeu aujourd'hui
   askPlay(id) {
     const jeu = this.jeu(id);
     if (!jeu || !this.isUnlocked(id)) return;
-    const prix = ARCADE.prixJeton;
-    if (prix <= 0) {
-      this.play(id);
+    if (!TempsJeu.peutJouer()) {
+      TempsJeu.proposerAchat(() => this.play(id));
       return;
     }
-    const eco = Storage.getEconomy();
-    if (eco.stars < prix) {
-      showSheet(`
-        <div class="sheet-art arcade-sheet-emoji">🎟️</div>
-        <h3>Plus assez d'étoiles</h3>
-        <p class="text-center">Une partie coûte ${prix} ⭐ et il t'en reste ${eco.stars}. Va t'entraîner un peu, et reviens jouer !</p>
-        <div class="sheet-actions"><button class="btn btn-primary" onclick="closeSheet()">D'accord</button></div>
-      `);
-      return;
-    }
-    showSheet(`
-      <div class="sheet-art arcade-sheet-emoji">${jeu.emoji}</div>
-      <h3>${jeu.nom}</h3>
-      <p class="text-center">Une partie pour ${prix} ⭐ ? Il te restera ${eco.stars - prix} ⭐.</p>
-      <div class="sheet-actions">
-        <button class="btn btn-ghost" onclick="closeSheet()">Non</button>
-        <button class="btn btn-primary" onclick="Arcade.play('${id}')">🎟️ C'est parti !</button>
-      </div>
-    `);
+    this.play(id);
   },
 
   play(id) {
     closeSheet();
     const jeu = this.jeu(id);
-    if (!jeu || !this.isUnlocked(id)) return;
-    if (ARCADE.prixJeton > 0 && !Storage.spendStars(ARCADE.prixJeton)) return;
+    if (!jeu || !this.isUnlocked(id) || !TempsJeu.peutJouer()) return;
     const arcade = this.state();
     arcade.parties++;
     this.save(arcade);
@@ -154,9 +136,12 @@ const Arcade = {
     };
     const engines = { serpent: createSerpent, blocs: createBlocs, bonbons: createBonbons };
     this.current = engines[id](api);
+    // Le temps du jour s'écoule ; s'il finit pendant la partie, elle se termine normalement
+    TempsJeu.demarrer(() => showFeedback('⏳ Ton temps de jeu est fini : termine ta partie !', 'success'));
   },
 
   stop() {
+    TempsJeu.arreter();
     if (this.current) {
       try { this.current.stop(); } catch (e) { }
       this.current = null;
@@ -185,8 +170,9 @@ const Arcade = {
 
     const stage = document.getElementById('arcade-stage');
     if (!stage) return;
-    const canReplay = this.isUnlocked(id) && (ARCADE.prixJeton <= 0 || Storage.getEconomy().stars >= ARCADE.prixJeton);
-    const replay = ARCADE.prixJeton > 0 ? `🎟️ Rejouer (${ARCADE.prixJeton} ⭐)` : '🔁 Rejouer';
+    const replay = TempsJeu.peutJouer()
+      ? `<button class="btn btn-primary btn-big" onclick="Arcade.askPlay('${id}')">🔁 Rejouer <span class="temps-jeu"></span></button>`
+      : `<button class="btn btn-primary btn-big" onclick="Arcade.askPlay('${id}')">⏳ Temps de jeu fini</button>`;
     const overlay = document.createElement('div');
     overlay.className = 'arcade-over';
     overlay.innerHTML = `
@@ -196,12 +182,13 @@ const Arcade = {
         <p class="arcade-over-score">${score}</p>
         <p class="result-sub">${isRecord && score > 0 ? (before > 0 ? `Ton ancien record : ${before}` : 'Ton premier record !') : `Ton record : ${before}`}</p>
         <div class="result-actions">
-          <button class="btn btn-primary btn-big" onclick="Arcade.askPlay('${id}')"${canReplay ? '' : ' disabled'}>${replay}</button>
+          ${replay}
           <button class="btn btn-ghost" onclick="showArcadeScreen()">🕹️ Salle de jeux</button>
         </div>
       </div>
     `;
     stage.appendChild(overlay);
+    TempsJeu.afficher();
   },
 
   // Bouton retour : on ne quitte pas une partie sans prévenir
@@ -1043,6 +1030,7 @@ function createBonbons(api) {
 // ÉCRAN SALLE DE JEUX
 // ───────────────────────────────────────────────────────────────
 
+// La salle de jeux : une borne par jeu
 function showArcadeScreen() {
   Arcade.stop();
   showScreen('arcade');
@@ -1053,26 +1041,32 @@ function showArcadeScreen() {
   const chip = document.getElementById('arcade-stars');
   if (chip) chip.textContent = `⭐ ${eco.stars}`;
 
-  const jeton = ARCADE.prixJeton > 0 ? `Une partie coûte ${ARCADE.prixJeton} ⭐.` : 'Les parties sont gratuites.';
-  let html = `<p class="intro">Des jeux à débloquer avec tes étoiles. ${jeton} Les étoiles, elles, se gagnent en apprenant !</p>`;
-  html += '<div class="arcade-grid">';
+  let html = `<p class="intro">Des jeux à débloquer avec tes étoiles, puis à jouer sur ton temps de jeu du jour : <strong class="temps-jeu"></strong>.</p>`;
+  html += '<div class="arcade-salle">';
   ARCADE.jeux.forEach(jeu => {
     const unlocked = arcade.unlocked.includes(jeu.id);
     const record = arcade.records[jeu.id] || 0;
-    const canPlay = ARCADE.prixJeton <= 0 || eco.stars >= ARCADE.prixJeton;
     html += `
-      <div class="arcade-card${unlocked ? ' unlocked' : ' locked'}">
-        <div class="arcade-emoji">${jeu.emoji}</div>
-        <div class="arcade-name">${jeu.nom}</div>
+      <div class="arcade-borne${unlocked ? ' unlocked' : ' locked'}">
+        <button type="button" class="borne" onclick="${unlocked ? `Arcade.askPlay('${jeu.id}')` : `Arcade.askUnlock('${jeu.id}')`}" aria-label="${jeu.nom}">
+          <span class="borne-titre">${jeu.nom}</span>
+          <span class="borne-ecran">${unlocked ? jeu.emoji : '🔒'}</span>
+          <span class="borne-boutons"><i></i><i></i><i></i></span>
+        </button>
         <p class="arcade-desc">${escapeText(jeu.desc)}</p>
         ${unlocked
           ? `<div class="arcade-record-line">${record > 0 ? `🏆 Record : ${record}` : 'Pas encore de record'}</div>
-             <button class="btn btn-primary" onclick="Arcade.askPlay('${jeu.id}')"${canPlay ? '' : ' disabled'}>▶️ Jouer${ARCADE.prixJeton > 0 ? ` · ${ARCADE.prixJeton} ⭐` : ''}</button>`
+             <button class="btn btn-primary" onclick="Arcade.askPlay('${jeu.id}')">▶️ Jouer</button>`
           : `<button class="btn ${eco.stars >= jeu.prix ? 'btn-secondary' : 'btn-ghost'}" onclick="Arcade.askUnlock('${jeu.id}')">🔒 Débloquer · ${jeu.prix} ⭐</button>`}
       </div>
     `;
   });
   html += '</div>';
-  if (arcade.parties > 0) html += `<p class="hint text-center mt-20">🎟️ ${arcade.parties} partie${arcade.parties > 1 ? 's' : ''} jouée${arcade.parties > 1 ? 's' : ''}</p>`;
+  if (TempsJeu.achatPossible().ok || !TempsJeu.peutJouer()) {
+    html += `<p class="hint text-center mt-20">${TempsJeu.peutJouer() ? '' : 'Plus de temps de jeu aujourd\'hui. '}${TempsJeu.raisonTexte()}</p>`;
+    if (TempsJeu.achatPossible().ok) html += `<div class="text-center"><button class="btn btn-ghost" onclick="TempsJeu.acheter() && showArcadeScreen()">⏳ +${TEMPS_JEU.achatMinutes} min pour ${TEMPS_JEU.achatPrix} ⭐</button></div>`;
+  }
+  if (arcade.parties > 0) html += `<p class="hint text-center mt-20">🕹️ ${arcade.parties} partie${arcade.parties > 1 ? 's' : ''} jouée${arcade.parties > 1 ? 's' : ''}</p>`;
   content.innerHTML = html;
+  TempsJeu.afficher();
 }

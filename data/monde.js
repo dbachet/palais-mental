@@ -131,5 +131,11 @@ const BATIMENTS = [
   }
 ];
 
+// La salle de jeux : un bâtiment de la ville sans liste (js/arcade.js)
+const SALLE_JEUX = {
+  id: 'salle', nom: 'Salle de jeux', embleme: null,
+  couleurs: { facade: '#5B4E92', toit: '#FF7EB9', accent: '#5FD3CE' }
+};
+
 // Objets par étage (le décor en prévoit 12 emplacements)
 const OBJETS_PAR_ETAGE = 12;

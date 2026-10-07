@@ -41,7 +41,7 @@ function slotInfo(lieu, slotId) {
   const etage = b.etages[ei];
   const o = etage && objetDe(etage.objets[i]);
   if (!o) return null;
-  return { batiment: b, etage: ei, etageNom: etage.nom, index: i, ...o };
+  return { batiment: b, etage: ei, etageNom: etage.nom, index: i, slotId, ...o };
 }
 
 // 'four' ou { f, c, nom } → { forme, couleur, nom }
@@ -152,18 +152,28 @@ function batimentPropose(lists = Storage.getActiveLists()) {
   return BATIMENTS.reduce((best, b) => (compte(b.id) < compte(best.id) ? b : best), BATIMENTS[0]).id;
 }
 
-// Première parcelle libre de la carte
+// Première parcelle libre de la carte (ni une liste, ni la salle de jeux)
 function parcelleLibre(lists, sauf) {
   const prises = new Set(lists.filter(l => l !== sauf && !Storage.isArchived(l) && Number.isInteger(l.parcelle)).map(l => l.parcelle));
+  const salle = parcelleSalle();
+  if (salle !== null) prises.add(salle);
   let p = 0;
   while (prises.has(p)) p++;
   return p;
+}
+
+// La salle de jeux a sa parcelle, gardée dans economy.salleJeux
+function parcelleSalle() {
+  const s = Storage.getEconomy().salleJeux;
+  return s && Number.isInteger(s.parcelle) ? s.parcelle : null;
 }
 
 // Chaque liste active a sa parcelle, sans doublon. true si quelque chose a changé.
 function donnerParcelles(lists) {
   let change = false;
   const vues = new Set();
+  const salle = parcelleSalle();
+  if (salle !== null) vues.add(salle);
   lists.filter(l => !Storage.isArchived(l)).forEach(l => {
     if (!Number.isInteger(l.parcelle) || vues.has(l.parcelle)) {
       l.parcelle = parcelleLibre(lists, l);
@@ -202,18 +212,36 @@ function migrer() {
   if (donnerParcelles(lists)) change = true;
   if (change) Storage.saveLists(lists);
 
-  // Économie : les stickers collés dans l'ancienne maison reviennent dans le sac
-  const raw = localStorage.getItem('economy');
-  if (raw) {
-    try {
-      const eco = JSON.parse(raw);
-      if (eco.version !== 2) {
-        eco.placed = {};
-        eco.version = 2;
-        localStorage.setItem('economy', JSON.stringify(eco));
-      }
-    } catch (e) {}
+  // La salle de jeux : un bâtiment de la ville, sur la première parcelle libre
+  if (parcelleSalle() === null) {
+    const eco0 = Storage.getEconomy();
+    eco0.salleJeux = { parcelle: parcelleLibre(lists) };
+    Storage.saveEconomy(eco0);
   }
+
+  // Économie : les stickers collés dans l'ancienne maison, puis ceux collés
+  // sur la carte (ils vont maintenant dans les étages), reviennent dans le
+  // sac ; le kit de meubles de départ est offert une fois.
+  const eco = Storage.getEconomy();
+  let ecoChange = false;
+  if (!eco.version || eco.version < 2) {
+    eco.placed = {};
+    ecoChange = true;
+  }
+  if (eco.placed.carte) {
+    delete eco.placed.carte;
+    ecoChange = true;
+  }
+  if (!eco.kitDepart) {
+    ECONOMIE.kitDepart.forEach(f => { eco.meubles[f] = (eco.meubles[f] || 0) + 1; });
+    eco.kitDepart = true;
+    ecoChange = true;
+  }
+  if (eco.version !== 3) {
+    eco.version = 3;
+    ecoChange = true;
+  }
+  if (ecoChange) Storage.saveEconomy(eco);
   localStorage.removeItem('maison');
 }
 
@@ -255,6 +283,11 @@ function facade(b, etages, x, y) {
   if (b.id === 'coiffure') {
     s += `<rect x="${g - 8}" y="${top - 12}" width="${w + 16}" height="16" rx="5" fill="${c.toit}" ${trait}/>`;
   }
+  if (b.id === 'salle') {
+    s += `<rect x="${g + 14}" y="${top - 40}" width="${w - 28}" height="36" rx="10" fill="${c.toit}" ${trait}/>`;
+    s += `<text x="${x}" y="${top - 13}" text-anchor="middle" font-size="22" font-weight="900" fill="#fff" font-family="system-ui, sans-serif">JEUX</text>`;
+    [g + 22, g + 50, g + w - 50, g + w - 22].forEach((lx, i) => { s += `<circle cx="${lx}" cy="${top - 48}" r="5" fill="${['#FFE38A', '#5FD3CE', '#FF9EC7', '#FFE38A'][i]}" class="ville-neon"/>`; });
+  }
   if (b.id === 'chateau') {
     for (let k = 0; k < 6; k++) s += `<rect x="${g + 6 + k * 28}" y="${top - 14}" width="18" height="16" fill="${c.facade}" ${trait}/>`;
   }
@@ -281,7 +314,7 @@ function facade(b, etages, x, y) {
   }
   s += `<path d="M${x - 22} ${y} v-34 a22 22 0 0 1 44 0 v34 z" fill="${b.id === 'chateau' ? '#9C6B45' : c.toit}" ${trait}/>`;
   s += `<circle cx="${x + 12}" cy="${y - 18}" r="3" fill="#FFD466"/>`;
-  s += `<circle cx="${g + 36}" cy="${ry + 30}" r="20" fill="#fff" ${trait}/><g transform="translate(${g + 21} ${ry + 15}) scale(.3)">${Objets.inner(b.embleme, null, { gris: true })}</g>`;
+  if (b.embleme) s += `<circle cx="${g + 36}" cy="${ry + 30}" r="20" fill="#fff" ${trait}/><g transform="translate(${g + 21} ${ry + 15}) scale(.3)">${Objets.inner(b.embleme, null, { gris: true })}</g>`;
   return s;
 }
 
@@ -315,7 +348,7 @@ function maitrise(list) {
 }
 
 function hauteurCarte(lists) {
-  const parcelles = lists.map(l => l.parcelle).concat([parcelleLibre(lists)]);
+  const parcelles = lists.map(l => l.parcelle).concat([parcelleLibre(lists), parcelleSalle() || 0]);
   const rangees = Math.ceil((Math.max(...parcelles) + 1) / COLONNES);
   return rangees * CELLULE.h + 30;
 }
@@ -355,6 +388,19 @@ function carteSVG(lists) {
     </g>`;
   });
 
+  // La salle de jeux
+  const salle = parcelleSalle();
+  if (salle !== null) {
+    const sc = salle % COLONNES, sr = Math.floor(salle / COLONNES);
+    const cx = sc * CELLULE.w + CELLULE.w / 2, base = sr * CELLULE.h + 236;
+    s += `<g class="ville-batiment" role="button" tabindex="0" aria-label="Salle de jeux" onclick="showArcadeScreen()">
+      <rect x="${cx - 118}" y="${sr * CELLULE.h + 4}" width="236" height="292" rx="22" fill="transparent"/>
+      <ellipse cx="${cx}" cy="${base + 4}" rx="98" ry="12" fill="#000" opacity=".08"/>
+      ${facade(SALLE_JEUX, 2, cx, base)}
+      <text x="${cx}" y="${base + 30}" class="ville-nom" text-anchor="middle">Salle de jeux</text>
+    </g>`;
+  }
+
   // Parcelle libre : nouvelle liste
   const col = nouvelle % COLONNES, row = Math.floor(nouvelle / COLONNES);
   const cx = col * CELLULE.w + CELLULE.w / 2, cy = row * CELLULE.h + 150;
@@ -364,7 +410,7 @@ function carteSVG(lists) {
     <text x="${cx}" y="${cy + 64}" text-anchor="middle" class="ville-nom">Nouvelle liste</text>
   </g>`;
 
-  return { svg: `<svg class="ville-svg" viewBox="0 0 ${LARGEUR_CARTE} ${H}" role="img" aria-label="Ma ville">${s}</svg>`, w: LARGEUR_CARTE, h: H };
+  return `<svg class="ville-svg" viewBox="0 0 ${LARGEUR_CARTE} ${H}" role="img" aria-label="Ma ville">${s}</svg>`;
 }
 
 function renderCarte() {
@@ -375,15 +421,13 @@ function renderCarte() {
   card.innerHTML = `
     <div class="ville-head">
       <h2>🏙️ Ma ville</h2>
-      <button class="btn btn-ghost btn-small" onclick="Stickers.choisir()">🎒 Mes stickers</button>
+      <span class="ville-temps">${TempsJeu.texte()}</span>
     </div>
     <div class="ville" id="ville">
-      ${carte.svg}
-      <div class="stickers-layer" id="ville-stickers"></div>
+      ${carte}
     </div>
     ${lists.length === 0 ? '<p class="hint text-center">Tape sur le + pour construire ton premier lieu : une liste de mots ou de questions.</p>' : ''}
   `;
-  Stickers.attach(document.getElementById('ville-stickers'), 'carte', carte.w, carte.h);
 }
 
 // Feuille d'un lieu : sa liste et ses modes de jeu
@@ -404,6 +448,7 @@ function ouvrirLieu(listId) {
     ${Storage.isCardList(list) ? cardListHTML(list) : wordListHTML(list)}
     <div class="sheet-actions">
       <button class="btn btn-ghost" onclick="closeSheet()">Fermer</button>
+      <button class="btn btn-secondary" onclick="closeSheet(); Scene.ouvrirLibre(${list.id})">🧸 Jouer dans ce lieu</button>
     </div>
   `);
 }
